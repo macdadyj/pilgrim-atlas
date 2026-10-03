@@ -11,6 +11,9 @@ package struct DebugLaunch: Equatable, Sendable {
     package var showDisclaimer: Bool
     package var disclaimerDetailsOpen: Bool
     package var tap: LonLat?
+    package var filterTokens: [String]
+    package var showTerrain: Bool
+    package var focusFood: Bool
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -20,7 +23,10 @@ package struct DebugLaunch: Equatable, Sendable {
         showPlacesPicker: false,
         showDisclaimer: false,
         disclaimerDetailsOpen: false,
-        tap: nil
+        tap: nil,
+        filterTokens: [],
+        showTerrain: false,
+        focusFood: false
     )
 
     /// Cathedral steps. One 44-point tap here covers the basilica and the nearby statues.
@@ -37,6 +43,8 @@ package struct DebugLaunch: Equatable, Sendable {
             || showDisclaimer
             || disclaimerDetailsOpen
             || tap != nil
+            || !filterTokens.isEmpty
+            || showTerrain
     }
 
     /// Map screenshots skip the first-launch gate for this process only.
@@ -95,11 +103,19 @@ package struct DebugLaunch: Equatable, Sendable {
                 if let id = hit.placeId { return .place(id) }
             case .trail:
                 if let id = hit.trailId { return .trail(id) }
-            case .note:
+            case .note, .town, .land:
                 continue
             }
         }
         return nil
+    }
+
+    package static func filter(from tokens: [String]) -> AtlasFilter {
+        #if DEBUG
+        return filterFromTokens(tokens)
+        #else
+        return .empty
+        #endif
     }
 }
 
@@ -129,6 +145,17 @@ extension DebugLaunch {
                 launch.disclaimerDetailsOpen = true
             } else if argument == "--debug-disclaimer" {
                 launch.showDisclaimer = true
+            } else if argument == "--debug-terrain" {
+                launch.showTerrain = true
+            } else if let value = taking("--debug-filter", argument, arguments, index) {
+                let parts = value.value.split(separator: ",").map {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                let tokens = parts.filter { !$0.isEmpty }
+                launch.filterTokens.append(contentsOf: tokens)
+                if tokens.contains("food") { launch.focusFood = true }
+                index = value.next
+                continue
             } else if let value = taking("--debug-tap-at", argument, arguments, index) {
                 launch.tap = coordinate(value.value)
                 index = value.next
@@ -164,6 +191,23 @@ extension DebugLaunch {
         guard parts.count == 2, let lat = Double(parts[0]), let lon = Double(parts[1]) else { return nil }
         guard (-90...90).contains(lat), (-180...180).contains(lon) else { return nil }
         return LonLat(lon: lon, lat: lat)
+    }
+
+    fileprivate static func filterFromTokens(_ tokens: [String]) -> AtlasFilter {
+        var filter = AtlasFilter.empty
+        for token in tokens {
+            switch token {
+            case "catholic": filter.catholic = true
+            case "churches": filter.churches = true
+            case "trails": filter.trails = true
+            case "public-land": filter.publicLand = true
+            case "parks": filter.parks = true
+            case "open-now": filter.openNow = true
+            case "food": break
+            default: break
+            }
+        }
+        return filter
     }
 }
 #endif

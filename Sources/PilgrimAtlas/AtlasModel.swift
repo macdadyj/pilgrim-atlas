@@ -33,6 +33,9 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var showPlaces = true
     var showParcels = false
     var onlineTiles = false
+    var showTerrain = false
+    var filter = AtlasFilter.empty
+    var focusFoodChip = false
     var pendingOnlineConfirm = false
     var cameraToken = 0
     var cameraZoom = 15.0
@@ -72,8 +75,26 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
             locator = manager
         }
         loadPack()
+        filter = DebugLaunch.filter(from: parsed.filterTokens)
+        showTerrain = parsed.showTerrain
+        focusFoodChip = parsed.focusFood
         applyDebugLaunch()
         refreshSummary()
+    }
+
+    var layerBadge: Int {
+        var count = 0
+        if showParcels { count += 1 }
+        if onlineTiles { count += 1 }
+        if showTerrain { count += 1 }
+        if filter.hidePlacesWithoutHours { count += 1 }
+        return count
+    }
+
+    func resetFilters() {
+        let hideHours = filter.hidePlacesWithoutHours
+        filter = AtlasFilter.empty
+        filter.hidePlacesWithoutHours = hideHours
     }
 
     func acceptDisclaimer() {
@@ -107,12 +128,13 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
             lon: summaryPoint.lon,
             places: places,
             trails: trails,
-            lands: lands
+            lands: lands,
+            filter: filter
         )
     }
 
     func search(_ query: String) -> [SearchHit] {
-        AtlasQuery.search(query, places: places, trails: trails, origin: summaryPoint)
+        AtlasQuery.search(query, places: places, trails: trails, origin: summaryPoint, lands: lands, filter: filter)
     }
 
     func place(id: Int) -> PlaceRecord? {
@@ -308,6 +330,14 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
                 fitCamera(
                     CameraFit(minLon: box.minLon, minLat: box.minLat, maxLon: box.maxLon, maxLat: box.maxLat)
                 )
+                refreshSummary()
+                return
+            case .town, .land:
+                guard let lat = hit.lat, let lon = hit.lon else { continue }
+                let point = LonLat(lon: lon, lat: lat)
+                summaryPoint = point
+                summaryPinned = true
+                focusCamera(on: point, zoom: hit.kind == .town ? 13 : 11)
                 refreshSummary()
                 return
             case .note:

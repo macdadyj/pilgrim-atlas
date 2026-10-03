@@ -9,14 +9,22 @@ struct DetailSheet: View {
 
     var body: some View {
         let facts = AtlasQuery.facts(for: place)
+        let hours = MapFilter.hoursReading(place.openingHours)
+        let lines = MapFilter.hourLines(place.openingHours)
         NavigationStack {
             List {
                 Section {
-                    Text(PlaceText.kindLabel(for: place))
-                        .font(.headline)
+                    Text(place.name)
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                     if !place.denomination.isEmpty {
-                        LabeledContent("Denomination", value: place.denomination.replacingOccurrences(of: "_", with: " "))
+                        LabeledContent("Denomination", value: PlaceText.denominationLabel(place.denomination))
+                    }
+                    if case .none = hours {
+                        Text(MapFilter.hoursMissing)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.fieldBrown)
                     }
                     if let note = PlaceText.diamondNote(for: place) {
                         Text(note)
@@ -29,42 +37,48 @@ struct DetailSheet: View {
                             .foregroundStyle(.primary)
                     }
                 }
-                Section("Hours") {
-                    if let hours = facts.first(where: { $0.label == "Hours" }) {
-                        Text(hours.value)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                    } else {
-                        Text("No hours in the pack")
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                    }
-                    if let note = facts.first(where: { $0.label == "Hours note" }) {
-                        Text(note.value)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                    }
-                    if let schedules = facts.first(where: { $0.label == "Schedules" }) {
-                        Text(schedules.value)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                    }
-                    ForEach(facts.filter { ["Service times", "Mass times", "Confession times"].contains($0.label) }) { fact in
-                        LabeledContent(fact.label, value: fact.value)
+                if !lines.isEmpty || facts.contains(where: { ["Service times", "Mass times", "Confession times"].contains($0.label) }) {
+                    Section("Hours") {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(.primary)
+                        }
+                        switch hours {
+                        case .none:
+                            EmptyView()
+                        case .notAClock:
+                            Text(MapFilter.hoursUnparsed)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.fieldBrown)
+                        case .clock(let open):
+                            Text(open ? "Open now" : "Closed now")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                        }
+                        if let note = facts.first(where: { $0.label == "Hours note" }) {
+                            Text(note.value)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.fieldBrown)
+                        }
+                        if let schedules = facts.first(where: { $0.label == "Schedules" }) {
+                            Text(schedules.value)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.fieldBrown)
+                        }
+                        ForEach(facts.filter { ["Service times", "Mass times", "Confession times"].contains($0.label) }) { fact in
+                            LabeledContent(fact.label, value: fact.value)
+                        }
                     }
                 }
-                Section("Address") {
-                    if let address = facts.first(where: { $0.label == "Address" }) {
+                if let address = facts.first(where: { $0.label == "Address" }) {
+                    Section("Address") {
                         Text(address.value)
                             .font(.body)
                             .foregroundStyle(.primary)
                         if let raw = address.url, let url = URL(string: raw) {
                             Link("Open in Maps", destination: url)
                         }
-                    } else {
-                        Text("No address in the pack")
-                            .font(.body)
-                            .foregroundStyle(.primary)
                     }
                 }
                 let details = facts.filter { fact in
@@ -89,7 +103,7 @@ struct DetailSheet: View {
                     Section("Links") {
                         ForEach(links) { fact in
                             if let raw = fact.url, let url = URL(string: raw) {
-                                Link(fact.label, destination: url)
+                                Link(linkTitle(fact), destination: url)
                             }
                         }
                     }
@@ -103,13 +117,21 @@ struct DetailSheet: View {
                         .foregroundStyle(.primary)
                 }
             }
-            .navigationTitle(place.name)
+            .navigationTitle(PlaceText.kindLabel(for: place))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+
+    private func linkTitle(_ fact: FactLine) -> String {
+        switch fact.label {
+        case "Wikipedia": return PlaceText.wikipediaTitle(fact.value)
+        case "Wikidata": return fact.value
+        default: return fact.label
         }
     }
 }
@@ -123,8 +145,9 @@ struct TrailSheet: View {
             List {
                 Section {
                     Text(trail.name.isEmpty ? "Unnamed hiking route" : trail.name)
-                        .font(.headline)
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(AtlasQuery.trailSentence(trail.access))
                         .font(.body)
                         .foregroundStyle(.primary)
@@ -135,9 +158,15 @@ struct TrailSheet: View {
                         .foregroundStyle(.primary)
                 }
             }
-            .navigationTitle("Trail")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(trail.name.isEmpty ? "Unnamed hiking route" : trail.name)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .foregroundStyle(.primary)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }

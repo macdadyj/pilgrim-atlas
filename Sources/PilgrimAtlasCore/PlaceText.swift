@@ -6,10 +6,52 @@ package enum PlaceText {
     package static let diamondNote = "OpenStreetMap lists this as a landmark, so the map uses the diamond."
     package static let sameSitePhrase = "same site, second OpenStreetMap object"
 
+    package static let towns: [(name: String, coordinate: LonLat)] = [
+        ("Santa Fe", LonLat(lon: -105.9378, lat: 35.6870)),
+        ("Chimayó", LonLat(lon: -105.9319, lat: 35.9891)),
+        ("Española", LonLat(lon: -106.0790, lat: 35.9911)),
+        ("Los Alamos", LonLat(lon: -106.3031, lat: 35.8800)),
+        ("Taos", LonLat(lon: -105.5731, lat: 36.4072)),
+        ("Albuquerque", LonLat(lon: -106.6504, lat: 35.0844)),
+        ("Dulce", LonLat(lon: -106.9324, lat: 36.9307)),
+    ]
+
     package static func kindLabel(for place: PlaceRecord) -> String {
-        if place.catholic { return "Catholic landmark" }
-        if place.category == "worship" { return "Place of worship" }
-        return "Landmark"
+        MapFilter.pinRole(for: place).legend
+    }
+
+    package static func denominationLabel(_ raw: String) -> String {
+        let words = raw.replacingOccurrences(of: "_", with: " ").split(separator: " ")
+        return words.map { word in
+            let lower = word.lowercased()
+            guard let first = lower.first else { return "" }
+            return first.uppercased() + lower.dropFirst()
+        }.joined(separator: " ")
+    }
+
+    package static func wikipediaTitle(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmed.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return trimmed }
+        let language = parts[0]
+        guard (language.count == 2 || language.count == 3), language.allSatisfy(\.isLetter) else { return trimmed }
+        return parts[1].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "_", with: " ")
+    }
+
+    package static func pinLabel(_ name: String) -> String {
+        var words = name.split(separator: " ").map(String.init)
+        if words.first?.lowercased() == "the" { words.removeFirst() }
+        let folded = words.map { AtlasQuery.fold($0) }
+        if folded.contains("cathedral") && folded.contains("basilica") { return "Cathedral Basilica" }
+        var kept: [String] = []
+        for word in words {
+            let next = (kept + [word]).joined(separator: " ")
+            if !kept.isEmpty && next.count > 24 { break }
+            kept.append(word)
+            if kept.count == 3 { break }
+        }
+        let label = kept.joined(separator: " ")
+        return label.isEmpty ? name : label
     }
 
     package static func distanceLabel(_ meters: Int) -> String {
@@ -115,6 +157,7 @@ package enum PlaceText {
 
     package static func diamondNote(for place: PlaceRecord) -> String? {
         guard place.category == "landmark", !place.catholic else { return nil }
+        if MapFilter.pinRole(for: place) == .chapel { return nil }
         let folded = AtlasQuery.fold(place.name)
         let tokens = ["chapel", "church", "cathedral", "basilica", "santuario"]
         if tokens.contains(where: { folded.contains($0) }) { return diamondNote }
@@ -145,15 +188,7 @@ package enum PlaceText {
     }
 
     package static func cityLabel(address: String, coordinate: LonLat) -> String {
-        let towns = [
-            ("Santa Fe", LonLat(lon: -105.9378, lat: 35.6870)),
-            ("Chimayó", LonLat(lon: -105.9319, lat: 35.9891)),
-            ("Española", LonLat(lon: -106.0790, lat: 35.9911)),
-            ("Los Alamos", LonLat(lon: -106.3031, lat: 35.8800)),
-            ("Taos", LonLat(lon: -105.5731, lat: 36.4072)),
-            ("Albuquerque", LonLat(lon: -106.6504, lat: 35.0844)),
-            ("Dulce", LonLat(lon: -106.9324, lat: 36.9307)),
-        ]
+        let towns = PlaceText.towns
         let foldedAddress = AtlasQuery.fold(address)
         if !foldedAddress.isEmpty {
             for town in towns where foldedAddress.contains(AtlasQuery.fold(town.0)) {

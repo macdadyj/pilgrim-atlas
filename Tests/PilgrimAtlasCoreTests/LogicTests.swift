@@ -257,7 +257,14 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(facts.first { $0.label == "Wikipedia" }?.url, "https://en.wikipedia.org/wiki/Loretto_Chapel")
         XCTAssertEqual(facts.first { $0.label == "Wikidata" }?.url, "https://www.wikidata.org/wiki/Q2956557")
         XCTAssertEqual(PlaceText.sourceLine(source: loretto.source, sourceDate: loretto.sourceDate), "OpenStreetMap, 2 Oct 2026")
-        XCTAssertEqual(PlaceText.diamondNote(for: loretto), PlaceText.diamondNote)
+        XCTAssertNil(PlaceText.diamondNote(for: loretto))
+        XCTAssertEqual(PlaceText.denominationLabel("roman_catholic"), "Roman Catholic")
+        XCTAssertEqual(
+            PlaceText.wikipediaTitle("en:Cathedral Basilica of St. Francis of Assisi (Santa Fe)"),
+            "Cathedral Basilica of St. Francis of Assisi (Santa Fe)"
+        )
+        XCTAssertEqual(MapFilter.hourLines(loretto.openingHours).count, 4)
+        XCTAssertEqual(MapFilter.hoursReading(loretto.openingHours), .notAClock)
         let tidy = PlaceText.hoursDisplay("Mo-Fr 09:00-17:00")
         XCTAssertEqual(tidy.shown, "Mon–Fri 9:00 AM–5:00 PM")
         XCTAssertNil(tidy.note)
@@ -278,6 +285,7 @@ final class LogicTests: XCTestCase {
         XCTAssertNil(PlaceText.photoURL(basilica.image))
         XCTAssertTrue(PlaceText.wikipediaURL(basilica.wikipedia)?.contains("Cathedral_Basilica_of_St._Francis_of_Assisi_(Santa_Fe)") == true)
         XCTAssertNil(PlaceText.diamondNote(for: basilica))
+        XCTAssertEqual(PlaceText.pinLabel(basilica.name), "Cathedral Basilica")
         XCTAssertFalse(LandStatus.grantsEntry("Tagged access=private. That tag is not a legal ruling."))
     }
 
@@ -370,6 +378,62 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(hits.contains { $0.id == 770 })
         XCTAssertTrue(hits.contains { $0.id == 1296 })
         XCTAssertFalse(hits.contains { $0.id == 9 })
+    }
+
+    func testFiltersHoursAndLandChips() {
+        var filter = AtlasFilter.empty
+        let loretto = samplePlace(id: 1296, name: "Loretto Chapel", category: "landmark", catholic: false, lat: 35.685617, lon: -105.937454)
+        let basilica = samplePlace(id: 1295, name: "The Cathedral Basilica of Saint Francis of Assisi", category: "worship", catholic: true, lat: 35.686504, lon: -105.93624)
+        let gallery = samplePlace(id: 1, name: "Maya's", category: "landmark", catholic: false, lat: 35.6872, lon: -105.9376)
+        let closed = samplePlace(id: 8, name: "Saturday Chapel", category: "worship", catholic: true, lat: 35.7, lon: -105.9, openingHours: "Sa 16:00-17:00")
+        let open = samplePlace(id: 9, name: "Weekday Hall", category: "landmark", catholic: false, lat: 35.7, lon: -105.9, openingHours: "Mo-Fr 09:00-17:00")
+        let zone = TimeZone(identifier: "America/Denver")!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 7, hour: 15, minute: 0))!
+        XCTAssertEqual(MapFilter.hoursReading(open.openingHours, now: now, timeZone: zone), .clock(openNow: true))
+        XCTAssertEqual(MapFilter.hoursReading(closed.openingHours, now: now, timeZone: zone), .clock(openNow: false))
+        XCTAssertEqual(MapFilter.hoursReading("", now: now, timeZone: zone), .none)
+        XCTAssertEqual(MapFilter.pinRole(for: loretto), .chapel)
+        XCTAssertEqual(MapFilter.pinRole(for: basilica), .catholic)
+        XCTAssertEqual(MapFilter.pinRole(for: gallery), .landmark)
+        filter.catholic = true
+        XCTAssertEqual(MapFilter.placeDraw(basilica, filter: filter, now: now, timeZone: zone), .show)
+        XCTAssertEqual(MapFilter.placeDraw(loretto, filter: filter, now: now, timeZone: zone), .hide)
+        filter.churches = true
+        XCTAssertEqual(MapFilter.placeDraw(basilica, filter: filter, now: now, timeZone: zone), .show)
+        XCTAssertEqual(MapFilter.placeDraw(loretto, filter: filter, now: now, timeZone: zone), .hide)
+        filter.catholic = false
+        XCTAssertEqual(MapFilter.placeDraw(loretto, filter: filter, now: now, timeZone: zone), .show)
+        var openFilter = AtlasFilter.empty
+        openFilter.openNow = true
+        XCTAssertEqual(MapFilter.placeDraw(basilica, filter: openFilter, now: now, timeZone: zone), .show)
+        XCTAssertEqual(MapFilter.placeDraw(closed, filter: openFilter, now: now, timeZone: zone), .hide)
+        XCTAssertEqual(MapFilter.placeDraw(open, filter: openFilter, now: now, timeZone: zone), .show)
+        XCTAssertFalse(MapFilter.publicKinds.contains("state_trust"))
+        XCTAssertTrue(MapFilter.landShown(kind: "usfs", name: "Santa Fe National Forest", filter: AtlasFilter(publicLand: true)))
+        XCTAssertFalse(MapFilter.landShown(kind: "state_trust", name: "State Trust", filter: AtlasFilter(publicLand: true)))
+        XCTAssertFalse(MapFilter.isPark(kind: "landmark", name: "Cathedral Park Church"))
+        XCTAssertTrue(MapFilter.isPark(kind: "local_protected", name: "Frenchy's Field Park"))
+        XCTAssertFalse(MapFilter.isPark(kind: "local_protected", name: "Watershed"))
+        let trust = hit("state_trust", lon: -105.95, lat: 35.68, name: "State Trust")
+        var landFilter = AtlasFilter.empty
+        landFilter.publicLand = true
+        let summary = AtlasQuery.nearby(lat: 35.687, lon: -105.9378, places: [basilica, loretto], trails: [], lands: [trust], filter: landFilter)
+        XCTAssertEqual(summary.headline, MapFilter.stateTrustLine)
+        let hits = AtlasQuery.search("Loretto", places: [loretto, basilica, gallery], trails: [], filter: filter)
+        XCTAssertEqual(hits.first?.placeId, 1296)
+        var catholic = AtlasFilter.empty
+        catholic.catholic = true
+        let catholicHits = AtlasQuery.search("chapel", places: [loretto, basilica], trails: [], filter: catholic)
+        XCTAssertFalse(catholicHits.contains { $0.placeId == 1296 })
+        let parsed = DebugLaunch.parse(["/PilgrimAtlas", "--debug-filter=catholic,open-now", "--debug-filter", "nope"])
+        XCTAssertEqual(DebugLaunch.filter(from: parsed.filterTokens), AtlasFilter(catholic: true, openNow: true))
+        XCTAssertTrue(parsed.suppressesLocation)
+        XCTAssertTrue(parsed.skipsDisclaimer)
+        XCTAssertTrue(DebugLaunch.parse(["/PilgrimAtlas", "--debug-filter=food"]).focusFood)
+        XCTAssertFalse(DebugLaunch.parse(["/PilgrimAtlas", "--debug-show-layers"]).filterTokens.contains("catholic"))
+        XCTAssertEqual(MapFilter.foodCount([gallery, basilica]), 0)
     }
 
     private func screenshotPlaces() -> [PlaceRecord] {

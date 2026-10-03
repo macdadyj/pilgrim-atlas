@@ -152,6 +152,8 @@ package enum SearchKind: String, Equatable, Sendable {
     case place
     case trail
     case note
+    case town
+    case land
 }
 
 package struct SearchHit: Equatable, Sendable, Identifiable {
@@ -201,11 +203,16 @@ package enum AtlasQuery {
         trails: [TrailRecord],
         lands: [LandHit],
         exploreKilometers: Double = 8,
-        trailKilometers: Double = 3
+        trailKilometers: Double = 3,
+        filter: AtlasFilter = .empty,
+        now: Date = Date(),
+        timeZone: TimeZone = .current
     ) -> NearbySummary {
         let point = LonLat(lon: lon, lat: lat)
+        let listedPlaces = places.filter { MapFilter.includeInLists($0, filter: filter, now: now, timeZone: timeZone) }
+        let listedTrails = filter.showsTrails ? trails : []
         let (hit, landText) = LandStatus.status(lon: lon, lat: lat, hits: lands)
-        let explore = places
+        let explore = listedPlaces
             .map { place -> (Double, PlaceRecord) in
                 (Geometry.haversineMeters(point, place.coordinate), place)
             }
@@ -215,8 +222,8 @@ package enum AtlasQuery {
             .map { meters, place in
                 exploreRow(place, meters: meters)
             }
-        let landmarks = landmarkRows(point: point, places: places, kilometers: exploreKilometers)
-        let anyPlace = places.contains { Geometry.haversineMeters(point, $0.coordinate) <= exploreKilometers * 1000 }
+        let landmarks = landmarkRows(point: point, places: listedPlaces, kilometers: exploreKilometers)
+        let anyPlace = listedPlaces.contains { Geometry.haversineMeters(point, $0.coordinate) <= exploreKilometers * 1000 }
         let landmarkGap: String
         if !landmarks.isEmpty {
             landmarkGap = ""
@@ -225,7 +232,7 @@ package enum AtlasQuery {
         } else {
             landmarkGap = "No landmark within 8 km"
         }
-        let trailRows = trails.compactMap { trail -> TrailRow? in
+        let trailRows = listedTrails.compactMap { trail -> TrailRow? in
             guard let distance = Geometry.distanceToLineMeters(point, trail.geometry), distance <= trailKilometers * 1000 else {
                 return nil
             }
@@ -252,13 +259,13 @@ package enum AtlasQuery {
             landKind: hit?.kind.rawValue ?? "",
             landSource: hit?.source ?? "",
             landSourceDate: hit?.sourceDate ?? "",
-            headline: LandStatus.headline(hit),
+            headline: MapFilter.landHeadline(hit: hit, filter: filter, fallback: LandStatus.headline(hit)),
             permissionLine: PlaceText.permissionLine,
             landmarks: landmarks,
             landmarkGap: landmarkGap,
             explore: explore,
             trails: Array(trailRows),
-            trailGap: trailRows.isEmpty ? "No trail within 3 km" : "",
+            trailGap: filter.showsTrails ? (trailRows.isEmpty ? "No trail within 3 km" : "") : "",
             closures: closures,
             notASurvey: Copy.text("not_a_survey")
         )
@@ -269,14 +276,20 @@ package enum AtlasQuery {
         places: [PlaceRecord],
         trails: [TrailRecord],
         origin: LonLat = DebugPin.plaza,
-        limit: Int = 30
+        limit: Int = 30,
+        lands: [LandHit] = [],
+        filter: AtlasFilter = .empty,
+        now: Date = Date(),
+        timeZone: TimeZone = .current
     ) -> [SearchHit] {
         let needle = searchText(query)
         if needle.isEmpty { return [] }
         let queryTokens = needle.split(separator: " ").map(String.init)
+        let listedPlaces = places.filter { MapFilter.includeInLists($0, filter: filter, now: now, timeZone: timeZone) }
+        let listedTrails = filter.showsTrails ? trails : []
         var scored: [(Double, SearchHit)] = []
         let unnamedCount = places.filter { fold($0.name) == fold("Unnamed place of worship") }.count
-        for place in places {
+        for place in listedPlaces {
             if fold(place.name) == fold("Unnamed place of worship") { continue }
             guard let score = matchScore(needle: needle, queryTokens: queryTokens, name: place.name) else { continue }
             let meters = Int(Geometry.haversineMeters(origin, place.coordinate).rounded())
@@ -299,7 +312,7 @@ package enum AtlasQuery {
                 )
             ))
         }
-        for trail in trails {
+        for trail in listedTrails {
             let displayName = trail.name.trimmingCharacters(in: .whitespacesAndNewlines)
             if displayName.isEmpty { continue }
             guard let score = matchScore(needle: needle, queryTokens: queryTokens, name: displayName) else { continue }
@@ -323,11 +336,57 @@ package enum AtlasQuery {
                 )
             ))
         }
+        for town in PlaceText.towns {
+            guard let score = matchScore(needle: needle, queryTokens: queryTokens, name: town.name) else { continue }
+            let meters = Int(Geometry.haversineMeters(origin, town.coordinate).rounded())
+            scored.append((
+                score - 1050 - Double(meters) / 1000,
+                SearchHit(
+                    id: "town-\(fold(town.name))",
+                    kind: .town,
+                    name: town.name,
+                    catholic: false,
+                    placeId: nil,
+                    trailId: nil,
+                    lat: town.coordinate.lat,
+                    lon: town.coordinate.lon,
+                    city: town.name,
+                    meters: meters,
+                    subtitle: "Town"
+                )
+            ))
+        }
+        for land in lands {
+            let displayName = land.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if displayName.isEmpty { continue }
+            guard let score = matchScore(needle: needle, queryTokens: queryTokens, name: displayName) else { continue }
+            guard let box = land.geometry.bbox else { continue }
+            let center = LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
+            let meters = Int(Geometry.haversineMeters(origin, center).rounded())
+            scored.append((
+                score + 20 - Double(meters) / 1000,
+                SearchHit(
+                    id: "land-\(land.kind.rawValue)-\(fold(displayName))-\(meters)",
+                    kind: .land,
+                    name: displayName,
+                    catholic: false,
+                    placeId: nil,
+                    trailId: nil,
+                    lat: center.lat,
+                    lon: center.lon,
+                    city: "",
+                    meters: meters,
+                    subtitle: "Land"
+                )
+            ))
+        }
         var ordered = scored.sorted { lhs, rhs in
             if lhs.0 != rhs.0 { return lhs.0 > rhs.0 }
             return lhs.1.id < rhs.1.id
         }.map(\.1)
-        if queryTokens.contains("unnamed"), unnamedCount > 0 {
+        let groupUnnamed = queryTokens.contains("unnamed")
+            || (filter.churches && (queryTokens.contains("worship") || queryTokens.contains("church")))
+        if groupUnnamed, unnamedCount > 0 {
             ordered.append(
                 SearchHit(
                     id: "note-unnamed-worship",

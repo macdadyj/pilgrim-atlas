@@ -35,6 +35,8 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.showTrails = model.showTrails
         context.coordinator.showPlaces = model.showPlaces
         context.coordinator.showParcels = model.showParcels
+        context.coordinator.filter = model.filter
+        context.coordinator.selectedID = model.selectedPlace?.id
         return map
     }
 
@@ -46,6 +48,8 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.showTrails = model.showTrails
         context.coordinator.showPlaces = model.showPlaces
         context.coordinator.showParcels = model.showParcels
+        context.coordinator.filter = model.filter
+        context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
         if context.coordinator.lastOnline != model.onlineTiles {
@@ -87,10 +91,15 @@ struct AtlasMapView: UIViewRepresentable {
         }
         PackStyle.applyVisibility(
             on: map,
-            land: model.showLand,
-            trails: model.showTrails,
-            places: model.showPlaces,
-            parcels: model.showParcels
+            trails: model.showTrails && model.filter.showsTrails,
+            parcels: model.showParcels,
+            filter: model.filter
+        )
+        PlaceSymbols.update(
+            on: map,
+            places: model.places,
+            filter: model.filter,
+            selectedID: model.selectedPlace?.id
         )
     }
 
@@ -105,6 +114,8 @@ struct AtlasMapView: UIViewRepresentable {
         var showTrails = true
         var showPlaces = true
         var showParcels = false
+        var filter = AtlasFilter.empty
+        var selectedID: Int?
 
         init(onSelect: @escaping (LonLat, [PlaceRecord]) -> Void) {
             self.onSelect = onSelect
@@ -139,12 +150,12 @@ struct AtlasMapView: UIViewRepresentable {
         @MainActor
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             PackStyle.installMarkers(on: style)
+            PlaceSymbols.install(on: style, places: places, filter: filter, selectedID: selectedID)
             PackStyle.applyVisibility(
                 on: mapView,
-                land: showLand,
-                trails: showTrails,
-                places: showPlaces,
-                parcels: showParcels
+                trails: showTrails && filter.showsTrails,
+                parcels: showParcels,
+                filter: filter
             )
         }
     }
@@ -152,14 +163,23 @@ struct AtlasMapView: UIViewRepresentable {
 
 enum PackStyle {
     static let legend: [(name: String, hex: String)] = [
-        ("Private on the surface map", "8C7B64"),
-        ("National forest", "3E6B48"),
-        ("BLM", "C4A35A"),
-        ("National park", "2F5D50"),
-        ("State trust", "C4652D"),
-        ("Tribal land", "6E5A7D"),
-        ("Albuquerque Open Space", "7D8F4E"),
+        ("Private on the surface map", "C4B49A"),
+        ("National forest", "1F7A3A"),
+        ("BLM", "C48A12"),
+        ("National park", "1F6F8A"),
+        ("State trust", "E06A1F"),
+        ("Tribal land", "7A3E8C"),
+        ("Albuquerque Open Space", "4F8A32"),
+        ("Local protected area", "2F8F7A"),
+        ("Defense", "8C3030"),
+        ("Other federal", "3D5A73"),
+        ("Forest inholding", "A89880"),
+        ("Other forest", "6E8F72"),
+        ("Other state", "C4A06A"),
+        ("Open Space closed", "A33B3B"),
+        ("Surface status unclear", "B7A99A"),
     ]
+    static let landOpacity = 0.85
 
     static func fileURL(online: Bool) -> URL {
         let destination = FileManager.default.temporaryDirectory
@@ -181,20 +201,52 @@ enum PackStyle {
     }
 
     @MainActor
-    static func applyVisibility(on map: MLNMapView, land: Bool, trails: Bool, places: Bool, parcels: Bool) {
+    static func applyVisibility(on map: MLNMapView, trails: Bool, parcels: Bool, filter: AtlasFilter) {
         guard let style = map.style else { return }
         for layer in style.layers {
             let identifier = layer.identifier
-            if identifier.hasPrefix("land-") {
-                layer.isVisible = land
-            } else if identifier == "trails" {
+            if let fill = layer as? MLNFillStyleLayer, let kind = landKind(identifier) {
+                fill.fillOpacity = landOpacityExpression(kind: kind, filter: filter)
+            } else if identifier == "trails" || identifier == "trails-casing" {
                 layer.isVisible = trails
-            } else if identifier.hasPrefix("places-") {
-                layer.isVisible = places
             } else if identifier == "parcels" {
                 layer.isVisible = parcels
             }
         }
+    }
+
+    private static func landKind(_ identifier: String) -> String? {
+        switch identifier {
+        case "land-tribal": return "tribal"
+        case "land-nps": return "nps"
+        case "land-usfs": return "usfs"
+        case "land-usfs-inholding": return "usfs_inholding"
+        case "land-usfs-other": return "usfs_other"
+        case "land-blm": return "blm"
+        case "land-dod": return "dod"
+        case "land-federal": return "federal_other"
+        case "land-trust": return "state_trust"
+        case "land-state": return "state_other"
+        case "land-abq-closed": return "abq_closed"
+        case "land-abq-open": return "abq_open"
+        case "land-local": return "local_protected"
+        case "land-private": return "private_mapped"
+        case "land-undefined": return "sma_undefined"
+        default: return nil
+        }
+    }
+
+    private static func landOpacityExpression(kind: String, filter: AtlasFilter) -> NSExpression {
+        if kind == "local_protected", filter.parks {
+            return NSExpression(mglJSONObject: [
+                "case",
+                ["in", "park", ["downcase", ["get", "name"]]],
+                landOpacity,
+                0.18,
+            ])
+        }
+        let shown = MapFilter.landShown(kind: kind, name: "", filter: filter)
+        return NSExpression(forConstantValue: shown ? landOpacity : 0.18)
     }
 
     private static func styleJSON(online: Bool) -> String {
@@ -210,21 +262,21 @@ enum PackStyle {
                 ##"{"id": "ofm-water", "type": "fill", "source": "openmaptiles", "source-layer": "water", "paint": {"fill-color": "#C5D5E4"}}"##
             )
         }
-        layers.append(landLayer("land-tribal", "tribal", "#6E5A7D"))
-        layers.append(landLayer("land-nps", "nps", "#2F5D50"))
-        layers.append(landLayer("land-usfs", "usfs", "#3E6B48"))
-        layers.append(landLayer("land-usfs-inholding", "usfs_inholding", "#8A8175"))
-        layers.append(landLayer("land-usfs-other", "usfs_other", "#8A8175"))
-        layers.append(landLayer("land-blm", "blm", "#C4A35A"))
-        layers.append(landLayer("land-dod", "dod", "#6E4A4A"))
-        layers.append(landLayer("land-federal", "federal_other", "#4F6D7A"))
-        layers.append(landLayer("land-trust", "state_trust", "#C4652D"))
-        layers.append(landLayer("land-state", "state_other", "#C49A6C"))
-        layers.append(landLayer("land-abq-closed", "abq_closed", "#8C3A3A"))
-        layers.append(landLayer("land-abq-open", "abq_open", "#7D8F4E"))
-        layers.append(landLayer("land-local", "local_protected", "#7A8468"))
-        layers.append(landLayer("land-private", "private_mapped", "#8C7B64", opacity: 0.78))
-        layers.append(landLayer("land-undefined", "sma_undefined", "#8A8175", opacity: 0.55))
+        layers.append(landLayer("land-tribal", "tribal", "#7A3E8C"))
+        layers.append(landLayer("land-nps", "nps", "#1F6F8A"))
+        layers.append(landLayer("land-usfs", "usfs", "#1F7A3A"))
+        layers.append(landLayer("land-usfs-inholding", "usfs_inholding", "#A89880"))
+        layers.append(landLayer("land-usfs-other", "usfs_other", "#6E8F72"))
+        layers.append(landLayer("land-blm", "blm", "#C48A12"))
+        layers.append(landLayer("land-dod", "dod", "#8C3030"))
+        layers.append(landLayer("land-federal", "federal_other", "#3D5A73"))
+        layers.append(landLayer("land-trust", "state_trust", "#E06A1F"))
+        layers.append(landLayer("land-state", "state_other", "#C4A06A"))
+        layers.append(landLayer("land-abq-closed", "abq_closed", "#A33B3B"))
+        layers.append(landLayer("land-abq-open", "abq_open", "#4F8A32"))
+        layers.append(landLayer("land-local", "local_protected", "#2F8F7A"))
+        layers.append(landLayer("land-private", "private_mapped", "#C4B49A"))
+        layers.append(landLayer("land-undefined", "sma_undefined", "#B7A99A"))
         layers.append(
             "{\"id\": \"land-private-line\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"land\", \"filter\": [\"==\", [\"get\", \"kind\"], \"private_mapped\"], \"paint\": {\"line-color\": \"#4A4036\", \"line-width\": 1.1}}"
         )
@@ -239,18 +291,13 @@ enum PackStyle {
             )
         }
         layers.append(
-            "{\"id\": \"trails\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"trails\", \"paint\": {\"line-color\": \"#6B4F3A\", \"line-width\": 2.4}}"
+            "{\"id\": \"trails-casing\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"trails\", \"paint\": {\"line-color\": \"#F4EFE4\", \"line-width\": [\"interpolate\", [\"linear\"], [\"zoom\"], 10, 3, 16, 7]}}"
+        )
+        layers.append(
+            "{\"id\": \"trails\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"trails\", \"paint\": {\"line-color\": \"#6B4F3A\", \"line-width\": [\"interpolate\", [\"linear\"], [\"zoom\"], 10, 1.6, 16, 4]}}"
         )
         layers.append(
             "{\"id\": \"parcels\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"parcels\", \"minzoom\": 13, \"paint\": {\"line-color\": \"#5C5346\", \"line-width\": 0.8}}"
-        )
-        layers.append(symbolLayer("places-catholic", "catholic", worship: true, catholic: true))
-        layers.append(symbolLayer("places-worship", "worship", worship: true, catholic: false))
-        layers.append(symbolLayer("places-landmark", "landmark", worship: false, catholic: false))
-        layers.append(
-            """
-            {"id": "places-labels", "type": "symbol", "source": "pack", "source-layer": "places", "minzoom": 13, "filter": ["all", ["!=", ["get", "name"], "Unnamed place of worship"], ["!=", ["get", "name"], ""]], "layout": {"text-field": ["get", "name"], "text-font": ["NotoSansRegular"], "text-size": 12, "text-offset": [0, 1.15], "text-anchor": "top", "text-optional": true, "text-max-width": 10}, "paint": {"text-color": "#1C1915", "text-halo-color": "#F4EFE4", "text-halo-width": 1.4}}
-            """
         )
         if online {
             layers.append(
@@ -291,27 +338,12 @@ enum PackStyle {
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
-    private static func landLayer(_ identifier: String, _ kind: String, _ color: String, opacity: Double = 0.5) -> String {
+    private static func landLayer(_ identifier: String, _ kind: String, _ color: String, opacity: Double = landOpacity) -> String {
         """
         {"id": "\(identifier)", "type": "fill", "source": "pack", "source-layer": "land", "filter": ["==", ["get", "kind"], "\(kind)"], "paint": {"fill-color": "\(color)", "fill-opacity": \(opacity), "fill-outline-color": "\(color)"}}
         """
     }
 
-    private static func symbolLayer(_ identifier: String, _ icon: String, worship: Bool, catholic: Bool) -> String {
-        let filter: String
-        if worship {
-            filter = """
-            ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], \(catholic ? 1 : 0)]]
-            """
-        } else {
-            filter = """
-            ["==", ["get", "category"], "landmark"]
-            """
-        }
-        return """
-        {"id": "\(identifier)", "type": "symbol", "source": "pack", "source-layer": "places", "filter": \(filter), "layout": {"icon-image": "\(icon)", "icon-size": 0.7, "icon-allow-overlap": true}}
-        """
-    }
 }
 
 #endif
