@@ -40,35 +40,52 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var fitToken = 0
     var locationDenied = false
     var summaryPinned = false
+    var disclaimerDetailsOpen = false
+    var debugPickerPlaces: [PlaceRecord] = []
+    var debugTapPoint: LonLat?
+    let launch: DebugLaunch
+    /// True when this launch must not touch location services.
     let debugPlaza: Bool
-    private let locator = CLLocationManager()
+    private var locator: CLLocationManager?
     private var didCenterOnUser = false
 
     override init() {
-        debugPlaza = DebugPin.isEnabled(arguments: ProcessInfo.processInfo.arguments)
+        let parsed = DebugLaunch.parse(ProcessInfo.processInfo.arguments)
+        launch = parsed
+        debugPlaza = parsed.suppressesLocation
         super.init()
-        locator.delegate = self
-        locator.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        if debugPlaza {
+        if parsed.showDisclaimer || parsed.disclaimerDetailsOpen {
+            acceptedDisclaimer = false
+            disclaimerDetailsOpen = parsed.disclaimerDetailsOpen
+        } else if parsed.skipsDisclaimer {
+            acceptedDisclaimer = true
+        }
+        if parsed.suppressesLocation {
             summaryPinned = true
             mapCenter = DebugPin.plaza
             summaryPoint = DebugPin.plaza
             cameraCenter = DebugPin.plaza
+        } else {
+            let manager = CLLocationManager()
+            manager.delegate = self
+            manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            locator = manager
         }
         loadPack()
+        applyDebugLaunch()
         refreshSummary()
     }
 
     func acceptDisclaimer() {
         acceptedDisclaimer = true
         UserDefaults.standard.set(true, forKey: "pilgrim.disclaimer.accepted")
-        guard !debugPlaza else { return }
+        guard let locator else { return }
         locator.requestWhenInUseAuthorization()
         locator.startUpdatingLocation()
     }
 
     func resumeLocationIfAllowed() {
-        guard !debugPlaza else { return }
+        guard let locator else { return }
         switch locator.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             locator.startUpdatingLocation()
@@ -107,7 +124,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func recenter() {
-        if debugPlaza {
+        guard let locator else {
             summaryPoint = DebugPin.plaza
             summaryPinned = true
             focusCamera(on: DebugPin.plaza, zoom: 15)
@@ -227,6 +244,86 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         summaryPinned = true
         focusCamera(on: DebugPin.plaza, zoom: 15)
         refreshSummary()
+    }
+
+    private func applyDebugLaunch() {
+        guard launch.suppressesLocation else { return }
+        if launch.showDisclaimer || launch.disclaimerDetailsOpen { return }
+        applyTapOrPicker()
+        if let query = launch.search {
+            moveCameraToSearch(query)
+        }
+        if let query = launch.openPlace {
+            openResolved(query)
+        }
+    }
+
+    private func applyTapOrPicker() {
+        let wantsPicker = launch.showPlacesPicker
+        let point = launch.tap ?? (wantsPicker ? DebugLaunch.placesPickerSample : nil)
+        guard let point else { return }
+        let hits = DebugLaunch.placesWithinTap(at: point, places: places)
+        if hits.count > 1 || (wantsPicker && !hits.isEmpty) {
+            debugPickerPlaces = hits
+            debugTapPoint = point
+            aim(at: point)
+            return
+        }
+        if wantsPicker {
+            let sample = DebugLaunch.placesPickerSample
+            let sampleHits = DebugLaunch.placesWithinTap(at: sample, places: places)
+            if !sampleHits.isEmpty {
+                debugPickerPlaces = sampleHits
+                debugTapPoint = sample
+                aim(at: sample)
+            }
+            return
+        }
+        if hits.count == 1, let only = hits.first {
+            openPlace(only)
+            return
+        }
+        aim(at: point)
+    }
+
+    private func moveCameraToSearch(_ query: String) {
+        let hits = search(query)
+        for hit in hits {
+            switch hit.kind {
+            case .place:
+                guard let id = hit.placeId, let found = place(id: id) else { continue }
+                summaryPoint = found.coordinate
+                summaryPinned = true
+                focusCamera(on: found.coordinate, zoom: 16)
+                refreshSummary()
+                return
+            case .trail:
+                guard let id = hit.trailId, let found = trail(id: id) else { continue }
+                guard let box = found.geometry.bbox else { return }
+                summaryPoint = LonLat(
+                    lon: (box.minLon + box.maxLon) / 2,
+                    lat: (box.minLat + box.maxLat) / 2
+                )
+                summaryPinned = true
+                fitCamera(
+                    CameraFit(minLon: box.minLon, minLat: box.minLat, maxLon: box.maxLon, maxLat: box.maxLat)
+                )
+                refreshSummary()
+                return
+            case .note:
+                continue
+            }
+        }
+    }
+
+    private func openResolved(_ query: String) {
+        guard let target = DebugLaunch.resolve(query, places: places, trails: trails) else { return }
+        switch target {
+        case .place(let id):
+            if let found = place(id: id) { openPlace(found) }
+        case .trail(let id):
+            if let found = trail(id: id) { openTrail(found) }
+        }
     }
 
     private func loadPack() {

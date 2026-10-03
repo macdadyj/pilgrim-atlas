@@ -16,10 +16,40 @@ struct TapMenu: Identifiable {
 
 struct MapScreen: View {
     @Environment(AtlasModel.self) private var model
-    @State private var showSearch = false
+
+    var body: some View {
+        MapChrome(
+            showSearch: model.launch.search != nil,
+            showLayers: model.launch.showLayers,
+            tapMenu: launchMenu
+        )
+    }
+
+    private var launchMenu: TapMenu? {
+        let choices = model.debugPickerPlaces
+        guard !choices.isEmpty else { return nil }
+        let point = model.debugTapPoint ?? choices[0].coordinate
+        return TapMenu(choices: choices.map { place in
+            PlaceHit(
+                place: place,
+                meters: Int(Geometry.haversineMeters(point, place.coordinate).rounded())
+            )
+        })
+    }
+}
+
+private struct MapChrome: View {
+    @Environment(AtlasModel.self) private var model
+    @State private var showSearch: Bool
     @State private var showLicenses = false
-    @State private var showLayers = false
+    @State private var showLayers: Bool
     @State private var tapMenu: TapMenu?
+
+    init(showSearch: Bool, showLayers: Bool, tapMenu: TapMenu?) {
+        _showSearch = State(initialValue: showSearch)
+        _showLayers = State(initialValue: showLayers)
+        _tapMenu = State(initialValue: tapMenu)
+    }
 
     var body: some View {
         @Bindable var model = model
@@ -84,7 +114,10 @@ struct MapScreen: View {
             }
             .padding(.top, 8)
         }
-        .sheet(isPresented: $showSearch) { SearchSheet() }
+        .sheet(isPresented: $showSearch) {
+            SearchSheet(initialQuery: model.launch.search ?? "")
+                .presentationDetents(model.launch.search == nil ? [.large] : [.medium, .large])
+        }
         .sheet(isPresented: $showLicenses) { LicensesView() }
         .sheet(isPresented: $showLayers) { LayersSheet() }
         .sheet(item: $model.selectedPlace) { place in
@@ -325,7 +358,11 @@ struct LayersSheet: View {
 struct SearchSheet: View {
     @Environment(AtlasModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
+    @State private var query: String
+
+    init(initialQuery: String = "") {
+        _query = State(initialValue: initialQuery)
+    }
 
     var body: some View {
         let hits = model.search(query)

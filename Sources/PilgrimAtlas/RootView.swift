@@ -9,13 +9,18 @@ struct RootView: View {
         if model.acceptedDisclaimer {
             MapScreen()
         } else {
-            DisclaimerGate()
+            DisclaimerGate(detailsOpen: model.disclaimerDetailsOpen)
         }
     }
 }
 
 struct DisclaimerGate: View {
     @Environment(AtlasModel.self) private var model
+    @State private var detailsExpanded: Bool
+
+    init(detailsOpen: Bool) {
+        _detailsExpanded = State(initialValue: detailsOpen)
+    }
 
     var body: some View {
         NavigationStack {
@@ -34,7 +39,7 @@ struct DisclaimerGate: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary, lineWidth: 1.5))
-                    DisclosureGroup("Details") {
+                    DisclosureGroup(isExpanded: $detailsExpanded) {
                         VStack(alignment: .leading, spacing: 12) {
                             Text(Copy.text("trespass"))
                             Text(Copy.text("not_a_survey"))
@@ -46,6 +51,8 @@ struct DisclaimerGate: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                         .padding(.top, 8)
+                    } label: {
+                        Text("Details")
                     }
                     .font(.body)
                     .foregroundStyle(.primary)

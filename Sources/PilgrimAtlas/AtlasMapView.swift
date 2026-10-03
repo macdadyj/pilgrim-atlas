@@ -21,7 +21,7 @@ struct AtlasMapView: UIViewRepresentable {
         map.showsUserLocation = !model.debugPlaza
         map.setCenter(
             CLLocationCoordinate2D(latitude: model.mapCenter.lat, longitude: model.mapCenter.lon),
-            zoomLevel: 15,
+            zoomLevel: model.cameraZoom,
             animated: false
         )
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
@@ -29,7 +29,7 @@ struct AtlasMapView: UIViewRepresentable {
         map.addGestureRecognizer(tap)
         context.coordinator.lastOnline = model.onlineTiles
         context.coordinator.lastCamera = model.cameraToken
-        context.coordinator.lastFit = model.fitToken
+        context.coordinator.lastFit = model.fitBounds == nil ? model.fitToken : -1
         context.coordinator.places = places
         context.coordinator.showLand = model.showLand
         context.coordinator.showTrails = model.showTrails

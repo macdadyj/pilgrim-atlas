@@ -74,20 +74,36 @@ swift test --filter PilgrimAtlasCoreTests
 xtool dev build
 ```
 
-`xtool dev build` compiles. It does not install.
+`xtool dev build` compiles. It does not install. `xtool dev run` installs; this README does not ask you to run it.
 
-Phone screenshots are not in this repository. Installing on the iPhone 11 is blocked on a known xtool certificate-serial failure, which needs a local proxy before `xtool dev run`. Do not point that install at any other phone.
-
-When that proxy is ready, from this repo with the same environment, install and then launch with the debug plaza pin:
+`xtool launch` treats a leading `--debug-…` as its own option and fails with `Unknown option`. Pass app arguments with pymobiledevice3. The argument after `--` is required, so every launch below includes at least one debug flag.
 
 ```bash
-xtool dev run -c debug --usb --udid 00008030-001A4D340A93402E
-xtool launch --usb --udid 00008030-001A4D340A93402E XTL-N9H4648NB9.com.lojo.PilgrimAtlas --debug-santa-fe-plaza
+pymobiledevice3 developer core-device launch-application --userspace --kill-existing -- XTL-N9H4648NB9.com.lojo.PilgrimAtlas <args>
 ```
 
-`--debug-santa-fe-plaza` is read only in a debug build. It pins the map to Santa Fe Plaza (35.6870, -105.9378) and does not ask for location permission. A release build ignores it. Without the argument, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix.
+`--userspace` is the iOS 17 tunnel. Do not add `--tunnel` next to it. The attached iPhone 11 UDID is `00008030-001A4D340A93402E`.
 
-The first screen is the access disclaimer. Search, layers, and licenses are on-device.
+These flags exist only in a debug build. A release build compiles them out and ignores the arguments. Any flag in the table skips the iOS location alert: the app does not create a `CLLocationManager` and does not call `requestWhenInUseAuthorization`. `--debug-santa-fe-plaza` also pins the camera to Santa Fe Plaza (35.6870, -105.9378). Map screenshots add that flag so the camera, the disclaimer skip, and the location skip travel together. The disclaimer flags force the first-launch gate for this process only and do not clear the saved acceptance.
+
+`--debug-open-place` takes a name or numeric id and opens that sheet. It resolves Loretto Chapel, Cathedral Basilica of St. Francis, Santuario de Chimayo / Chimayó, and Skyline Trail. `--debug-search` opens search with the query and moves the map onto the first place or trail hit. `--debug-tap-at` takes `lat,lon` and uses the same 44-point hit radius as a map tap at zoom 15. More than one place opens the places-here picker.
+
+| Screen | Arguments |
+| --- | --- |
+| Before you walk, details closed, permission line readable | `--debug-disclaimer` |
+| Before you walk, details open | `--debug-disclaimer-details-open` |
+| Map at the plaza: land fill, chapel and cathedral, nearby card. No location alert | `--debug-santa-fe-plaza` |
+| Places-here picker when a tap covers more than one pin | `--debug-santa-fe-plaza --debug-tap-at 35.686504,-105.93624` |
+| Loretto Chapel sheet | `--debug-santa-fe-plaza --debug-open-place "Loretto Chapel"` |
+| Cathedral Basilica sheet | `--debug-santa-fe-plaza --debug-open-place "Cathedral Basilica of St. Francis"` |
+| Search for Santuario de Chimayo, Catholic row first | `--debug-santa-fe-plaza --debug-search "Santuario de Chimayo"` |
+| Search for Cathedral Basilica of St. Francis, map moved onto it | `--debug-santa-fe-plaza --debug-search "Cathedral Basilica of St. Francis"` |
+| Chimayó sheet, with the source line | `--debug-santa-fe-plaza --debug-open-place "Santuario de Chimayo"` |
+| Layers, lot lines off | `--debug-santa-fe-plaza --debug-show-layers` |
+| Search with no matches | `--debug-santa-fe-plaza --debug-search zzzz-no-such-place` |
+| Skyline Trail sheet | `--debug-santa-fe-plaza --debug-open-place "Skyline Trail"` |
+
+`--debug-show-places-picker` opens the same picker for the basilica cluster when you do not pass a coordinate. Without a debug flag, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix. Search, layers, and licenses stay on the device.
 
 ## Layout
 

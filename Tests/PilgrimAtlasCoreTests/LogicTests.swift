@@ -281,6 +281,141 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(LandStatus.grantsEntry("Tagged access=private. That tag is not a legal ruling."))
     }
 
+    func testDebugLaunchParsesScreenshotArguments() {
+        let plain = DebugLaunch.parse(["/PilgrimAtlas"])
+        XCTAssertEqual(plain, .inactive)
+        XCTAssertFalse(plain.suppressesLocation)
+        XCTAssertFalse(plain.skipsDisclaimer)
+
+        let plaza = DebugLaunch.parse(["/PilgrimAtlas", "--debug-santa-fe-plaza"])
+        XCTAssertTrue(plaza.pinPlaza)
+        XCTAssertTrue(plaza.suppressesLocation)
+        XCTAssertTrue(plaza.skipsDisclaimer)
+        XCTAssertFalse(DebugLaunch.parse(["/PilgrimAtlas", "--debug"]).pinPlaza)
+
+        let closed = DebugLaunch.parse(["/PilgrimAtlas", "--debug-disclaimer"])
+        XCTAssertTrue(closed.showDisclaimer)
+        XCTAssertFalse(closed.disclaimerDetailsOpen)
+        XCTAssertTrue(closed.suppressesLocation)
+        XCTAssertFalse(closed.skipsDisclaimer)
+
+        let openDetails = DebugLaunch.parse(["/PilgrimAtlas", "--debug-disclaimer-details-open"])
+        XCTAssertTrue(openDetails.showDisclaimer)
+        XCTAssertTrue(openDetails.disclaimerDetailsOpen)
+        XCTAssertFalse(openDetails.skipsDisclaimer)
+
+        let place = DebugLaunch.parse(["/PilgrimAtlas", "--debug-open-place", "Loretto Chapel"])
+        XCTAssertEqual(place.openPlace, "Loretto Chapel")
+        let equals = DebugLaunch.parse(["/PilgrimAtlas", "--debug-open-place=Skyline Trail"])
+        XCTAssertEqual(equals.openPlace, "Skyline Trail")
+
+        let search = DebugLaunch.parse(["/PilgrimAtlas", "--debug-search", "Santuario de Chimayo"])
+        XCTAssertEqual(search.search, "Santuario de Chimayo")
+        XCTAssertTrue(search.suppressesLocation)
+        XCTAssertTrue(search.skipsDisclaimer)
+
+        let layers = DebugLaunch.parse(["/PilgrimAtlas", "--debug-show-layers", "--debug-show-places-picker"])
+        XCTAssertTrue(layers.showLayers)
+        XCTAssertTrue(layers.showPlacesPicker)
+
+        let tap = DebugLaunch.parse(["/PilgrimAtlas", "--debug-tap-at", "35.686504,-105.93624"])
+        XCTAssertEqual(tap.tap?.lat ?? 0, 35.686504, accuracy: 0.0000001)
+        XCTAssertEqual(tap.tap?.lon ?? 0, -105.93624, accuracy: 0.0000001)
+        let spaced = DebugLaunch.parse(["/PilgrimAtlas", "--debug-tap-at=35.686504, -105.93624"])
+        XCTAssertEqual(spaced.tap?.lat ?? 0, 35.686504, accuracy: 0.0000001)
+        XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas", "--debug-tap-at", "nope"]).tap)
+
+        let gateWins = DebugLaunch.parse([
+            "/PilgrimAtlas",
+            "--debug-santa-fe-plaza",
+            "--debug-disclaimer",
+        ])
+        XCTAssertTrue(gateWins.pinPlaza)
+        XCTAssertTrue(gateWins.showDisclaimer)
+        XCTAssertFalse(gateWins.skipsDisclaimer)
+        XCTAssertTrue(gateWins.suppressesLocation)
+    }
+
+    func testDebugLaunchResolvesLandmarksAndTapRadius() {
+        let places = screenshotPlaces()
+        let trail = TrailRecord(
+            id: 2,
+            name: "Skyline Trail",
+            access: "",
+            geometry: .lineString([LonLat(lon: -105.82, lat: 35.78), LonLat(lon: -105.78, lat: 35.80)]),
+            source: "OpenStreetMap",
+            sourceDate: "2026-10-02T20:21:34Z"
+        )
+        XCTAssertEqual(DebugLaunch.resolve("Loretto Chapel", places: places, trails: [trail]), .place(1296))
+        XCTAssertEqual(
+            DebugLaunch.resolve("Cathedral Basilica of St. Francis", places: places, trails: [trail]),
+            .place(1295)
+        )
+        XCTAssertEqual(DebugLaunch.resolve("Santuario de Chimayo", places: places, trails: [trail]), .place(585))
+        XCTAssertEqual(DebugLaunch.resolve("Chimayó", places: places, trails: [trail]), .place(585))
+        XCTAssertEqual(DebugLaunch.resolve("Skyline Trail", places: places, trails: [trail]), .trail(2))
+        XCTAssertEqual(DebugLaunch.resolve("1296", places: places, trails: [trail]), .place(1296))
+        XCTAssertEqual(DebugLaunch.resolve("2", places: places, trails: [trail]), .trail(2))
+
+        let radius = DebugLaunch.tapRadiusMeters(latitude: 35.6870)
+        XCTAssertEqual(radius, 170.7, accuracy: 1.0)
+        let center = DebugLaunch.placesPickerSample
+        let close = samplePlace(id: 732, name: "Saint Francis of Assisi", category: "landmark", catholic: false, lat: center.lat + 20 / 111_320, lon: center.lon)
+        let inside = samplePlace(id: 770, name: "Prayer of Saint Francis", category: "landmark", catholic: false, lat: center.lat + 140 / 111_320, lon: center.lon)
+        let far = samplePlace(id: 9, name: "Far Chapel", category: "landmark", catholic: false, lat: center.lat + 0.02, lon: center.lon)
+        let hits = DebugLaunch.placesWithinTap(at: center, places: [far, inside, close] + places)
+        XCTAssertGreaterThan(hits.count, 1)
+        XCTAssertEqual(hits.first?.id, 1295)
+        XCTAssertTrue(hits.contains { $0.id == 732 })
+        XCTAssertTrue(hits.contains { $0.id == 770 })
+        XCTAssertTrue(hits.contains { $0.id == 1296 })
+        XCTAssertFalse(hits.contains { $0.id == 9 })
+    }
+
+    private func screenshotPlaces() -> [PlaceRecord] {
+        [
+            samplePlace(id: 54, name: "Santuario de Chimayo", category: "worship", catholic: false, lat: 35.988871, lon: -105.931459),
+            samplePlace(
+                id: 585,
+                name: "Santuario de Chimayo",
+                category: "worship",
+                catholic: true,
+                lat: 35.989078,
+                lon: -105.931922,
+                wikidata: "Q5352121"
+            ),
+            samplePlace(
+                id: 186,
+                name: "El Santuario de Chimayo Historic Site",
+                category: "worship",
+                catholic: true,
+                lat: 35.9892,
+                lon: -105.9320
+            ),
+            samplePlace(
+                id: 1295,
+                name: "The Cathedral Basilica of Saint Francis of Assisi",
+                category: "worship",
+                catholic: true,
+                lat: 35.686504,
+                lon: -105.93624,
+                address: "231 Cathedral Place, Santa Fe, NM, 87501",
+                website: "https://www.cbsfa.org/",
+                wikipedia: "en:Cathedral Basilica of St. Francis of Assisi (Santa Fe)",
+                wikidata: "Q3663700"
+            ),
+            samplePlace(
+                id: 1296,
+                name: "Loretto Chapel",
+                category: "landmark",
+                catholic: false,
+                lat: 35.685617,
+                lon: -105.937454,
+                wikidata: "Q2956557"
+            ),
+        ]
+    }
+
     private func hit(
         _ kind: String,
         lon: Double,
