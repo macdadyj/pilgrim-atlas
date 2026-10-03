@@ -173,6 +173,38 @@ The City's public download page is a gallery of PDF maps (parks, open space, tra
 
 Commercial parcel vendors exist. They are out of scope. No paid data.
 
+### Where onX gets owner names
+
+**This does not change the recommendation.** Owner names stay out of the app for Santa Fe, Albuquerque, and the rest of northern New Mexico. Nothing checked here is a free license to copy those names into an open-source pack.
+
+onX's own account, on a 5 May 2023 Hunt post, is the best primary evidence. They say private-ownership updates come from several private data providers and directly from a state or a county. Parcel geometry (a split or a merge) always comes from the relevant county. The owner name, address, and tax id come from both private vendors and counties, because a vendor sometimes updates faster than the county. They also say the roughly 3,143 county databases do not always match, so an in-house team cross-checks before a release ([onX ownership updates](https://www.onxmaps.com/hunt/blog/onx-private-property-ownership-how-and-when-is-it-updated)). A product page says the same thing more briefly: property lines are drawn from official county and state records, from over 3,100 U.S. counties ([parcel viewer](https://www.onxmaps.com/hunt/app/features/land-ownership-maps-parcel-viewer)). An earlier accuracy post names counties, state agencies, and federal agencies, and does not name a parcel vendor ([GIS accuracy](https://www.onxmaps.com/hunt/blog/gis-mapping-accuracy-differentiates-onx-from-competitors)).
+
+onX does not name those private providers. A search of onxmaps.com for Regrid, CoreLogic, ATTOM, and LightBox did not find a vendor credit. Pages that mention Loveland are about Loveland, Colorado, and the Loveland Fire Rescue Authority, not Loveland Technologies. Regrid is a real example of the kind of company onX is describing. It is not a documented onX source. Confidence on onX's own description: **high**. Confidence that the vendor is Regrid specifically: **none**.
+
+Regrid (Loveland Technologies, LLC) says it standardizes parcel files taken directly from county GIS and assessor offices, plus states, municipalities, their vendors, partners, and sometimes digitized paper maps ([onboarding FAQ](https://support.regrid.com/docs/parcel-data-onboarding-faq)). Owner names in the base file are assessor names. "Enhanced Ownership" is a paid add-on that also brings deed names from county recorders ([enhanced ownership](https://regrid.com/enhanced-property-ownership)). Their consumer app can show owner names inside Regrid's own app. That is their display. It is not a grant to copy the names out.
+
+The licenses forbid what this project would need:
+
+- The free API trial covers seven counties only: Marion (Indiana), Dallas (Texas), Wilson (Tennessee), Durham (North Carolina), Fillmore (Nebraska), Clark (Wisconsin), and Gurabo (Puerto Rico). New Mexico is not among them. Requests outside those counties fail ([trial limits](https://support.regrid.com/docs/mcp-server)). The API terms also say a trial asks for a credit card and converts to a paid subscription unless cancelled ([API terms](https://regrid.com/terms/api)). This project does not register or pay.
+- The API license is non-exclusive, non-sublicensable, and non-transferable. The data remains Regrid's property. Customers may not distribute the API, disclose the data beyond the uses they list, cache the tile data offline without written approval, or build a competing product ([API terms](https://regrid.com/terms/api)).
+- The data-store license is a paid one-year export. It forbids resale, sublicensing, and otherwise making the data available to third parties, and it forbids a competing product. A customer may draw parcel polygons for its own users only in a way that keeps them from copying a substantial share of the geometries. Credit to Regrid is required. The data is "as is," and use must stop or the file must be deleted when the year ends ([data-store license](https://app.regrid.com/store/license)).
+
+Shipping a GeoPackage of owner names in an MIT repo would break those terms even if someone paid. Linking out to a county page would not.
+
+No free source found for this map clears that bar either.
+
+| Place | What is public | Owner names in this app |
+| --- | --- | --- |
+| Statewide TRD / OSE parcel service, which includes Bernalillo, Santa Fe, Rio Arriba, Taos, and Los Alamos | Agency layer. Terms say not to share the service URL, and TRD will not supply the data to a private-sector entity | No |
+| Bernalillo County | Assessor map for public research. No republication license found | No |
+| City of Albuquerque | Open parcel shapefile: lot lines, address, legal description. Not owner names. Derivative use needs the City disclaimer, and the City can revoke it | No names. Lot lines remain a conditional go |
+| Santa Fe County | Assessor form forbids copying, reproduction, or posting the GIS data on the internet without written permission | No |
+| Rio Arriba County | 2026 interactive parcel map. The assessor says maps are for visual use only, not to establish a boundary or title | No |
+| Taos County | Assessor property search, and a general map the county describes as an incomplete paper-to-digital conversion. No open parcel file with a redistribution grant was found | No |
+| Los Alamos County | Public assessor search, and a county GIS service whose copyright line is "Los Alamos County GIS." That service exposes an `OWNERNAME` field. No open license to copy it was found. A separate Owner layer is an agency class (county, school, LANL, Forest Service, Park Service, BIA), not a person's name, and it has the same copyright line | No |
+
+A person can look a name up on the county site. The app can link there. It cannot store the name, ship it, or put it under MIT. Confidence that no checked source allows owner names anywhere in the target area: **high**.
+
 ### Map tiles and offline use
 
 `tile.openstreetmap.org` is donated capacity for the OSM website. Bulk download and offline prefetch are prohibited. "Save this region" against that server is not allowed ([tile usage policy](https://operations.osmfoundation.org/policies/tiles/)). Do not use it.
@@ -316,6 +348,7 @@ Worked pins for the first demo, all of which the source check already found: San
 | SLO trust land | Posted for download; accuracy disclaimer; no CC grant found | Cite SLO; show the disclaimer; explain the permit rule |
 | City of Albuquerque GIS | City terms, required disclaimer, revocable | Include their disclaimer if the data is in the app |
 | Santa Fe assessor GIS | No copy or internet posting without written permission | Do not include |
+| Regrid / Loveland Technologies | Paid, non-transferable license; free trial is seven non-NM counties; no redistribution | Do not include |
 | NM TRD county parcel service | Not for private-sector redistribution | Do not include |
 | Wikidata facts | CC0 | No special notice required; citing is still good |
 | Wikipedia text | CC BY-SA 4.0 | Link, do not copy the article into the repo |
@@ -377,3 +410,16 @@ Primary pages consulted on 3 October 2026:
 - [Santa Fe County Assessor 2025 GIS data request](https://www.santafecountynm.gov/assessor/uploads/documents/2025_GIS_Data_Request.pdf)
 - [City of Santa Fe map gallery](https://santafenm.gov/information-technology-telecommunications/gis/map-gallery)
 - [MassGIS property tax parcels](https://www.mass.gov/info-details/massgis-data-property-tax-parcels)
+- [onX, how ownership data is updated](https://www.onxmaps.com/hunt/blog/onx-private-property-ownership-how-and-when-is-it-updated)
+- [onX Hunt parcel viewer](https://www.onxmaps.com/hunt/app/features/land-ownership-maps-parcel-viewer)
+- [onX, GIS accuracy](https://www.onxmaps.com/hunt/blog/gis-mapping-accuracy-differentiates-onx-from-competitors)
+- [Regrid parcel onboarding FAQ](https://support.regrid.com/docs/parcel-data-onboarding-faq)
+- [Regrid enhanced ownership](https://regrid.com/enhanced-property-ownership)
+- [Regrid API terms](https://regrid.com/terms/api)
+- [Regrid API trial limits](https://support.regrid.com/docs/mcp-server)
+- [Regrid data-store license](https://app.regrid.com/store/license)
+- [Rio Arriba County GIS](https://www.rio-arriba.org/Departments/Departments-Divisions/Assessor/GIS-Mapping)
+- [Taos County GIS](https://www.taoscountynm.gov/160/GIS)
+- [Taos County interactive map note](https://www.taoscountynm.gov/427/Taos-County-General-Interactive-Map)
+- [Los Alamos County GIS property search](https://www.losalamosnm.gov/Services/Property-and-Taxes/GIS-Property-Search)
+- [Los Alamos County parcel service](https://gis.losalamosnm.us/securegis/rest/services/parcelviewer/ParcelViewerBaseLayers_AGOL/MapServer/layers)
