@@ -71,9 +71,23 @@ def land_status(lon: float, lat: float, hits: list[LandHit]) -> tuple[LandHit | 
             containing.append(hit)
     if not containing:
         return None, land_sentence(None)
+    containing = _prefer_named_fee(containing)
     containing.sort(key=lambda hit: (hit.rank, _area(hit)))
     winner = containing[0]
     return winner, land_sentence(winner)
+
+
+def _prefer_named_fee(hits: list[LandHit]) -> list[LandHit]:
+    """A named fee polygon (open, restricted, or closed) wins over a UK copy of the same kind."""
+    known = set()
+    for hit in hits:
+        access = (hit.pub_access or "").upper()
+        if (hit.name or "").strip() and access in {"OA", "RA", "XA"}:
+            known.add(hit.kind)
+    if not known:
+        return hits
+    kept = [hit for hit in hits if (hit.pub_access or "").upper() != "UK" or hit.kind not in known]
+    return kept or hits
 
 
 def _area(hit: LandHit) -> float:

@@ -106,19 +106,201 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(facts.contains { $0.label == "Mass times" })
     }
 
-    private func hit(_ kind: String, lon: Double, lat: Double, name: String = "") -> LandHit {
+    func testDebugPlazaPinStaysOffWithoutTheArgument() {
+        XCTAssertFalse(DebugPin.isEnabled(arguments: ["/PilgrimAtlas"]))
+        XCTAssertFalse(DebugPin.isEnabled(arguments: ["/PilgrimAtlas", "--debug"]))
+        XCTAssertTrue(DebugPin.isEnabled(arguments: ["/PilgrimAtlas", "--debug-santa-fe-plaza"]))
+        XCTAssertEqual(DebugPin.plaza.lat, 35.6870, accuracy: 0.00001)
+        XCTAssertEqual(DebugPin.plaza.lon, -105.9378, accuracy: 0.00001)
+    }
+
+    func testNamedFeePolygonBeatsUnknownProclamation() {
+        let fee = hit("usfs", lon: -105.85, lat: 35.75, name: "Santa Fe National Forest", pubAccess: "OA", size: 0.02)
+        let proclamation = hit("usfs", lon: -105.85, lat: 35.75, name: "Santa Fe National Forest", pubAccess: "UK", size: 0.01)
+        let sentence = LandStatus.status(lon: -105.845, lat: 35.755, hits: [fee, proclamation]).1
+        XCTAssertTrue(sentence.contains("open"))
+        XCTAssertFalse(sentence.contains("unknown"))
+        XCTAssertFalse(LandStatus.grantsEntry(sentence))
+        let onlyUnknown = LandStatus.status(lon: -105.845, lat: 35.755, hits: [proclamation]).1
+        XCTAssertTrue(onlyUnknown.contains("unknown"))
+        XCTAssertFalse(LandStatus.grantsEntry(Copy.text("unknown")))
+        XCTAssertFalse(LandStatus.grantsEntry(PlaceText.permissionLine))
+    }
+
+    func testPlazaCardSurfacesChapelAndCathedral() {
+        let gallery = samplePlace(id: 1, name: "Maya's", category: "landmark", catholic: false, lat: 35.6872, lon: -105.9376)
+        let loretto = samplePlace(id: 2, name: "Loretto Chapel", category: "landmark", catholic: false, lat: 35.685617, lon: -105.937454)
+        let basilica = samplePlace(
+            id: 3,
+            name: "The Cathedral Basilica of Saint Francis of Assisi",
+            category: "worship",
+            catholic: true,
+            lat: 35.686504,
+            lon: -105.93624
+        )
+        let statue = samplePlace(id: 4, name: "Saint Francis of Assisi", category: "landmark", catholic: false, lat: 35.68635, lon: -105.93623)
+        let land = hit("private_mapped", lon: -105.95, lat: 35.68)
+        let summary = AtlasQuery.nearby(
+            lat: 35.6870,
+            lon: -105.9378,
+            places: [gallery, loretto, basilica, statue],
+            trails: [],
+            lands: [land]
+        )
+        XCTAssertEqual(summary.headline, "Private on the surface map")
+        XCTAssertEqual(summary.permissionLine, "This is not permission to enter.")
+        XCTAssertNotEqual(summary.headline, summary.land)
+        let names = summary.landmarks.map(\.name)
+        XCTAssertTrue(names.contains("Loretto Chapel"))
+        XCTAssertTrue(names.contains(where: { $0.contains("Cathedral Basilica") }))
+        XCTAssertFalse(names.contains("Maya's"))
+        XCTAssertFalse(names.contains("Saint Francis of Assisi"))
+        XCTAssertEqual(summary.trailGap, "No trail within 3 km")
+        XCTAssertEqual(summary.landmarkGap, "")
+        let gap = AtlasQuery.nearby(lat: 40, lon: -100, places: [gallery], trails: [], lands: [])
+        XCTAssertEqual(gap.headline, Copy.text("unknown"))
+        XCTAssertEqual(gap.landmarkGap, "No landmark within 8 km")
+        XCTAssertFalse(LandStatus.grantsEntry(gap.headline))
+    }
+
+    func testSearchFindsBasilicaChimayoAndTrails() {
+        let emptyChimayo = samplePlace(id: 54, name: "Santuario de Chimayo", category: "worship", catholic: false, lat: 35.988871, lon: -105.931459)
+        let richChimayo = samplePlace(
+            id: 585,
+            name: "Santuario de Chimayo",
+            category: "worship",
+            catholic: true,
+            lat: 35.989078,
+            lon: -105.931922,
+            wikidata: "Q5352121"
+        )
+        let basilica = samplePlace(
+            id: 1295,
+            name: "The Cathedral Basilica of Saint Francis of Assisi",
+            category: "worship",
+            catholic: true,
+            lat: 35.686504,
+            lon: -105.93624,
+            address: "231 Cathedral Place, Santa Fe, NM, 87501",
+            website: "https://www.cbsfa.org/",
+            wikipedia: "en:Cathedral Basilica of St. Francis of Assisi (Santa Fe)",
+            wikidata: "Q3663700"
+        )
+        let albuquerque = samplePlace(
+            id: 1270,
+            name: "Cathedral Church of Saint John",
+            category: "worship",
+            catholic: false,
+            lat: 35.082286,
+            lon: -106.651584,
+            address: "318 Silver Avenue Southwest, Albuquerque, NM, 87103"
+        )
+        let statue = samplePlace(id: 732, name: "Saint Francis of Assisi", category: "landmark", catholic: false, lat: 35.686349, lon: -105.936235)
+        let prairie = samplePlace(id: 696, name: "St. Francis and the Prairie Dog", category: "landmark", catholic: false, lat: 35.689583, lon: -105.938323)
+        let unnamed = samplePlace(id: 9, name: "Unnamed place of worship", category: "worship", catholic: false, lat: 35.69, lon: -105.94)
+        let places = [emptyChimayo, richChimayo, basilica, albuquerque, statue, prairie, unnamed]
+        let chimayo = AtlasQuery.search("Santuario de Chimayo", places: places, trails: [])
+        XCTAssertEqual(chimayo.first?.placeId, 585)
+        XCTAssertEqual(chimayo.first?.id, "place-585")
+        XCTAssertTrue(chimayo.contains { $0.placeId == 54 && $0.subtitle == PlaceText.sameSitePhrase })
+        XCTAssertEqual(Set(chimayo.map(\.id)).count, chimayo.count)
+        let typed = AtlasQuery.search("Cathedral Basilica of St. Francis", places: places, trails: [])
+        XCTAssertEqual(typed.first?.placeId, 1295)
+        XCTAssertEqual(typed.first?.city, "Santa Fe")
+        let cathedral = AtlasQuery.search("cathedral", places: places, trails: [], origin: DebugPin.plaza)
+        XCTAssertEqual(cathedral.first?.placeId, 1295)
+        XCTAssertTrue(cathedral.contains { $0.placeId == 1270 && $0.city == "Albuquerque" })
+        let francis = AtlasQuery.search("St. Francis", places: places, trails: [])
+        XCTAssertTrue(francis.contains { $0.placeId == 1295 })
+        XCTAssertFalse(francis.contains { $0.name == "Unnamed place of worship" })
+        let hidden = AtlasQuery.search("chapel", places: places, trails: [])
+        XCTAssertFalse(hidden.contains { $0.placeId == 9 })
+        let grouped = AtlasQuery.search("unnamed", places: [unnamed], trails: [])
+        XCTAssertEqual(grouped.first?.kind, .note)
+        XCTAssertEqual(grouped.first?.name, "Unnamed worship (1)")
+        let trail = TrailRecord(
+            id: 2,
+            name: "Skyline Trail",
+            access: "",
+            geometry: .lineString([LonLat(lon: -105.82, lat: 35.78), LonLat(lon: -105.78, lat: 35.80)]),
+            source: "OpenStreetMap",
+            sourceDate: "2026-10-02T20:21:34Z"
+        )
+        let trails = AtlasQuery.search("Skyline", places: [], trails: [trail])
+        XCTAssertEqual(trails.first?.kind, .trail)
+        XCTAssertEqual(trails.first?.trailId, 2)
+        XCTAssertEqual(trails.first?.lat ?? 0, 35.79, accuracy: 0.001)
+        XCTAssertEqual(trails.first?.lon ?? 0, -105.80, accuracy: 0.001)
+    }
+
+    func testHoursAddressSourceAndLinks() {
+        let loretto = samplePlace(
+            id: 1296,
+            name: "Loretto Chapel",
+            category: "landmark",
+            catholic: false,
+            lat: 35.685617,
+            lon: -105.937454,
+            address: "207 Old Santa Fe Trail, Santa Fe, NM, 87501",
+            openingHours: "Mo-Sa 09:00-17:00; Su 10:30-17:00; Mo-Sa 09:30-16:30; Su 10:30-16:30",
+            access: "private",
+            website: "https://lorettochapel.com",
+            wikipedia: "en:Loretto Chapel",
+            wikidata: "Q2956557",
+            sourceDate: "2026-10-02T20:21:34Z"
+        )
+        let facts = AtlasQuery.facts(for: loretto)
+        XCTAssertTrue(facts.contains { $0.label == "Hours" && $0.value.contains("Mo-Sa 09:00-17:00") })
+        XCTAssertTrue(facts.contains { $0.label == "Hours note" && $0.value == PlaceText.hoursConflictNote })
+        XCTAssertTrue(facts.contains { $0.label == "Access" && $0.value == "Tagged access=private. That tag is not a legal ruling." })
+        XCTAssertEqual(PlaceText.wikipediaURL("en:Loretto Chapel"), "https://en.wikipedia.org/wiki/Loretto_Chapel")
+        XCTAssertEqual(facts.first { $0.label == "Wikipedia" }?.url, "https://en.wikipedia.org/wiki/Loretto_Chapel")
+        XCTAssertEqual(facts.first { $0.label == "Wikidata" }?.url, "https://www.wikidata.org/wiki/Q2956557")
+        XCTAssertEqual(PlaceText.sourceLine(source: loretto.source, sourceDate: loretto.sourceDate), "OpenStreetMap, 2 Oct 2026")
+        XCTAssertEqual(PlaceText.diamondNote(for: loretto), PlaceText.diamondNote)
+        let tidy = PlaceText.hoursDisplay("Mo-Fr 09:00-17:00")
+        XCTAssertEqual(tidy.shown, "Mon–Fri 9:00 AM–5:00 PM")
+        XCTAssertNil(tidy.note)
+        let basilica = samplePlace(
+            id: 1295,
+            name: "The Cathedral Basilica of Saint Francis of Assisi",
+            category: "worship",
+            catholic: true,
+            lat: 35.686504,
+            lon: -105.93624,
+            wikipedia: "en:Cathedral Basilica of St. Francis of Assisi (Santa Fe)",
+            wikidata: "Q3663700",
+            image: "File:Saint Francis Cathedral in Santa Fe New Mexico.jpg"
+        )
+        let basilicaFacts = AtlasQuery.facts(for: basilica)
+        XCTAssertFalse(basilicaFacts.contains { $0.label == "Photo" })
+        XCTAssertFalse(basilicaFacts.contains { $0.label == "Hours" })
+        XCTAssertNil(PlaceText.photoURL(basilica.image))
+        XCTAssertTrue(PlaceText.wikipediaURL(basilica.wikipedia)?.contains("Cathedral_Basilica_of_St._Francis_of_Assisi_(Santa_Fe)") == true)
+        XCTAssertNil(PlaceText.diamondNote(for: basilica))
+        XCTAssertFalse(LandStatus.grantsEntry("Tagged access=private. That tag is not a legal ruling."))
+    }
+
+    private func hit(
+        _ kind: String,
+        lon: Double,
+        lat: Double,
+        name: String = "",
+        pubAccess: String = "",
+        size: Double = 0.02
+    ) -> LandHit {
         let ring = [
             LonLat(lon: lon, lat: lat),
-            LonLat(lon: lon + 0.02, lat: lat),
-            LonLat(lon: lon + 0.02, lat: lat + 0.02),
-            LonLat(lon: lon, lat: lat + 0.02),
+            LonLat(lon: lon + size, lat: lat),
+            LonLat(lon: lon + size, lat: lat + size),
+            LonLat(lon: lon, lat: lat + size),
             LonLat(lon: lon, lat: lat),
         ]
         return LandHit(
             kind: LandKind.fromPack(kind),
             name: name,
             manager: "",
-            pubAccess: "",
+            pubAccess: pubAccess,
             source: "test",
             sourceDate: "2026-10-03",
             geometry: .polygon([ring])
@@ -126,15 +308,24 @@ final class LogicTests: XCTestCase {
     }
 
     private func samplePlace(
+        id: Int = 1,
         name: String,
         category: String,
         catholic: Bool,
         lat: Double,
         lon: Double,
-        serviceTimes: String = ""
+        address: String = "",
+        openingHours: String = "",
+        serviceTimes: String = "",
+        access: String = "",
+        website: String = "",
+        wikipedia: String = "",
+        wikidata: String = "",
+        image: String = "",
+        sourceDate: String = "2026-10-02"
     ) -> PlaceRecord {
         PlaceRecord(
-            id: 1,
+            id: id,
             name: name,
             category: category,
             catholic: catholic,
@@ -142,20 +333,20 @@ final class LogicTests: XCTestCase {
             lat: lat,
             lon: lon,
             description: "",
-            address: "",
-            openingHours: "",
+            address: address,
+            openingHours: openingHours,
             serviceTimes: serviceTimes,
             massTimes: "",
             confessionTimes: "",
-            access: "",
+            access: access,
             parking: "",
             wheelchair: "",
-            website: "",
-            wikipedia: "",
-            wikidata: "",
-            image: "",
+            website: website,
+            wikipedia: wikipedia,
+            wikidata: wikidata,
+            image: image,
             source: "OpenStreetMap",
-            sourceDate: "2026-10-02"
+            sourceDate: sourceDate
         )
     }
 }

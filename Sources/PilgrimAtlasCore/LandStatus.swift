@@ -120,11 +120,43 @@ package enum LandStatus {
             return Geometry.contains(point, hit.geometry)
         }
         guard !containing.isEmpty else { return (nil, sentence(nil)) }
-        let winner = containing.sorted { lhs, rhs in
+        let preferred = preferNamedFee(containing)
+        let winner = preferred.sorted { lhs, rhs in
             if lhs.kind.rank != rhs.kind.rank { return lhs.kind.rank < rhs.kind.rank }
             return lhs.bboxArea < rhs.bboxArea
         }[0]
         return (winner, sentence(winner))
+    }
+
+    /// Short card title. Unknown stays the full unknown sentence. Unnamed private land does not pretend to be a landmark.
+    package static func headline(_ hit: LandHit?) -> String {
+        guard let hit else { return Copy.text("unknown") }
+        let name = hit.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hit.kind == .privateMapped, name.isEmpty {
+            return "Private on the surface map"
+        }
+        if !name.isEmpty { return name }
+        let manager = hit.manager.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !manager.isEmpty { return manager }
+        return Copy.text(hit.kind.sentenceKey)
+    }
+
+    /// Drop a PAD-US "unknown" polygon when a named fee polygon of the same kind already says open, restricted, or closed.
+    private static func preferNamedFee(_ hits: [LandHit]) -> [LandHit] {
+        let known = Set(hits.compactMap { hit -> LandKind? in
+            let access = hit.pubAccess.uppercased()
+            let named = !hit.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if named && (access == "OA" || access == "RA" || access == "XA") {
+                return hit.kind
+            }
+            return nil
+        })
+        guard !known.isEmpty else { return hits }
+        let kept = hits.filter { hit in
+            if hit.pubAccess.uppercased() != "UK" { return true }
+            return !known.contains(hit.kind)
+        }
+        return kept.isEmpty ? hits : kept
     }
 
     package static func grantsEntry(_ sentence: String) -> Bool {

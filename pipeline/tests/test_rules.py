@@ -31,7 +31,7 @@ def hit(kind, lon, lat, **kwargs):
         pub_access=kwargs.get("pub_access", ""),
         source=kwargs.get("source", "test"),
         source_date=kwargs.get("source_date", "2026-10-03"),
-        geometry=square(lon, lat),
+        geometry=square(lon, lat, kwargs.get("size", 0.02)),
     )
 
 
@@ -124,6 +124,18 @@ def test_nearby_summary_and_search():
     assert "not in this pack" in summary["closures"][0]
     found = search_names("chimayo", places, trails)
     assert found[0]["name"] == "El Santuario de Chimayó"
+
+
+def test_named_fee_polygon_beats_unknown_proclamation():
+    fee = hit("usfs", -105.85, 35.75, name="Santa Fe National Forest", pub_access="OA", size=0.02)
+    proclamation = hit("usfs", -105.85, 35.75, name="Santa Fe National Forest", pub_access="UK", size=0.01)
+    _, sentence = land_status(-105.845, 35.755, [fee, proclamation])
+    assert "open" in sentence
+    assert "unknown" not in sentence
+    assert not grants_entry(sentence)
+    _, only_unknown = land_status(-105.845, 35.755, [proclamation])
+    assert "unknown" in only_unknown
+    assert not grants_entry(only_unknown)
 
 
 def test_fixture_pack_strips_owner_and_keeps_mass_tag_raw():

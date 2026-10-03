@@ -23,15 +23,32 @@ struct DisclaimerGate: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Pilgrim Atlas")
                         .font(.largeTitle.bold())
-                    Text("This map shows public datasets for Santa Fe, Albuquerque, and northern New Mexico. It does not give you permission to enter.")
-                    Text(Copy.text("trespass"))
-                    Text(Copy.text("not_a_survey"))
-                    Text(Copy.text("state_trust"))
-                    Text(Copy.text("closures"))
-                    Text("Your location stays on this phone. Pilgrim Atlas has no account and no server of its own. Online map tiles, if you turn them on later, are a separate choice.")
-                    Text(Copy.text("mass_footnote"))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
+                    Text("A map of public datasets for Santa Fe, Albuquerque, and northern New Mexico.")
+                        .font(.title3)
+                        .foregroundStyle(.primary)
+                    Text("This does not give you permission to enter.")
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary, lineWidth: 1.5))
+                    DisclosureGroup("Details") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(Copy.text("trespass"))
+                            Text(Copy.text("not_a_survey"))
+                            Text(Copy.text("state_trust"))
+                            Text(Copy.text("closures"))
+                            Text("Your location stays on this phone. Pilgrim Atlas has no account and no server of its own. Online map tiles, if you turn them on later, are a separate choice.")
+                            Text(Copy.text("mass_footnote"))
+                        }
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .padding(.top, 8)
+                    }
+                    .font(.body)
+                    .foregroundStyle(.primary)
                 }
                 .padding()
             }

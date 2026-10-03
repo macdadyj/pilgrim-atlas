@@ -55,7 +55,7 @@ The repo already contains the pack from a successful build, so a checkout can co
 - `Sources/PilgrimAtlas/Resources/northern-new-mexico.pmtiles` (vector tiles)
 - `pack/manifest.json` (counts and byte sizes)
 
-The app icon is `AppIcon.png`, drawn by `pipeline/make_icon.py`.
+The app icon is `AppIcon.png`, drawn by `pipeline/make_icon.py`: a mesa, a path, and one cross. Marker art is a burgundy cross, a blue dot, and a brown diamond. Place-name labels use a bundled Noto Sans glyph range (SIL Open Font License). That font file is not part of the MIT code license.
 
 ## Run the app
 
@@ -78,13 +78,16 @@ xtool dev build
 
 Phone screenshots are not in this repository. Installing on the iPhone 11 is blocked on a known xtool certificate-serial failure, which needs a local proxy before `xtool dev run`. Do not point that install at any other phone.
 
-When that proxy is ready, from this repo with the same environment:
+When that proxy is ready, from this repo with the same environment, install and then launch with the debug plaza pin:
 
 ```bash
 xtool dev run -c debug --usb --udid 00008030-001A4D340A93402E
+xtool launch --usb --udid 00008030-001A4D340A93402E XTL-N9H4648NB9.com.lojo.PilgrimAtlas --debug-santa-fe-plaza
 ```
 
-The first screen is the access disclaimer. After that, the map opens on Santa Fe Plaza until the phone has a GPS fix. Search, layers, and licenses are on-device.
+`--debug-santa-fe-plaza` is read only in a debug build. It pins the map to Santa Fe Plaza (35.6870, -105.9378) and does not ask for location permission. A release build ignores it. Without the argument, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix.
+
+The first screen is the access disclaimer. Search, layers, and licenses are on-device.
 
 ## Layout
 
