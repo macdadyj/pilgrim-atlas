@@ -382,6 +382,17 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(hits.contains { $0.id == 9 })
     }
 
+    func testPackedSkylineSheetDoesNotShowTheNetworkSum() throws {
+        let geometry = try XCTUnwrap(packedSkylineGeometry())
+        let meters = try XCTUnwrap(Geometry.lengthMeters(geometry))
+        XCTAssertGreaterThan(meters, 100_000)
+        XCTAssertLessThan(meters, 110_000)
+        let sentence = Geometry.lengthSentence(geometry)
+        XCTAssertFalse(sentence.contains("103"))
+        XCTAssertNotEqual(sentence, Geometry.lengthLabel(meters))
+        XCTAssertTrue(sentence.contains("network of ways"))
+    }
+
     func testFiltersHoursAndLandChips() {
         var filter = AtlasFilter.empty
         let loretto = samplePlace(id: 1296, name: "Loretto Chapel", category: "landmark", catholic: false, lat: 35.685617, lon: -105.937454)
@@ -523,6 +534,13 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(conflict.shown.contains("Mon–Sat"))
         XCTAssertFalse(conflict.shown.contains("Mo-Sa"))
         XCTAssertEqual(conflict.note, PlaceText.hoursConflictNote)
+    }
+
+    private func packedSkylineGeometry() -> GeoJSONGeometry? {
+        guard let url = Bundle.module.url(forResource: "skyline-trail", withExtension: "geojson") else {
+            return nil
+        }
+        return GeoJSONParser.geometry(from: (try? Data(contentsOf: url)) ?? Data())
     }
 
     private func screenshotPlaces() -> [PlaceRecord] {

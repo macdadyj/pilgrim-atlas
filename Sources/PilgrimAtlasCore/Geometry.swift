@@ -82,13 +82,21 @@ package enum Geometry {
         return String(format: "%.1f km", meters / 1000)
     }
 
-    /// A branched multiline is a network. Summing every part reports the whole
-    /// network, which is not the length of one trail.
+    /// A junction, or a multiline whose parts add up to a route-sized total,
+    /// is not one walkable way. The packed Skyline Trail is about 103 km of ways.
     package static func lengthSentence(_ geometry: GeoJSONGeometry) -> String {
-        if isBranchedNetwork(geometry) {
+        if withholdsCombinedLength(geometry) {
             return "Length is not shown. This record is a network of ways, not one trail."
         }
         return lengthLabel(lengthMeters(geometry))
+    }
+
+    package static func withholdsCombinedLength(_ geometry: GeoJSONGeometry) -> Bool {
+        if isBranchedNetwork(geometry) { return true }
+        guard case .multiLineString(let lines) = geometry else { return false }
+        let partCount = lines.filter { $0.count >= 2 }.count
+        guard partCount >= 2, let meters = lengthMeters(geometry) else { return false }
+        return meters >= 50_000
     }
 
     package static func isBranchedNetwork(_ geometry: GeoJSONGeometry) -> Bool {

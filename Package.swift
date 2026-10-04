@@ -43,7 +43,10 @@ let package = Package(
         ),
         .testTarget(
             name: "PilgrimAtlasCoreTests",
-            dependencies: ["PilgrimAtlasCore"]
+            dependencies: ["PilgrimAtlasCore"],
+            resources: [
+                .copy("Fixtures/skyline-trail.geojson"),
+            ]
         ),
     ]
 )

@@ -137,6 +137,25 @@ def test_pack_land_wording_and_blank_private_names():
         connection.close()
 
 
+def test_packed_skyline_fixture_is_the_pack_record():
+    connection = _connect()
+    try:
+        row = connection.execute(
+            "SELECT geojson FROM trails WHERE name = 'Skyline Trail'"
+        ).fetchone()
+    finally:
+        connection.close()
+    assert row, "expected the packed Skyline Trail"
+    fixture = (
+        Path(__file__).resolve().parents[2]
+        / "Tests"
+        / "PilgrimAtlasCoreTests"
+        / "Fixtures"
+        / "skyline-trail.geojson"
+    )
+    assert fixture.read_text() == row[0]
+
+
 def test_pmtiles_archive_exists():
     if not PMTILES.exists():
         pytest.skip("northern-new-mexico.pmtiles is not built yet")
