@@ -38,15 +38,15 @@ Trail lines are a cream casing (`#F4EFE4`) and a `#6B4F3A` core.
 
 ## Chrome
 
-One top row: a Search pill and the layers button. Licenses live in that sheet, not on a second button. Location is one floating control above the card. The short detent is only the summary sentence. Dragging the indicator to 40 percent shows the single status line and the rest, and that sheet scrolls inside the cap. There is not a stack of capsules. Load errors, a denied location, a public-land or open-now sentence, and the offline line take that one line, in that order.
+One top row: a Search pill and the layers button. Licenses live in that sheet, not on a second button. The filter chips are one horizontal row directly under that pill. They do not float over the middle of the map. Location is one floating control above the card. The MapLibre logo sits just above the card, clear of the Search pill. The short detent is only the summary sentence. Dragging the indicator to 40 percent shows the single status line and the rest, and that sheet scrolls inside the cap. There is not a stack of capsules. Load errors, a denied location, a public-land or open-now sentence, and the offline line take that one line, in that order. When the camera is outside the northern New Mexico pack, one banner under the chips says “This view is outside the offline pack.” and a button recenters at zoom 12 on the nearest point inside the pack.
 
-Filter chips scroll, including past the trailing edge when Reset is showing. Off chips are a tint on material, with no stroke. On chips are accent fill and white text. A light haptic fires when a filter changes. Food and rest stays disabled and reads “Not in this pack yet.”
+Filter chips scroll sideways, including past the trailing edge when Reset is showing. The row is a fixed height so it stays under Search. Off chips are a tint on material, with no stroke. On chips are accent fill and white text. A light haptic fires when a filter changes. Food and rest stays disabled and reads “Not in this pack yet.”
 
 ## Map
 
 The camera opens at zoom 16 so the Cathedral and Loretto can sit apart. Offline pack layers stay on. OpenFreeMap streets are optional and do not replace land, trails, or places. The logical center sits above the card.
 
-Place symbols are layers on the pack vector tiles. Catholic worship is the last symbol layer, drawn larger (icon size 1), allowed to overlap, and sorted first so the cross keeps the slot. Its label prefers the top. Chapels, cathedrals, basilicas, and santuarios are a slightly smaller pin and do not force an overlap; their labels prefer the bottom. Other roles do not overlap. Labels may drop instead of colliding. Every badge has a white halo. The marker legend uses those same images. Landmarks stay a terracotta hexagon. Other roles keep their own shape and color. Sheet and list rows use a rounded-square gradient icon tile. Those tiles are not the map badges.
+Place symbols are layers on the pack vector tiles. Catholic worship is the last symbol layer, drawn larger (icon size 1), allowed to overlap, and sorted first so the cross keeps the slot. Its label prefers the top. Chapels, cathedrals, basilicas, and santuarios are a slightly smaller pin and do not force an overlap; their labels prefer the bottom. Other roles do not overlap. Labels may drop instead of colliding. A name that contains “untitled” or “unnamed” is not drawn. Every badge has a white halo. The marker legend uses those same images. Landmarks stay a terracotta hexagon. Other roles keep their own shape and color. Sheet and list rows use a rounded-square gradient icon tile with that role’s symbol, and the name uses the primary text color. Those tiles are not the map badges.
 
 A Catholic search recenters on the nearest hit, or on the hits within about 2.5 km when that cluster is under about 8 km. It does not fit the whole region. While the query is non-empty, pins and trails stay visible even if a chip would hide them.
 
@@ -60,13 +60,13 @@ Catholic sites, Churches and shrines, Trails, Public land, Parks, Food and rest,
 
 ## Sheets
 
-Sheets use a height detent, medium, and large, with a drag indicator and one Done. The bar title is inline. The first row is the full name. Denomination reads “Roman Catholic.” Wikipedia links use the article title.
+Sheets open at medium, and can still move to large or a shorter height. The drag indicator is visible, and the sheet scrolls instead of only resizing. The bar title is inline. The first row is the full name. Denomination reads “Roman Catholic.” Wikipedia links use the article title.
 
 Hours are a shape plus words, never color alone. A filled green dot is “Open now.” A hollow red ring is “Closed now.” A half ring is “Hours disagree” when the hours are not one clock, and “Unknown” when the pack has no hours. The longer pack sentence stays as the subtitle.
 
 Access `private` reads “The map tag says private. That is how OpenStreetMap recorded it, not a ruling about your visit.” It does not grant entry.
 
-The first-launch disclaimer is a tinted amber warning card and a full-width gradient button, “I understand.”
+The first-launch disclaimer keeps the warning, the details, and the full-width gradient button, “I understand,” together at the top. The button is not pinned under an empty middle.
 
 More map options holds Terrain, lot lines, online tiles, “Hide places with no hours,” the terrain legend, the marker legend, land colors, and licenses. Terrain is on by default. The layers button shows a badge when parcels are on, online tiles are on, places without hours are hidden, or terrain is off.
 
@@ -84,7 +84,7 @@ Hillshade and foot contours ship in the app. They are derived from Mapzen Terrai
 | `northern-new-mexico-contours.pmtiles` | 100 ft lines, 500 ft index labeled in feet | 12 | 9998933 |
 | `northern-new-mexico-land.pmtiles` | land fills, corners rounded | 8–14 | 4743402 |
 
-The camera is zoom 16, so hillshade and contours overzoom from 12. Index contours are heavier and labeled “N ft.” Intermediate contours are thinner and lighter. The layers sheet has a terrain legend for those three. Flat ground stays even. Turning Terrain off hides hillshade, both contour weights, and the labels.
+The camera is zoom 16, so hillshade and contours overzoom from 12. The hillshade raster uses extra contrast and a lifted shadow floor so the highlights stay light under the 0.48 land fills, in light and dark appearance. The map ground stays cream either way. Every contour has a white casing. Intermediate lines are a darker tan at nearly full opacity. Index lines are map ink, heavier, and labeled “N ft” with a white halo that grows toward plaza zoom. The layers sheet has a terrain legend for those three. Flat ground stays even. Turning Terrain off hides hillshade, the casing, both contour weights, and the labels. `--debug-terrain` opens that sheet with Terrain on.
 
 Trails in the pack are 2D. A single way, or a short chain of ways with no junction, shows its measured length. A branched record hides the summed length. A multiline whose parts add up to 50 km or more does too: the packed Skyline Trail is a network of ways, and the sheet does not show that total.
 

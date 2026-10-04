@@ -147,6 +147,7 @@ extension DebugLaunch {
                 launch.showDisclaimer = true
             } else if argument == "--debug-terrain" {
                 launch.showTerrain = true
+                launch.showLayers = true
             } else if let value = taking("--debug-filter", argument, arguments, index) {
                 let parts = value.value.split(separator: ",").map {
                     $0.trimmingCharacters(in: .whitespacesAndNewlines)

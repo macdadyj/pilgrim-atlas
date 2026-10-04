@@ -204,6 +204,21 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(chimayo.first?.id, "place-585")
         XCTAssertFalse(chimayo.contains { $0.placeId == 54 })
         XCTAssertFalse(chimayo.contains { $0.subtitle == PlaceText.sameSitePhrase })
+        let historic = samplePlace(
+            id: 186,
+            name: "El Santuario de Chimayo Historic Site",
+            category: "worship",
+            catholic: true,
+            lat: 35.9892,
+            lon: -105.9320
+        )
+        let merged = AtlasQuery.search(
+            "Chimayo",
+            places: places + [historic],
+            trails: []
+        )
+        let chimayoIDs = merged.compactMap(\.placeId).filter { [54, 186, 585].contains($0) }
+        XCTAssertEqual(chimayoIDs, [585])
         XCTAssertEqual(Set(chimayo.map(\.id)).count, chimayo.count)
         let typed = AtlasQuery.search("Cathedral Basilica of St. Francis", places: places, trails: [])
         XCTAssertEqual(typed.first?.placeId, 1295)
@@ -213,6 +228,7 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(cathedral.contains { $0.placeId == 1270 && $0.city == "Albuquerque" })
         let francis = AtlasQuery.search("St. Francis", places: places, trails: [])
         XCTAssertTrue(francis.contains { $0.placeId == 1295 })
+        XCTAssertTrue(francis.contains { $0.placeId == 732 })
         XCTAssertFalse(francis.contains { $0.name == "Unnamed place of worship" })
         let hidden = AtlasQuery.search("chapel", places: places, trails: [])
         XCTAssertFalse(hidden.contains { $0.placeId == 9 })
@@ -344,6 +360,13 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(gateWins.showDisclaimer)
         XCTAssertFalse(gateWins.skipsDisclaimer)
         XCTAssertTrue(gateWins.suppressesLocation)
+
+        let terrain = DebugLaunch.parse(["/PilgrimAtlas", "--debug-terrain"])
+        XCTAssertTrue(terrain.showTerrain)
+        XCTAssertTrue(terrain.showLayers)
+        XCTAssertTrue(terrain.suppressesLocation)
+        XCTAssertTrue(terrain.skipsDisclaimer)
+        XCTAssertFalse(terrain.pinPlaza)
     }
 
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
@@ -524,6 +547,22 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(PackStyleDocument.renderProblems(in: terrainStyle), [])
         XCTAssertTrue(terrainStyle.contains("\"hillshade\""))
         XCTAssertTrue(terrainStyle.contains("\"contours\""))
+        XCTAssertTrue(terrainStyle.contains("\"raster-contrast\""))
+        XCTAssertTrue(terrainStyle.contains("contours-casing"))
+        XCTAssertTrue(terrainStyle.contains("untitled"))
+        XCTAssertTrue(PackCoverage.contains(DebugPin.plaza))
+        let north = LonLat(lon: -105.94, lat: 39.74)
+        XCTAssertFalse(PackCoverage.contains(north))
+        let nearest = PackCoverage.nearest(north)
+        XCTAssertEqual(nearest.lat, PackCoverage.north, accuracy: 0.0001)
+        XCTAssertEqual(nearest.lon, -105.94, accuracy: 0.0001)
+        XCTAssertTrue(PackCoverage.contains(nearest))
+        let outside = LonLat(lon: -108.2, lat: 33.4)
+        let clamped = PackCoverage.nearest(outside)
+        XCTAssertEqual(clamped.lon, PackCoverage.west, accuracy: 0.0001)
+        XCTAssertEqual(clamped.lat, PackCoverage.south, accuracy: 0.0001)
+        XCTAssertNotEqual(PinRole.catholic.systemImage, PinRole.landmark.systemImage)
+        XCTAssertEqual(PinRole.water.systemImage, "drop.fill")
         XCTAssertFalse(PackStyleDocument.missingLayers(in: "{\"layers\":[]}").isEmpty)
         XCTAssertFalse(PackStyleDocument.missingRenderedLayers([], packIsVector: false).isEmpty)
         XCTAssertEqual(

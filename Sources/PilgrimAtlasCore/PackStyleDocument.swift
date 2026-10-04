@@ -259,7 +259,13 @@ package enum PackStyleDocument {
                 "id": "hillshade",
                 "type": "raster",
                 "source": "hillshade",
-                "paint": ["raster-opacity": 1, "raster-fade-duration": 0],
+                "paint": [
+                    "raster-opacity": 1,
+                    "raster-fade-duration": 0,
+                    "raster-contrast": 0.45,
+                    "raster-brightness-min": 0.08,
+                    "raster-brightness-max": 1,
+                ],
             ])
         }
         if online {
@@ -301,15 +307,26 @@ package enum PackStyleDocument {
         ])
         if contours != nil {
             layers.append([
+                "id": "contours-casing",
+                "type": "line",
+                "source": "contours",
+                "source-layer": "contours",
+                "paint": [
+                    "line-color": "#FFFFFF",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2.4, 16, 5.2],
+                    "line-opacity": 0.95,
+                ],
+            ])
+            layers.append([
                 "id": "contours-intermediate",
                 "type": "line",
                 "source": "contours",
                 "source-layer": "contours",
                 "filter": ["!=", ["get", "index"], 1],
                 "paint": [
-                    "line-color": "#B7A99A",
-                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 16, 0.9],
-                    "line-opacity": 0.55,
+                    "line-color": "#5C4E3E",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.8, 16, 1.6],
+                    "line-opacity": 0.95,
                 ],
             ])
             layers.append([
@@ -319,9 +336,9 @@ package enum PackStyleDocument {
                 "source-layer": "contours",
                 "filter": ["==", ["get", "index"], 1],
                 "paint": [
-                    "line-color": "#2A241C",
-                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.1, 16, 2.2],
-                    "line-opacity": 0.9,
+                    "line-color": "#1C1915",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.8, 16, 3.2],
+                    "line-opacity": 1,
                 ],
             ])
             layers.append([
@@ -333,16 +350,16 @@ package enum PackStyleDocument {
                 "layout": [
                     "text-field": ["concat", ["to-string", ["get", "elev"]], " ft"],
                     "text-font": ["NotoSansRegular"],
-                    "text-size": 11,
+                    "text-size": ["interpolate", ["linear"], ["zoom"], 12, 12, 16, 16],
                     "symbol-placement": "line",
                     "text-optional": true,
                     "text-max-angle": 30,
                     "text-padding": 8,
                 ],
                 "paint": [
-                    "text-color": "#2A241C",
+                    "text-color": "#1C1915",
                     "text-halo-color": "#FFFFFF",
-                    "text-halo-width": 1.6,
+                    "text-halo-width": 2.2,
                 ],
             ])
         }
@@ -493,6 +510,20 @@ package enum PackStyleDocument {
         return filter
     }
 
+    /// Hide “Untitled …” and “Unnamed …” so they do not cover a real name.
+    private static var placeLabel: [Any] {
+        [
+            "case",
+            [
+                "any",
+                ["in", "untitled", ["downcase", ["get", "name"]]],
+                ["in", "unnamed", ["downcase", ["get", "name"]]],
+            ],
+            "",
+            ["get", "name"],
+        ]
+    }
+
     private static func symbol(
         _ identifier: String,
         _ icon: String,
@@ -516,7 +547,7 @@ package enum PackStyleDocument {
                 "icon-padding": 6,
                 "symbol-sort-key": sort,
                 "symbol-z-order": "source",
-                "text-field": ["get", "name"],
+                "text-field": placeLabel,
                 "text-font": ["NotoSansRegular"],
                 "text-size": identifier == "places-catholic" ? 13 : 12,
                 "text-variable-anchor": anchors,

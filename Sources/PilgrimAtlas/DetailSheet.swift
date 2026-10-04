@@ -14,7 +14,7 @@ struct DetailSheet: View {
             List {
                 Section {
                     HStack(alignment: .top, spacing: 12) {
-                        IconTile(systemName: place.catholic ? "cross.fill" : "mappin.and.ellipse")
+                        IconTile(systemName: MapFilter.pinRole(for: place).systemImage)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(place.name)
                                 .font(.title2.weight(.semibold))
@@ -189,7 +189,7 @@ struct TrailSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 16, for: .scrollContent)
+            .contentMargins(.bottom, 48, for: .scrollContent)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

@@ -111,9 +111,9 @@ These flags exist only in a debug build. A release build compiles them out and i
 | Open now, visitor-hours line visible | `--debug-santa-fe-plaza --debug-filter=open-now` |
 | Catholic sites and Open now, map not emptied | `--debug-santa-fe-plaza --debug-filter=catholic,open-now` |
 | Search chapel inside Catholic sites | `--debug-santa-fe-plaza --debug-filter=catholic --debug-search=chapel` |
-| Terrain on, hillshade and 100 ft contours with 500 ft index lines | `--debug-terrain` |
+| Layers sheet open, Terrain on | `--debug-terrain` |
 
-`--debug-filter=food` does not clear the map. The chip stays disabled and reads “Not in this pack yet.” `--debug-show-layers` opens More map options, including licenses, and does not turn a chip on. Terrain is on by default. The Layers switch turns hillshade and the 100 ft and 500 ft contours off, and the layers badge counts that. `--debug-terrain` pins the plaza with terrain on. `--debug-show-places-picker` opens the same picker for the basilica cluster when you do not pass a coordinate. Without a debug flag, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix. Search and chips stay on the device. The field-app design notes are in `docs/design.md`.
+`--debug-filter=food` does not clear the map. The chip stays disabled and reads “Not in this pack yet.” `--debug-show-layers` opens More map options, including licenses, and does not turn a chip on. Terrain is on by default. The Layers switch turns hillshade and the 100 ft and 500 ft contours off, and the layers badge counts that. `--debug-terrain` opens More map options with the Terrain switch on, and stays on the plaza without asking for location. Terrain is already on for a normal launch; the flag is what opens the sheet. `--debug-show-places-picker` opens the same picker for the basilica cluster when you do not pass a coordinate. Without a debug flag, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix. Search and chips stay on the device. The field-app design notes are in `docs/design.md`.
 
 ## Layout
 

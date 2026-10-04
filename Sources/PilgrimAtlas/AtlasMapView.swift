@@ -10,6 +10,10 @@ struct AtlasMapView: UIViewRepresentable {
     var places: [PlaceRecord]
     var onSelect: (LonLat, [PlaceRecord]) -> Void
 
+    /// Logo sits just above the card. The top inset clears the Search pill and the chip row.
+    private static let ornamentMargin = CGPoint(x: 8, y: 8)
+    private static let mapInset = UIEdgeInsets(top: 180, left: 8, bottom: 300, right: 8)
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onSelect: onSelect)
     }
@@ -24,10 +28,9 @@ struct AtlasMapView: UIViewRepresentable {
             zoomLevel: model.cameraZoom,
             animated: false
         )
-        let ornament = CGPoint(x: 8, y: 400)
-        map.logoViewMargins = ornament
-        map.attributionButtonMargins = ornament
-        map.contentInset = UIEdgeInsets(top: 108, left: 8, bottom: 300, right: 8)
+        map.logoViewMargins = Self.ornamentMargin
+        map.attributionButtonMargins = Self.ornamentMargin
+        map.contentInset = Self.mapInset
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.numberOfTapsRequired = 1
         map.addGestureRecognizer(tap)
@@ -60,7 +63,7 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
-        map.contentInset = UIEdgeInsets(top: 108, left: 8, bottom: 300, right: 8)
+        map.contentInset = Self.mapInset
         if context.coordinator.lastOnline != model.onlineTiles {
             context.coordinator.lastOnline = model.onlineTiles
             map.styleURL = PackStyle.fileURL(online: model.onlineTiles)
@@ -237,6 +240,7 @@ enum PackStyle {
             if let fill = layer as? MLNFillStyleLayer, let kind = landKind(identifier) {
                 fill.fillOpacity = landOpacityExpression(kind: kind, filter: filter)
             } else if identifier == "hillshade"
+                || identifier == "contours-casing"
                 || identifier == "contours-intermediate"
                 || identifier == "contours-index"
                 || identifier == "contour-labels"

@@ -225,6 +225,18 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         locator.startUpdatingLocation()
     }
 
+    var viewIsOutsidePack: Bool {
+        !PackCoverage.contains(cameraCenter)
+    }
+
+    func jumpToNearestMappedArea() {
+        let point = PackCoverage.nearest(cameraCenter)
+        summaryPoint = point
+        summaryPinned = true
+        focusCamera(on: point, zoom: 12)
+        refreshSummary()
+    }
+
     func focusCamera(on coordinate: LonLat, zoom: Double) {
         mapCenter = coordinate
         cameraCenter = coordinate

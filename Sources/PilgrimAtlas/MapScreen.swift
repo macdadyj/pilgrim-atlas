@@ -117,6 +117,22 @@ private struct MapChrome: View {
                     }
                     .padding(.horizontal, Theme.screenPadding)
                     FilterBar(scrollToFood: model.focusFoodChip)
+                    if model.viewIsOutsidePack {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("This view is outside the offline pack.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button("Show the nearest mapped area") {
+                                model.jumpToNearestMappedArea()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+                        .padding(.horizontal, Theme.screenPadding)
+                    }
                     Spacer(minLength: 0)
                     HStack(alignment: .bottom, spacing: 12) {
                         Text("© OpenStreetMap contributors")
@@ -212,6 +228,7 @@ private struct FilterBar: View {
                 }
                 .scrollClipDisabled(true)
                 .contentMargins(.trailing, 16, for: .scrollContent)
+                .frame(height: 56)
                 .sensoryFeedback(.selection, trigger: model.filter)
                 .onAppear {
                     if scrollToFood {
@@ -327,7 +344,7 @@ struct NearbyPanel: View {
                         model.openPlace(choice.place)
                     } label: {
                         HStack(spacing: 12) {
-                            IconTile(systemName: "mappin.and.ellipse")
+                            IconTile(systemName: MapFilter.pinRole(for: choice.place).systemImage)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(choice.place.name)
                                     .foregroundStyle(.primary)
@@ -338,6 +355,7 @@ struct NearbyPanel: View {
                             }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
                 .navigationTitle("Places here")
                 .navigationBarTitleDisplayMode(.inline)
@@ -461,7 +479,7 @@ struct NearbyPanel: View {
 
     private func landmarkLabel(_ row: ExploreRow) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            IconTile(systemName: "mappin.and.ellipse")
+            IconTile(systemName: model.place(id: row.placeId).map { MapFilter.pinRole(for: $0).systemImage } ?? PinRole.landmark.systemImage)
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name)
                     .foregroundStyle(.primary)
@@ -701,7 +719,11 @@ struct SearchSheet: View {
 
     private func iconName(_ hit: SearchHit) -> String {
         switch hit.kind {
-        case .place: return "mappin.and.ellipse"
+        case .place:
+            if let id = hit.placeId, let place = model.place(id: id) {
+                return MapFilter.pinRole(for: place).systemImage
+            }
+            return PinRole.landmark.systemImage
         case .trail: return "figure.hiking"
         case .town: return "building.2"
         case .land: return "map"

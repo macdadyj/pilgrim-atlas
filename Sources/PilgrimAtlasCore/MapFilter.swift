@@ -81,6 +81,22 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         }
     }
 
+    /// Sheet and list tiles. Map badges stay the drawn pin art.
+    package var systemImage: String {
+        switch self {
+        case .catholic: return "cross.fill"
+        case .chapel: return "cross"
+        case .worship: return "building.columns"
+        case .shrine: return "diamond.fill"
+        case .viewpoint: return "eye.fill"
+        case .museum: return "building.columns.fill"
+        case .parking: return "parkingsign"
+        case .water: return "drop.fill"
+        case .trailhead: return "figure.hiking"
+        case .landmark: return "hexagon.fill"
+        }
+    }
+
     /// Higher values draw above other pins.
     package var sortKey: Double {
         switch self {

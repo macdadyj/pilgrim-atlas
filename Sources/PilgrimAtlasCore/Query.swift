@@ -323,7 +323,7 @@ package enum AtlasQuery {
                 bestPlace[key] = hit
             }
         }
-        scored.append(contentsOf: bestPlace.values)
+        scored.append(contentsOf: mergeCloseNames(Array(bestPlace.values)))
         for trail in listedTrails {
             let displayName = trail.name.trimmingCharacters(in: .whitespacesAndNewlines)
             if displayName.isEmpty { continue }
@@ -509,6 +509,46 @@ package enum AtlasQuery {
             if chosen.count >= 3 { break }
         }
         return chosen.map { exploreRow($0.1, meters: $0.0) }
+    }
+
+    /// Drop a second place hit when it sits on the first and the names are the same
+    /// site with only filler words added, such as “Historic Site”.
+    private static func mergeCloseNames(_ hits: [(Double, SearchHit)]) -> [(Double, SearchHit)] {
+        let ranked = hits.sorted { lhs, rhs in
+            if lhs.0 != rhs.0 { return lhs.0 > rhs.0 }
+            return (lhs.1.placeId ?? Int.max) < (rhs.1.placeId ?? Int.max)
+        }
+        var kept: [(Double, SearchHit)] = []
+        for candidate in ranked {
+            let duplicate = kept.contains { existing in
+                guard let left = coordinate(existing.1), let right = coordinate(candidate.1) else { return false }
+                return Geometry.haversineMeters(left, right) <= 80 && sameSiteName(existing.1.name, candidate.1.name)
+            }
+            if !duplicate { kept.append(candidate) }
+        }
+        return kept
+    }
+
+    private static func coordinate(_ hit: SearchHit) -> LonLat? {
+        guard let lat = hit.lat, let lon = hit.lon else { return nil }
+        return LonLat(lon: lon, lat: lat)
+    }
+
+    private static let nameStopwords: Set<String> = ["el", "the", "de", "of", "la", "los", "las", "del", "and", "a", "an"]
+    private static let nameFillers: Set<String> = ["historic", "site", "memorial", "national", "monument"]
+
+    private static func sameSiteName(_ leftName: String, _ rightName: String) -> Bool {
+        let left = nameTokens(leftName)
+        let right = nameTokens(rightName)
+        guard left.count >= 2, right.count >= 2 else { return false }
+        let shorter = left.count <= right.count ? left : right
+        let longer = left.count <= right.count ? right : left
+        guard shorter.isSubset(of: longer) else { return false }
+        return longer.subtracting(shorter).allSatisfy { nameFillers.contains($0) }
+    }
+
+    private static func nameTokens(_ name: String) -> Set<String> {
+        Set(searchText(name).split(separator: " ").map(String.init).filter { !nameStopwords.contains($0) })
     }
 
     private static func matchScore(needle: String, queryTokens: [String], name: String) -> Double? {

@@ -25,13 +25,11 @@ struct DisclaimerGate: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Pilgrim Atlas")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 12) {
                     Text("A map of public datasets for Santa Fe, Albuquerque, and northern New Mexico.")
-                        .font(.title3)
+                        .font(.body)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text("This does not give you permission to enter.")
                         .font(.body)
                         .foregroundStyle(.primary)
@@ -53,26 +51,21 @@ struct DisclaimerGate: View {
                         }
                         .font(.body)
                         .foregroundStyle(.primary)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                     } label: {
                         Text("Details")
                             .font(.body.weight(.semibold))
                     }
                     .foregroundStyle(.primary)
+                    Button("I understand") { model.acceptDisclaimer() }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .padding(.top, 4)
                 }
                 .padding(Theme.screenPadding)
-                .padding(.bottom, 88)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Before you walk")
             .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom) {
-                Button("I understand") { model.acceptDisclaimer() }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .padding(.horizontal, Theme.screenPadding)
-                    .padding(.vertical, 12)
-                    .background(Color(.systemGroupedBackground))
-            }
         }
     }
 }

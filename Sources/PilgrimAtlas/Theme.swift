@@ -166,8 +166,9 @@ extension View {
     }
 
     func pilgrimSheet() -> some View {
-        presentationDetents([.height(320), .medium, .large])
+        presentationDetents([.medium, .large, .height(360)])
             .presentationDragIndicator(.visible)
+            .presentationContentInteraction(.scrolls)
     }
 }
 
