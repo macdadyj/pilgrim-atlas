@@ -246,8 +246,8 @@ private struct TrailSketch: View {
                 context.stroke(path, with: .color(brown), lineWidth: 3)
             }
         }
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
     }
 
     private func trailLines(_ geometry: GeoJSONGeometry) -> [[LonLat]] {

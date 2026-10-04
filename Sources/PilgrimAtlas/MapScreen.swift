@@ -43,6 +43,8 @@ private struct MapChrome: View {
     @State private var showSearch: Bool
     @State private var showLayers: Bool
     @State private var tapMenu: TapMenu?
+    @State private var showCard = true
+    @State private var cardDetent = NearbyPanel.summaryDetent
 
     init(showSearch: Bool, showLayers: Bool, tapMenu: TapMenu?) {
         _showSearch = State(initialValue: showSearch)
@@ -75,115 +77,80 @@ private struct MapChrome: View {
             }
             .ignoresSafeArea()
 
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    Button { showSearch = true } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "magnifyingglass")
-                            Text("Search")
-                            Spacer(minLength: 0)
+            GeometryReader { geo in
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        Button { showSearch = true } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "magnifyingglass")
+                                Text("Search")
+                                Spacer(minLength: 0)
+                            }
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .background(.regularMaterial, in: Capsule())
                         }
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .background(.regularMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Search")
-                    Button { showLayers = true } label: {
-                        Image(systemName: "square.3.layers.3d")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .frame(width: 44, height: 44)
-                            .background(.regularMaterial, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("More map options")
-                    .overlay(alignment: .topTrailing) {
-                        if model.layerBadge > 0 {
-                            Text("\(model.layerBadge)")
-                                .font(.caption2.bold())
-                                .monospacedDigit()
-                                .foregroundStyle(.white)
-                                .padding(4)
-                                .background(Theme.accentFill, in: Circle())
-                                .offset(x: 4, y: -4)
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Search")
+                        Button { showLayers = true } label: {
+                            Image(systemName: "square.3.layers.3d")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 44, height: 44)
+                                .background(.regularMaterial, in: Circle())
                         }
-                    }
-                }
-                .padding(.horizontal, Theme.screenPadding)
-                FilterBar(scrollToFood: model.focusFoodChip)
-                Spacer(minLength: 0)
-                HStack(alignment: .bottom, spacing: 12) {
-                    Text("© OpenStreetMap contributors")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.mapInk)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Theme.mapCream.opacity(0.92), in: Capsule())
-                    Spacer(minLength: 0)
-                    Button { model.recenter() } label: {
-                        Image(systemName: "location")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .frame(width: 50, height: 50)
-                            .background(.regularMaterial, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Location")
-                }
-                .padding(.horizontal, Theme.screenPadding)
-                NearbyPanel(statusLine: statusLine)
-            }
-            .padding(.top, 8)
-            .safeAreaPadding(.bottom, 8)
-        }
-        .sheet(isPresented: $showSearch) {
-            SearchSheet(initialQuery: model.launch.search ?? "")
-                .pilgrimSheet()
-        }
-        .sheet(isPresented: $showLayers) {
-            LayersSheet()
-                .pilgrimSheet()
-        }
-        .sheet(item: $model.selectedPlace) { place in
-            DetailSheet(place: place)
-                .pilgrimSheet()
-        }
-        .sheet(item: $model.selectedTrail) { trail in
-            TrailSheet(trail: trail)
-                .pilgrimSheet()
-        }
-        .sheet(item: $tapMenu) { menu in
-            NavigationStack {
-                List(menu.choices) { choice in
-                    Button {
-                        tapMenu = nil
-                        model.openPlace(choice.place)
-                    } label: {
-                        HStack(spacing: 12) {
-                            IconTile(systemName: "mappin.and.ellipse")
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(choice.place.name)
-                                    .foregroundStyle(.primary)
-                                Text("\(PlaceText.kindLabel(for: choice.place)) · \(PlaceText.distanceLabel(choice.meters))")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("More map options")
+                        .overlay(alignment: .topTrailing) {
+                            if model.layerBadge > 0 {
+                                Text("\(model.layerBadge)")
+                                    .font(.caption2.bold())
                                     .monospacedDigit()
+                                    .foregroundStyle(.white)
+                                    .padding(4)
+                                    .background(Theme.accentFill, in: Circle())
+                                    .offset(x: 4, y: -4)
                             }
                         }
                     }
-                }
-                .navigationTitle("Places here")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { tapMenu = nil }
+                    .padding(.horizontal, Theme.screenPadding)
+                    FilterBar(scrollToFood: model.focusFoodChip)
+                    Spacer(minLength: 0)
+                    HStack(alignment: .bottom, spacing: 12) {
+                        Text("© OpenStreetMap contributors")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.mapInk)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Theme.mapCream.opacity(0.92), in: Capsule())
+                        Spacer(minLength: 0)
+                        Button { model.recenter() } label: {
+                            Image(systemName: "location")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 50, height: 50)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Location")
                     }
+                    .padding(.horizontal, Theme.screenPadding)
                 }
+                .padding(.top, 8)
+                .padding(.bottom, cardClearance(in: geo.size.height))
+                .safeAreaPadding(.bottom, 8)
             }
-            .pilgrimSheet()
+        }
+        .sheet(isPresented: $showCard) {
+            NearbyPanel(
+                showSearch: $showSearch,
+                showLayers: $showLayers,
+                tapMenu: $tapMenu,
+                detent: $cardDetent,
+                statusLine: statusLine
+            )
         }
         .alert("Online tiles", isPresented: $model.pendingOnlineConfirm) {
             Button("Keep offline") { model.onlineTiles = false }
@@ -208,6 +175,13 @@ private struct MapChrome: View {
         }
         if model.onlineTiles { return "Streets on. Land and landmarks stay on." }
         return "Offline. Place names are in the pack."
+    }
+
+    private func cardClearance(in height: CGFloat) -> CGFloat {
+        if cardDetent == NearbyPanel.mapDetent {
+            return height * 0.4
+        }
+        return 96
     }
 }
 
@@ -275,61 +249,141 @@ private struct FilterBar: View {
 }
 
 struct NearbyPanel: View {
+    static let summaryDetent = PresentationDetent.height(96)
+    static let mapDetent = PresentationDetent.fraction(0.4)
+
     @Environment(AtlasModel.self) private var model
+    @Binding var showSearch: Bool
+    @Binding var showLayers: Bool
+    @Binding var tapMenu: TapMenu?
+    @Binding var detent: PresentationDetent
     var statusLine: String
-    @State private var expanded = false
+    @State private var sheetsReady = false
+
+    private var expanded: Bool { detent == Self.mapDetent }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button {
-                expanded.toggle()
-            } label: {
-                VStack(spacing: 8) {
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.45))
-                        .frame(width: 36, height: 5)
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("What you can do here")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Spacer(minLength: 8)
-                        Image(systemName: expanded ? "chevron.down" : "chevron.up")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(expanded ? "Show less about this place" : "Show more about this place")
+        @Bindable var model = model
+        VStack(alignment: .leading, spacing: 0) {
             Text(model.summary?.headline ?? Copy.text("unknown"))
                 .font(.body)
                 .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(statusLine)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(expanded ? nil : 1)
+                .fixedSize(horizontal: false, vertical: expanded)
+                .padding(.horizontal, Theme.screenPadding)
+                .padding(.top, 4)
+                .padding(.bottom, expanded ? 0 : 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if expanded {
                 ScrollView {
-                    details
-                        .padding(.bottom, 8)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(statusLine)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("What you can do here")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        details
+                    }
+                    .padding(Theme.screenPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxHeight: 220)
+                .frame(maxHeight: .infinity)
             }
         }
-        .padding(Theme.screenPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            Color(.secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+        .frame(maxWidth: .infinity, maxHeight: expanded ? .infinity : nil, alignment: .top)
+        .background(Color(.secondarySystemGroupedBackground))
+        .presentationDetents([Self.summaryDetent, Self.mapDetent], selection: $detent)
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(Theme.cardRadius)
+        .presentationBackground(Color(.secondarySystemGroupedBackground))
+        .presentationBackgroundInteraction(.enabled(upThrough: Self.mapDetent))
+        .presentationContentInteraction(.scrolls)
+        .interactiveDismissDisabled()
+        .onAppear { sheetsReady = true }
+        .sheet(isPresented: searchPresented) {
+            SearchSheet(initialQuery: model.launch.search ?? "")
+                .pilgrimSheet()
+        }
+        .sheet(isPresented: layersPresented) {
+            LayersSheet()
+                .pilgrimSheet()
+        }
+        .sheet(item: presentedPlace) { place in
+            DetailSheet(place: place)
+                .pilgrimSheet()
+        }
+        .sheet(item: presentedTrail) { trail in
+            TrailSheet(trail: trail)
+                .pilgrimSheet()
+        }
+        .sheet(item: presentedMenu) { menu in
+            NavigationStack {
+                List(menu.choices) { choice in
+                    Button {
+                        tapMenu = nil
+                        model.openPlace(choice.place)
+                    } label: {
+                        HStack(spacing: 12) {
+                            IconTile(systemName: "mappin.and.ellipse")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(choice.place.name)
+                                    .foregroundStyle(.primary)
+                                Text("\(PlaceText.kindLabel(for: choice.place)) · \(PlaceText.distanceLabel(choice.meters))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Places here")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { tapMenu = nil }
+                    }
+                }
+            }
+            .pilgrimSheet()
+        }
+    }
+
+    private var searchPresented: Binding<Bool> {
+        Binding(
+            get: { sheetsReady && showSearch },
+            set: { showSearch = $0 }
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .stroke(Theme.hairline, lineWidth: 1)
+    }
+
+    private var layersPresented: Binding<Bool> {
+        Binding(
+            get: { sheetsReady && showLayers },
+            set: { showLayers = $0 }
         )
-        .padding(.horizontal, Theme.screenPadding)
-        .padding(.bottom, 8)
+    }
+
+    private var presentedPlace: Binding<PlaceRecord?> {
+        Binding(
+            get: { sheetsReady ? model.selectedPlace : nil },
+            set: { model.selectedPlace = $0 }
+        )
+    }
+
+    private var presentedTrail: Binding<TrailRecord?> {
+        Binding(
+            get: { sheetsReady ? model.selectedTrail : nil },
+            set: { model.selectedTrail = $0 }
+        )
+    }
+
+    private var presentedMenu: Binding<TapMenu?> {
+        Binding(
+            get: { sheetsReady ? tapMenu : nil },
+            set: { tapMenu = $0 }
+        )
     }
 
     @ViewBuilder

@@ -34,11 +34,11 @@ Trail lines are a cream casing (`#F4EFE4`) and a `#6B4F3A` core.
 
 ## Spacing
 
-16 points of screen padding and card padding. 18 points between license cards. 10 to 14 points between rows. Chips are capsules with at least a 44-point hit area. The primary button is about 50 points tall with a 14-point corner. The nearby card starts as one summary row and expands to about 40 percent of the screen. The location control is 50 points.
+16 points of screen padding and card padding. 18 points between license cards. 10 to 14 points between rows. Chips are capsules with at least a 44-point hit area. The primary button is about 50 points tall with a 14-point corner. The nearby card is a sheet: a short detent shows one summary row, and the next detent is 40 percent of the screen. The system drag indicator moves between them. The location control is 50 points. The trail-line well uses the same 18-point continuous radius as a card.
 
 ## Chrome
 
-One top row: a Search pill and the layers button. Licenses live in that sheet, not on a second button. Location is one floating control above the card. The card header carries a single status line. There is not a stack of capsules. Load errors, a denied location, a public-land or open-now sentence, and the offline line take that one line, in that order.
+One top row: a Search pill and the layers button. Licenses live in that sheet, not on a second button. Location is one floating control above the card. The short detent is only the summary sentence. Dragging the indicator to 40 percent shows the single status line and the rest, and that sheet scrolls inside the cap. There is not a stack of capsules. Load errors, a denied location, a public-land or open-now sentence, and the offline line take that one line, in that order.
 
 Filter chips scroll, including past the trailing edge when Reset is showing. Off chips are a tint on material, with no stroke. On chips are accent fill and white text. A light haptic fires when a filter changes. Food and rest stays disabled and reads “Not in this pack yet.”
 
