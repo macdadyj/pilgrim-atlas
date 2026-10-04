@@ -356,7 +356,7 @@ package enum PackStyleDocument {
                 "type": "symbol",
                 "source": "contours",
                 "source-layer": "contours",
-                "filter": ["==", ["get", "index"], 1],
+                "filter": ["all", ["==", ["get", "index"], 1], [">", ["get", "elev"], 0]],
                 "layout": [
                     "text-field": ["concat", ["to-string", ["get", "elev"]], " ft"],
                     "text-font": ["NotoSansRegular"],
@@ -493,6 +493,7 @@ package enum PackStyleDocument {
                     ],
                     "properties": [
                         "name": place.name,
+                        "label": PlaceText.pinLabel(place.name),
                         "catholic": place.catholic ? 1 : 0,
                         "category": place.category,
                     ],
@@ -520,7 +521,7 @@ package enum PackStyleDocument {
             symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
             symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 12, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
             symbol("places-chapel", "chapel", filter: named(chapel), overlap: false, sort: 2, iconSize: 0.92, anchors: ["bottom", "right", "left", "top"], geoJSON: geoJSON),
-            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 1, iconSize: 1.0, anchors: ["top", "left", "right", "bottom"], geoJSON: geoJSON),
+            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 1, iconSize: 1.0, anchors: ["top", "left", "right"], geoJSON: geoJSON, radialOffset: 2.4, textMaxWidth: 7),
         ]
     }
 
@@ -550,7 +551,12 @@ package enum PackStyleDocument {
                 ["in", "unnamed", ["downcase", ["get", "name"]]],
             ],
             "",
-            ["get", "name"],
+            [
+                "case",
+                ["!=", ["coalesce", ["get", "label"], ""], ""],
+                ["get", "label"],
+                ["get", "name"],
+            ],
         ]
     }
 
@@ -562,7 +568,9 @@ package enum PackStyleDocument {
         sort: Double,
         iconSize: Double,
         anchors: [String],
-        geoJSON: Bool
+        geoJSON: Bool,
+        radialOffset: Double = 1.7,
+        textMaxWidth: Double = 10
     ) -> [String: Any] {
         var layer: [String: Any] = [
             "id": identifier,
@@ -581,12 +589,12 @@ package enum PackStyleDocument {
                 "text-font": ["NotoSansRegular"],
                 "text-size": identifier == "places-catholic" ? 13 : 12,
                 "text-variable-anchor": anchors,
-                "text-radial-offset": 1.7,
+                "text-radial-offset": radialOffset,
                 "text-justify": "auto",
                 "text-allow-overlap": false,
                 "text-optional": true,
                 "text-padding": 10,
-                "text-max-width": 10,
+                "text-max-width": textMaxWidth,
             ],
             "paint": [
                 "text-color": "#1C1915",

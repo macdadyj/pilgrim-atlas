@@ -400,6 +400,16 @@ final class LogicTests: XCTestCase {
         let light = DebugLaunch.parse(["/PilgrimAtlas", "--debug-appearance", "light"])
         XCTAssertEqual(light.appearance, .light)
         XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas", "--debug-appearance=sepia"]).appearance)
+
+        let card = DebugLaunch.parse(["/PilgrimAtlas", "--debug-card=full"])
+        XCTAssertTrue(card.cardFull)
+        XCTAssertTrue(card.suppressesLocation)
+        XCTAssertTrue(card.skipsDisclaimer)
+        XCTAssertFalse(card.pinPlaza)
+        let cardSpaced = DebugLaunch.parse(["/PilgrimAtlas", "--debug-card", "full"])
+        XCTAssertTrue(cardSpaced.cardFull)
+        XCTAssertFalse(DebugLaunch.parse(["/PilgrimAtlas", "--debug-card=short"]).cardFull)
+        XCTAssertFalse(plain.cardFull)
     }
 
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
@@ -584,6 +594,7 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(terrainStyle.contains("contours-casing"))
         XCTAssertTrue(terrainStyle.contains("untitled"))
         XCTAssertTrue(terrainStyle.contains("\"text-halo-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],12,1.5,16,3.5]"))
+        XCTAssertTrue(terrainStyle.contains("[\"all\",[\"==\",[\"get\",\"index\"],1],[\">\",[\"get\",\"elev\"],0]]"))
         let deduped = PackStyleDocument.json(
             packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
             glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
@@ -596,6 +607,24 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(deduped.contains("pack-places"))
         XCTAssertTrue(deduped.contains("Santuario de Chimayo"))
         XCTAssertFalse(deduped.contains("Historic Site"))
+        let labeled = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: false,
+            places: [
+                samplePlace(
+                    id: 1295,
+                    name: "The Cathedral Basilica of Saint Francis of Assisi",
+                    category: "worship",
+                    catholic: true,
+                    lat: 35.686504,
+                    lon: -105.93624
+                ),
+            ]
+        )
+        XCTAssertTrue(labeled.contains("\"label\":\"Cathedral Basilica\""))
+        XCTAssertTrue(labeled.contains("\"text-radial-offset\":2.4"))
+        XCTAssertFalse(labeled.contains("\"text-variable-anchor\":[\"top\",\"left\",\"right\",\"bottom\"]"))
         XCTAssertTrue(PackCoverage.contains(DebugPin.plaza))
         let north = LonLat(lon: -105.94, lat: 39.74)
         XCTAssertFalse(PackCoverage.contains(north))

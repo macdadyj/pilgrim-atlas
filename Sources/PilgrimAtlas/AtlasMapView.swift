@@ -10,9 +10,12 @@ struct AtlasMapView: UIViewRepresentable {
     var places: [PlaceRecord]
     /// Sheet height from the bottom of the screen. The logo and info button sit one gap above it.
     var bottomObstruction: CGFloat
+    /// Home-indicator inset. The full-bleed map does not keep it, and MapLibre still subtracts it.
+    var bottomSafeArea: CGFloat
     var onSelect: (LonLat, [PlaceRecord]) -> Void
 
-    private static let topInset: CGFloat = 180
+    /// Search, the chip row, and one full pin, so symbols sit below the chips.
+    private static let topInset: CGFloat = 248
     /// Logo and info button, just above the card. The caption and location control sit above this band.
     static let ornamentGap: CGFloat = 16
     /// Tall enough for the info button. The wordmark is shorter.
@@ -120,7 +123,7 @@ struct AtlasMapView: UIViewRepresentable {
 
     private func applyChrome(on map: MLNMapView) {
         map.contentInset = UIEdgeInsets(top: Self.topInset, left: 8, bottom: bottomObstruction, right: 8)
-        let margin = CGPoint(x: 8, y: Self.ornamentGap)
+        let margin = CGPoint(x: 8, y: Self.ornamentGap + bottomSafeArea)
         map.logoViewPosition = .bottomLeft
         map.attributionButtonPosition = .bottomRight
         map.logoViewMargins = margin

@@ -21,7 +21,8 @@ struct MapScreen: View {
         MapChrome(
             showSearch: model.launch.search != nil,
             showLayers: model.launch.showLayers,
-            tapMenu: launchMenu
+            tapMenu: launchMenu,
+            cardFull: model.launch.cardFull
         )
     }
 
@@ -44,12 +45,13 @@ private struct MapChrome: View {
     @State private var showLayers: Bool
     @State private var tapMenu: TapMenu?
     @State private var showCard = true
-    @State private var cardDetent = NearbyPanel.summaryDetent
+    @State private var cardDetent: PresentationDetent
 
-    init(showSearch: Bool, showLayers: Bool, tapMenu: TapMenu?) {
+    init(showSearch: Bool, showLayers: Bool, tapMenu: TapMenu?, cardFull: Bool) {
         _showSearch = State(initialValue: showSearch)
         _showLayers = State(initialValue: showLayers)
         _tapMenu = State(initialValue: tapMenu)
+        _cardDetent = State(initialValue: cardFull ? NearbyPanel.mapDetent : NearbyPanel.summaryDetent)
     }
 
     var body: some View {
@@ -59,7 +61,8 @@ private struct MapChrome: View {
         ZStack(alignment: .top) {
             AtlasMapView(
                 places: AtlasQuery.mapPlaces(model.places.filter { MapFilter.includeInLists($0, filter: model.filter) }),
-                bottomObstruction: obstruction
+                bottomObstruction: obstruction,
+                bottomSafeArea: geo.safeAreaInsets.bottom
             ) { coordinate, hits in
                 if hits.count == 1, let place = hits.first {
                     model.openPlace(place)
@@ -159,7 +162,7 @@ private struct MapChrome: View {
                     .padding(.horizontal, Theme.screenPadding)
                 }
                 .padding(.top, 8)
-                .padding(.bottom, max(0, obstruction - geo.safeAreaInsets.bottom) + AtlasMapView.ornamentGap + AtlasMapView.ornamentBand + AtlasMapView.ornamentRowGap)
+                .padding(.bottom, max(obstruction, geo.safeAreaInsets.bottom) + AtlasMapView.ornamentGap + AtlasMapView.ornamentBand + AtlasMapView.ornamentRowGap)
                 .zIndex(1)
         }
         }
@@ -226,22 +229,22 @@ private struct FilterBar: View {
                         chip("Parks", on: model.filter.parks) { model.filter.parks.toggle() }
                         foodChip
                         chip("Open now", on: model.filter.openNow) { model.filter.openNow.toggle() }
-                        Color.clear.frame(width: 28)
                     }
                     .padding(.leading, 16)
-                    .padding(.trailing, 56)
+                    .padding(.trailing, 64)
                 }
-                .scrollClipDisabled(true)
-                .contentMargins(.trailing, 16, for: .scrollContent)
+                .contentMargins(.trailing, 24, for: .scrollContent)
                 .frame(height: 56)
-                .overlay(alignment: .trailing) {
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.45)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: 36)
-                    .allowsHitTesting(false)
+                .mask(alignment: .trailing) {
+                    HStack(spacing: 0) {
+                        Rectangle().fill(.black)
+                        LinearGradient(
+                            colors: [.black, .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: 56)
+                    }
                 }
                 .sensoryFeedback(.selection, trigger: model.filter)
                 .onAppear {
@@ -371,6 +374,7 @@ struct NearbyPanel: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .contentMargins(.bottom, 88, for: .scrollContent)
                 .navigationTitle("Places here")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

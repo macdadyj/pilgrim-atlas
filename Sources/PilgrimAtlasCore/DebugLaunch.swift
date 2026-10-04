@@ -20,6 +20,8 @@ package struct DebugLaunch: Equatable, Sendable {
     package var showTerrain: Bool
     package var focusFood: Bool
     package var outsideCoverage: Bool
+    /// Opens the nearby card at the 40 percent detent, with no drag.
+    package var cardFull: Bool
     package var appearance: DebugAppearance?
 
     package static let inactive = DebugLaunch(
@@ -35,6 +37,7 @@ package struct DebugLaunch: Equatable, Sendable {
         showTerrain: false,
         focusFood: false,
         outsideCoverage: false,
+        cardFull: false,
         appearance: nil
     )
 
@@ -58,6 +61,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || !filterTokens.isEmpty
             || showTerrain
             || outsideCoverage
+            || cardFull
     }
 
     /// Map screenshots skip the first-launch gate for this process only.
@@ -163,6 +167,10 @@ extension DebugLaunch {
                 launch.showLayers = true
             } else if argument == "--debug-outside-coverage" {
                 launch.outsideCoverage = true
+            } else if let value = taking("--debug-card", argument, arguments, index) {
+                if value.value == "full" { launch.cardFull = true }
+                index = value.next
+                continue
             } else if let value = taking("--debug-appearance", argument, arguments, index) {
                 if value.value == "light" {
                     launch.appearance = .light
