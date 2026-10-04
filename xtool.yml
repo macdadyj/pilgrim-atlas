@@ -1,0 +1,5 @@
+version: 1
+bundleID: com.lojo.PilgrimAtlas
+displayName: Pilgrim Atlas
+infoPath: Info.plist
+iconPath: AppIcon.png

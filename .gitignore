@@ -52,3 +52,15 @@ fastlane/test_output
 .env
 *.p12
 *.mobileprovision
+
+# Local build and the pipeline cache (raw downloads stay out of git)
+.venv/
+__pycache__/
+.pytest_cache/
+xtool/
+.sourcekit-lsp/
+*.pyc
+
+# Bulk intermediates. The built pack under Sources/ is committed when it fits.
+*.osm.pbf
+*.gpkg
