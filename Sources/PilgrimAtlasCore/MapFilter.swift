@@ -186,6 +186,37 @@ package enum MapFilter {
         return .landmark
     }
 
+    /// Picker and sheet label. Landmark rows use the name when it says gallery, monument, or saint.
+    package static func listKind(for place: PlaceRecord) -> (label: String, systemImage: String) {
+        let role = pinRole(for: place)
+        if role == .landmark, let finer = finerLandmark(place) {
+            return finer
+        }
+        return (role.legend, role.systemImage)
+    }
+
+    private static func finerLandmark(_ place: PlaceRecord) -> (label: String, systemImage: String)? {
+        let folded = AtlasQuery.fold(place.name)
+        if folded.contains("gallery") || folded.contains("fine art") {
+            return ("Gallery", "paintpalette.fill")
+        }
+        if folded.contains("monument") || folded.contains("memorial") || folded.contains("marker") {
+            return ("Monument", "flag.fill")
+        }
+        if folded.contains("statue") || namesASaint(folded) {
+            return ("Statue", "figure.stand")
+        }
+        if folded.contains("historic site") {
+            return ("Historic site", "building.columns")
+        }
+        return nil
+    }
+
+    private static func namesASaint(_ folded: String) -> Bool {
+        let tokens = folded.split { !$0.isLetter && !$0.isNumber }.map(String.init)
+        return tokens.contains("saint") || tokens.contains("st")
+    }
+
     package static func hoursReading(
         _ raw: String,
         now: Date = Date(),

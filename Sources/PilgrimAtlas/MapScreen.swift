@@ -54,8 +54,13 @@ private struct MapChrome: View {
 
     var body: some View {
         @Bindable var model = model
+        GeometryReader { geo in
+        let obstruction = sheetHeight(in: geo)
         ZStack(alignment: .top) {
-            AtlasMapView(places: model.places.filter { MapFilter.includeInLists($0, filter: model.filter) }) { coordinate, hits in
+            AtlasMapView(
+                places: AtlasQuery.mapPlaces(model.places.filter { MapFilter.includeInLists($0, filter: model.filter) }),
+                bottomObstruction: obstruction
+            ) { coordinate, hits in
                 if hits.count == 1, let place = hits.first {
                     model.openPlace(place)
                 } else if hits.count > 1 {
@@ -77,7 +82,6 @@ private struct MapChrome: View {
             }
             .ignoresSafeArea()
 
-            GeometryReader { geo in
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
                         Button { showSearch = true } label: {
@@ -155,9 +159,9 @@ private struct MapChrome: View {
                     .padding(.horizontal, Theme.screenPadding)
                 }
                 .padding(.top, 8)
-                .padding(.bottom, cardClearance(in: geo.size.height))
-                .safeAreaPadding(.bottom, 8)
-            }
+                .padding(.bottom, max(0, obstruction - geo.safeAreaInsets.bottom) + 16)
+                .zIndex(1)
+        }
         }
         .sheet(isPresented: $showCard) {
             NearbyPanel(
@@ -193,9 +197,10 @@ private struct MapChrome: View {
         return "Offline. Place names are in the pack."
     }
 
-    private func cardClearance(in height: CGFloat) -> CGFloat {
+    private func sheetHeight(in geo: GeometryProxy) -> CGFloat {
         if cardDetent == NearbyPanel.mapDetent {
-            return height * 0.4
+            let screen = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+            return screen * 0.4
         }
         return 96
     }
@@ -229,6 +234,15 @@ private struct FilterBar: View {
                 .scrollClipDisabled(true)
                 .contentMargins(.trailing, 16, for: .scrollContent)
                 .frame(height: 56)
+                .overlay(alignment: .trailing) {
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.45)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: 36)
+                    .allowsHitTesting(false)
+                }
                 .sensoryFeedback(.selection, trigger: model.filter)
                 .onAppear {
                     if scrollToFood {
@@ -282,7 +296,7 @@ struct NearbyPanel: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 0) {
-            Text(model.summary?.headline ?? Copy.text("unknown"))
+            Text(model.viewIsOutsidePack ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
                 .font(.body)
                 .foregroundStyle(.primary)
                 .lineLimit(expanded ? nil : 1)
@@ -344,7 +358,7 @@ struct NearbyPanel: View {
                         model.openPlace(choice.place)
                     } label: {
                         HStack(spacing: 12) {
-                            IconTile(systemName: MapFilter.pinRole(for: choice.place).systemImage)
+                            IconTile(systemName: PlaceText.rowSymbol(for: choice.place))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(choice.place.name)
                                     .foregroundStyle(.primary)
@@ -479,7 +493,7 @@ struct NearbyPanel: View {
 
     private func landmarkLabel(_ row: ExploreRow) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            IconTile(systemName: model.place(id: row.placeId).map { MapFilter.pinRole(for: $0).systemImage } ?? PinRole.landmark.systemImage)
+            IconTile(systemName: model.place(id: row.placeId).map { PlaceText.rowSymbol(for: $0) } ?? PinRole.landmark.systemImage)
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name)
                     .foregroundStyle(.primary)
@@ -721,7 +735,7 @@ struct SearchSheet: View {
         switch hit.kind {
         case .place:
             if let id = hit.placeId, let place = model.place(id: id) {
-                return MapFilter.pinRole(for: place).systemImage
+                return PlaceText.rowSymbol(for: place)
             }
             return PinRole.landmark.systemImage
         case .trail: return "figure.hiking"

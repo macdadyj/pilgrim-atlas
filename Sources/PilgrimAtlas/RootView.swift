@@ -6,10 +6,21 @@ struct RootView: View {
     @Environment(AtlasModel.self) private var model
 
     var body: some View {
-        if model.acceptedDisclaimer {
-            MapScreen()
-        } else {
-            DisclaimerGate(detailsOpen: model.disclaimerDetailsOpen)
+        Group {
+            if model.acceptedDisclaimer {
+                MapScreen()
+            } else {
+                DisclaimerGate(detailsOpen: model.disclaimerDetailsOpen)
+            }
+        }
+        .preferredColorScheme(debugScheme)
+    }
+
+    private var debugScheme: ColorScheme? {
+        switch model.launch.appearance {
+        case .light: return .light
+        case .dark: return .dark
+        case nil: return nil
         }
     }
 }

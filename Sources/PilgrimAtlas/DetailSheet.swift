@@ -14,7 +14,7 @@ struct DetailSheet: View {
             List {
                 Section {
                     HStack(alignment: .top, spacing: 12) {
-                        IconTile(systemName: MapFilter.pinRole(for: place).systemImage)
+                        IconTile(systemName: PlaceText.rowSymbol(for: place))
                         VStack(alignment: .leading, spacing: 6) {
                             Text(place.name)
                                 .font(.title2.weight(.semibold))
@@ -131,7 +131,8 @@ struct DetailSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 16, for: .scrollContent)
+            .contentMargins(.bottom, 72, for: .scrollContent)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(PlaceText.kindLabel(for: place))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -189,7 +190,8 @@ struct TrailSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 48, for: .scrollContent)
+            .contentMargins(.bottom, 72, for: .scrollContent)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

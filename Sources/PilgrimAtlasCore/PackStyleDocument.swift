@@ -37,7 +37,8 @@ package enum PackStyleDocument {
         online: Bool,
         hillshadeURL: String? = nil,
         contourURL: String? = nil,
-        landURL: String? = nil
+        landURL: String? = nil,
+        places: [PlaceRecord]? = nil
     ) -> String {
         let root = rootObject(
             packURL: packURL,
@@ -45,7 +46,8 @@ package enum PackStyleDocument {
             online: online,
             hillshadeURL: hillshadeURL,
             contourURL: contourURL,
-            landURL: landURL
+            landURL: landURL,
+            places: places
         )
         guard JSONSerialization.isValidJSONObject(root),
               let data = try? JSONSerialization.data(withJSONObject: root),
@@ -216,7 +218,8 @@ package enum PackStyleDocument {
         online: Bool,
         hillshadeURL: String?,
         contourURL: String?,
-        landURL: String?
+        landURL: String?,
+        places: [PlaceRecord]?
     ) -> [String: Any] {
         let contract = RenderContract.load()
         var sources: [String: Any] = [
@@ -239,6 +242,13 @@ package enum PackStyleDocument {
                 "type": "vector",
                 "url": contours,
                 "maxzoom": contract.terrainMaxZoom,
+            ]
+        }
+        let drawnPlaces = places.map(AtlasQuery.mapPlaces)
+        if let drawnPlaces {
+            sources["pack-places"] = [
+                "type": "geojson",
+                "data": placeFeatureCollection(drawnPlaces),
             ]
         }
         if online {
@@ -359,7 +369,7 @@ package enum PackStyleDocument {
                 "paint": [
                     "text-color": "#1C1915",
                     "text-halo-color": "#FFFFFF",
-                    "text-halo-width": 2.2,
+                    "text-halo-width": ["interpolate", ["linear"], ["zoom"], 12, 1.5, 16, 3.5],
                 ],
             ])
         }
@@ -414,7 +424,7 @@ package enum PackStyleDocument {
             "layout": ["visibility": "none"],
             "paint": ["line-color": "#5C5346", "line-width": 0.8],
         ])
-        layers.append(contentsOf: placeLayers())
+        layers.append(contentsOf: placeLayers(geoJSON: places != nil))
         if online {
             layers.append([
                 "id": "ofm-road-labels",
@@ -471,7 +481,27 @@ package enum PackStyleDocument {
         ]
     }
 
-    private static func placeLayers() -> [[String: Any]] {
+    private static func placeFeatureCollection(_ places: [PlaceRecord]) -> [String: Any] {
+        [
+            "type": "FeatureCollection",
+            "features": places.map { place -> [String: Any] in
+                [
+                    "type": "Feature",
+                    "geometry": [
+                        "type": "Point",
+                        "coordinates": [place.lon, place.lat],
+                    ],
+                    "properties": [
+                        "name": place.name,
+                        "catholic": place.catholic ? 1 : 0,
+                        "category": place.category,
+                    ],
+                ]
+            },
+        ]
+    }
+
+    private static func placeLayers(geoJSON: Bool) -> [[String: Any]] {
         let chapel = ["chapel", "cathedral", "basilica", "santuario"]
         let shrine = ["shrine", "statue"]
         let viewpoint = ["viewpoint", "overlook", "scenic"]
@@ -481,16 +511,16 @@ package enum PackStyleDocument {
         let trailhead = ["trailhead"]
         let special = chapel + shrine + viewpoint + museum + parking + water + trailhead
         return [
-            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, sort: 6, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, sort: 5, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-museum", "museum", filter: named(museum), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-parking", "parking", filter: named(parking), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-water", "water", filter: named(water), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 12, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
-            symbol("places-chapel", "chapel", filter: named(chapel), overlap: false, sort: 2, iconSize: 0.92, anchors: ["bottom", "right", "left", "top"]),
-            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 1, iconSize: 1.0, anchors: ["top", "left", "right", "bottom"]),
+            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, sort: 6, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, sort: 5, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-museum", "museum", filter: named(museum), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-parking", "parking", filter: named(parking), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-water", "water", filter: named(water), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 12, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
+            symbol("places-chapel", "chapel", filter: named(chapel), overlap: false, sort: 2, iconSize: 0.92, anchors: ["bottom", "right", "left", "top"], geoJSON: geoJSON),
+            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 1, iconSize: 1.0, anchors: ["top", "left", "right", "bottom"], geoJSON: geoJSON),
         ]
     }
 
@@ -531,13 +561,13 @@ package enum PackStyleDocument {
         overlap: Bool,
         sort: Double,
         iconSize: Double,
-        anchors: [String]
+        anchors: [String],
+        geoJSON: Bool
     ) -> [String: Any] {
-        [
+        var layer: [String: Any] = [
             "id": identifier,
             "type": "symbol",
-            "source": "pack",
-            "source-layer": "places",
+            "source": geoJSON ? "pack-places" : "pack",
             "filter": filter,
             "layout": [
                 "icon-image": icon,
@@ -564,5 +594,9 @@ package enum PackStyleDocument {
                 "text-halo-width": 2.0,
             ],
         ]
+        if !geoJSON {
+            layer["source-layer"] = "places"
+        }
+        return layer
     }
 }

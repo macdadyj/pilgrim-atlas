@@ -273,6 +273,26 @@ package enum AtlasQuery {
         )
     }
 
+    /// Places to draw. Drops a second pin when it sits on a richer one and the names
+    /// are the same site, including an exact repeat and a “Historic Site” alias.
+    package static func mapPlaces(_ places: [PlaceRecord]) -> [PlaceRecord] {
+        let ranked = places.sorted { lhs, rhs in
+            let left = PlaceText.richness(lhs)
+            let right = PlaceText.richness(rhs)
+            if left != right { return left > right }
+            return lhs.id < rhs.id
+        }
+        var kept: [PlaceRecord] = []
+        for place in ranked {
+            let duplicate = kept.contains { existing in
+                Geometry.haversineMeters(existing.coordinate, place.coordinate) <= 80
+                    && sameSiteName(existing.name, place.name)
+            }
+            if !duplicate { kept.append(place) }
+        }
+        return kept
+    }
+
     package static func search(
         _ query: String,
         places: [PlaceRecord],
@@ -537,14 +557,23 @@ package enum AtlasQuery {
     private static let nameStopwords: Set<String> = ["el", "the", "de", "of", "la", "los", "las", "del", "and", "a", "an"]
     private static let nameFillers: Set<String> = ["historic", "site", "memorial", "national", "monument"]
 
+    private static let genericTokens: Set<String> = [
+        "historic", "site", "memorial", "national", "monument", "landmark", "building", "church", "house",
+    ]
+
     private static func sameSiteName(_ leftName: String, _ rightName: String) -> Bool {
         let left = nameTokens(leftName)
         let right = nameTokens(rightName)
-        guard left.count >= 2, right.count >= 2 else { return false }
-        let shorter = left.count <= right.count ? left : right
-        let longer = left.count <= right.count ? right : left
-        guard shorter.isSubset(of: longer) else { return false }
-        return longer.subtracting(shorter).allSatisfy { nameFillers.contains($0) }
+        guard !left.isEmpty, !right.isEmpty else { return false }
+        if left.count >= 2, right.count >= 2 {
+            let shorter = left.count <= right.count ? left : right
+            let longer = left.count <= right.count ? right : left
+            if shorter.isSubset(of: longer), longer.subtracting(shorter).allSatisfy({ nameFillers.contains($0) }) {
+                return true
+            }
+        }
+        let shared = left.intersection(right).filter { $0.count >= 8 && !genericTokens.contains($0) }
+        return !shared.isEmpty
     }
 
     private static func nameTokens(_ name: String) -> Set<String> {

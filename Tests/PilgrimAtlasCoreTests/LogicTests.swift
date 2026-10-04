@@ -219,6 +219,26 @@ final class LogicTests: XCTestCase {
         )
         let chimayoIDs = merged.compactMap(\.placeId).filter { [54, 186, 585].contains($0) }
         XCTAssertEqual(chimayoIDs, [585])
+        let church = samplePlace(
+            id: 139,
+            name: "El Santuario Church National Historic Landmark",
+            category: "worship",
+            catholic: false,
+            lat: 35.989469,
+            lon: -105.93141
+        )
+        let drawn = AtlasQuery.mapPlaces(places + [historic, church])
+        let drawnIDs = Set(drawn.map(\.id))
+        XCTAssertTrue(drawnIDs.contains(585))
+        XCTAssertFalse(drawnIDs.contains(54))
+        XCTAssertFalse(drawnIDs.contains(186))
+        XCTAssertFalse(drawnIDs.contains(139))
+        XCTAssertTrue(drawnIDs.contains(1295))
+        XCTAssertTrue(drawnIDs.contains(732))
+        XCTAssertEqual(PlaceText.kindLabel(for: statue), "Statue")
+        XCTAssertEqual(PlaceText.rowSymbol(for: statue), "figure.stand")
+        XCTAssertEqual(PlaceText.kindLabel(for: basilica), "Catholic landmark")
+        XCTAssertEqual(PlaceText.rowSymbol(for: basilica), "cross.fill")
         XCTAssertEqual(Set(chimayo.map(\.id)).count, chimayo.count)
         let typed = AtlasQuery.search("Cathedral Basilica of St. Francis", places: places, trails: [])
         XCTAssertEqual(typed.first?.placeId, 1295)
@@ -367,6 +387,19 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(terrain.suppressesLocation)
         XCTAssertTrue(terrain.skipsDisclaimer)
         XCTAssertFalse(terrain.pinPlaza)
+
+        let outside = DebugLaunch.parse(["/PilgrimAtlas", "--debug-outside-coverage"])
+        XCTAssertTrue(outside.outsideCoverage)
+        XCTAssertTrue(outside.suppressesLocation)
+        XCTAssertTrue(outside.skipsDisclaimer)
+        XCTAssertFalse(PackCoverage.contains(DebugLaunch.outsideCoverageSample))
+
+        let dark = DebugLaunch.parse(["/PilgrimAtlas", "--debug-appearance=dark"])
+        XCTAssertEqual(dark.appearance, .dark)
+        XCTAssertFalse(dark.suppressesLocation)
+        let light = DebugLaunch.parse(["/PilgrimAtlas", "--debug-appearance", "light"])
+        XCTAssertEqual(light.appearance, .light)
+        XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas", "--debug-appearance=sepia"]).appearance)
     }
 
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
@@ -550,6 +583,19 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(terrainStyle.contains("\"raster-contrast\""))
         XCTAssertTrue(terrainStyle.contains("contours-casing"))
         XCTAssertTrue(terrainStyle.contains("untitled"))
+        XCTAssertTrue(terrainStyle.contains("\"text-halo-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],12,1.5,16,3.5]"))
+        let deduped = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: false,
+            places: [
+                samplePlace(id: 585, name: "Santuario de Chimayo", category: "worship", catholic: true, lat: 35.989078, lon: -105.931922, wikidata: "Q5352121"),
+                samplePlace(id: 186, name: "El Santuario de Chimayo Historic Site", category: "worship", catholic: true, lat: 35.989258, lon: -105.931691),
+            ]
+        )
+        XCTAssertTrue(deduped.contains("pack-places"))
+        XCTAssertTrue(deduped.contains("Santuario de Chimayo"))
+        XCTAssertFalse(deduped.contains("Historic Site"))
         XCTAssertTrue(PackCoverage.contains(DebugPin.plaza))
         let north = LonLat(lon: -105.94, lat: 39.74)
         XCTAssertFalse(PackCoverage.contains(north))

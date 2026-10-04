@@ -66,9 +66,10 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
         if parsed.suppressesLocation {
             summaryPinned = true
-            mapCenter = DebugPin.plaza
-            summaryPoint = DebugPin.plaza
-            cameraCenter = DebugPin.plaza
+            let origin = parsed.outsideCoverage ? DebugLaunch.outsideCoverageSample : DebugPin.plaza
+            mapCenter = origin
+            summaryPoint = origin
+            cameraCenter = origin
         } else {
             let manager = CLLocationManager()
             manager.delegate = self

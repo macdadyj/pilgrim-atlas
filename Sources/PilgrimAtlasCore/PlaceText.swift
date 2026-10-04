@@ -17,7 +17,11 @@ package enum PlaceText {
     ]
 
     package static func kindLabel(for place: PlaceRecord) -> String {
-        MapFilter.pinRole(for: place).legend
+        MapFilter.listKind(for: place).label
+    }
+
+    package static func rowSymbol(for place: PlaceRecord) -> String {
+        MapFilter.listKind(for: place).systemImage
     }
 
     package static func denominationLabel(_ raw: String) -> String {

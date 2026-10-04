@@ -1,5 +1,10 @@
 import Foundation
 
+package enum DebugAppearance: String, Equatable, Sendable {
+    case light
+    case dark
+}
+
 /// Debug-only screenshot launch. Release builds parse every argument list as inactive,
 /// and the flag spellings are compiled out.
 package struct DebugLaunch: Equatable, Sendable {
@@ -14,6 +19,8 @@ package struct DebugLaunch: Equatable, Sendable {
     package var filterTokens: [String]
     package var showTerrain: Bool
     package var focusFood: Bool
+    package var outsideCoverage: Bool
+    package var appearance: DebugAppearance?
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -26,8 +33,13 @@ package struct DebugLaunch: Equatable, Sendable {
         tap: nil,
         filterTokens: [],
         showTerrain: false,
-        focusFood: false
+        focusFood: false,
+        outsideCoverage: false,
+        appearance: nil
     )
+
+    /// North of the pack, same longitude as the plaza, for screenshots without GPS.
+    package static let outsideCoverageSample = LonLat(lon: -105.94, lat: 39.0)
 
     /// Cathedral steps. One 44-point tap here covers the basilica and the nearby statues.
     package static let placesPickerSample = LonLat(lon: -105.93624, lat: 35.686504)
@@ -45,6 +57,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || tap != nil
             || !filterTokens.isEmpty
             || showTerrain
+            || outsideCoverage
     }
 
     /// Map screenshots skip the first-launch gate for this process only.
@@ -148,6 +161,16 @@ extension DebugLaunch {
             } else if argument == "--debug-terrain" {
                 launch.showTerrain = true
                 launch.showLayers = true
+            } else if argument == "--debug-outside-coverage" {
+                launch.outsideCoverage = true
+            } else if let value = taking("--debug-appearance", argument, arguments, index) {
+                if value.value == "light" {
+                    launch.appearance = .light
+                } else if value.value == "dark" {
+                    launch.appearance = .dark
+                }
+                index = value.next
+                continue
             } else if let value = taking("--debug-filter", argument, arguments, index) {
                 let parts = value.value.split(separator: ",").map {
                     $0.trimmingCharacters(in: .whitespacesAndNewlines)

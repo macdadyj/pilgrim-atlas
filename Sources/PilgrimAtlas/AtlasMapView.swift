@@ -8,18 +8,19 @@ import UIKit
 struct AtlasMapView: UIViewRepresentable {
     @Environment(AtlasModel.self) private var model
     var places: [PlaceRecord]
+    /// Sheet height from the bottom of the screen. The logo and info button sit one gap above it.
+    var bottomObstruction: CGFloat
     var onSelect: (LonLat, [PlaceRecord]) -> Void
 
-    /// Logo sits just above the card. The top inset clears the Search pill and the chip row.
-    private static let ornamentMargin = CGPoint(x: 8, y: 8)
-    private static let mapInset = UIEdgeInsets(top: 180, left: 8, bottom: 300, right: 8)
+    private static let topInset: CGFloat = 180
+    private static let ornamentGap: CGFloat = 16
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onSelect: onSelect)
     }
 
     func makeUIView(context: Context) -> MLNMapView {
-        let map = MLNMapView(frame: .zero, styleURL: PackStyle.fileURL(online: model.onlineTiles))
+        let map = MLNMapView(frame: .zero, styleURL: PackStyle.fileURL(online: model.onlineTiles, places: model.places))
         map.delegate = context.coordinator
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
@@ -28,9 +29,7 @@ struct AtlasMapView: UIViewRepresentable {
             zoomLevel: model.cameraZoom,
             animated: false
         )
-        map.logoViewMargins = Self.ornamentMargin
-        map.attributionButtonMargins = Self.ornamentMargin
-        map.contentInset = Self.mapInset
+        applyChrome(on: map)
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.numberOfTapsRequired = 1
         map.addGestureRecognizer(tap)
@@ -63,10 +62,10 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
-        map.contentInset = Self.mapInset
+        applyChrome(on: map)
         if context.coordinator.lastOnline != model.onlineTiles {
             context.coordinator.lastOnline = model.onlineTiles
-            map.styleURL = PackStyle.fileURL(online: model.onlineTiles)
+            map.styleURL = PackStyle.fileURL(online: model.onlineTiles, places: model.places)
         }
         if context.coordinator.lastFit != model.fitToken, let fit = model.fitBounds {
             context.coordinator.lastFit = model.fitToken
@@ -113,6 +112,13 @@ struct AtlasMapView: UIViewRepresentable {
             reveal: model.searchReveal,
             filter: model.filter
         )
+    }
+
+    private func applyChrome(on map: MLNMapView) {
+        map.contentInset = UIEdgeInsets(top: Self.topInset, left: 8, bottom: bottomObstruction, right: 8)
+        let margin = CGPoint(x: 8, y: Self.ornamentGap)
+        map.logoViewMargins = margin
+        map.attributionButtonMargins = margin
     }
 
     final class Coordinator: NSObject, @MainActor MLNMapViewDelegate {
@@ -202,7 +208,7 @@ enum PackStyle {
     ]
     static let landOpacity = PackStyleDocument.landOpacity
 
-    static func fileURL(online: Bool) -> URL {
+    static func fileURL(online: Bool, places: [PlaceRecord]) -> URL {
         let destination = FileManager.default.temporaryDirectory
             .appendingPathComponent("pilgrim-atlas-style-\(online ? "online" : "offline").json")
         let json = PackStyleDocument.json(
@@ -211,7 +217,8 @@ enum PackStyle {
             online: online,
             hillshadeURL: archiveURL("northern-new-mexico-hillshade"),
             contourURL: archiveURL("northern-new-mexico-contours"),
-            landURL: archiveURL("northern-new-mexico-land")
+            landURL: archiveURL("northern-new-mexico-land"),
+            places: places
         )
         try? json.data(using: .utf8)?.write(to: destination)
         return destination
