@@ -1,14 +1,14 @@
 import Foundation
 
-/// Shared with `pipeline/tests/test_map_render.py`. Camera zoom 15 asks MapLibre
-/// for `min(cameraZoom, sourceMaxZoom)`. Land and trail tiles stop below the
-/// archive max zoom, so those sources must overzoom or the cream background is
-/// all that draws.
+/// Shared with `pipeline/tests/test_map_render.py`. The camera asks MapLibre
+/// for `min(cameraZoom, sourceMaxZoom)`.
 package struct RenderContract: Decodable, Equatable, Sendable {
     package var cameraZoom: Int
     package var landMaxZoom: Int
     package var trailMaxZoom: Int
     package var placeMaxZoom: Int
+    package var hillshadeMaxZoom: Int
+    package var terrainMaxZoom: Int
     package var minFillOpacity: Double
 
     package static func load() -> RenderContract {
@@ -17,10 +17,12 @@ package struct RenderContract: Decodable, Equatable, Sendable {
               let contract = try? JSONDecoder().decode(RenderContract.self, from: data)
         else {
             return RenderContract(
-                cameraZoom: 15,
-                landMaxZoom: 11,
+                cameraZoom: 16,
+                landMaxZoom: 14,
                 trailMaxZoom: 12,
                 placeMaxZoom: 14,
+                hillshadeMaxZoom: 12,
+                terrainMaxZoom: 12,
                 minFillOpacity: 0.45
             )
         }

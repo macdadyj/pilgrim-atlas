@@ -254,7 +254,7 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(facts.contains { $0.label == "Hours" && $0.value.contains("Mon–Sat") && $0.value.contains("9:00 AM") })
         XCTAssertFalse(facts.contains { $0.label == "Hours" && $0.value.contains("Mo-Sa") })
         XCTAssertTrue(facts.contains { $0.label == "Hours note" && $0.value == PlaceText.hoursConflictNote })
-        XCTAssertTrue(facts.contains { $0.label == "Access" && $0.value == "Tagged access=private. That tag is not a legal ruling." })
+        XCTAssertTrue(facts.contains { $0.label == "Access" && $0.value == "The map tag says private. That is how OpenStreetMap recorded it, not a ruling about your visit." })
         XCTAssertEqual(PlaceText.wikipediaURL("en:Loretto Chapel"), "https://en.wikipedia.org/wiki/Loretto_Chapel")
         XCTAssertEqual(facts.first { $0.label == "Wikipedia" }?.url, "https://en.wikipedia.org/wiki/Loretto_Chapel")
         XCTAssertEqual(facts.first { $0.label == "Wikidata" }?.url, "https://www.wikidata.org/wiki/Q2956557")
@@ -288,7 +288,7 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(PlaceText.wikipediaURL(basilica.wikipedia)?.contains("Cathedral_Basilica_of_St._Francis_of_Assisi_(Santa_Fe)") == true)
         XCTAssertNil(PlaceText.diamondNote(for: basilica))
         XCTAssertEqual(PlaceText.pinLabel(basilica.name), "Cathedral Basilica")
-        XCTAssertFalse(LandStatus.grantsEntry("Tagged access=private. That tag is not a legal ruling."))
+        XCTAssertFalse(LandStatus.grantsEntry("The map tag says private. That is how OpenStreetMap recorded it, not a ruling about your visit."))
     }
 
     func testDebugLaunchParsesScreenshotArguments() {
@@ -505,7 +505,8 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-catholic", filter: AtlasFilter(catholic: true)), true)
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(catholic: true)), false)
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(churches: true)), true)
-        XCTAssertEqual(PackStyleDocument.placeOpacity(filter: AtlasFilter(trails: true)), 0.28)
+        XCTAssertEqual(PackStyleDocument.placeOpacity(filter: AtlasFilter(trails: true)), 0.55)
+        XCTAssertEqual(PackStyleDocument.labelOpacity(filter: AtlasFilter(trails: true)), 1)
         let style = PackStyleDocument.json(
             packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
             glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",

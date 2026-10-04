@@ -41,7 +41,6 @@ struct MapScreen: View {
 private struct MapChrome: View {
     @Environment(AtlasModel.self) private var model
     @State private var showSearch: Bool
-    @State private var showLicenses = false
     @State private var showLayers: Bool
     @State private var tapMenu: TapMenu?
 
@@ -76,75 +75,85 @@ private struct MapChrome: View {
             }
             .ignoresSafeArea()
 
-            VStack(spacing: 8) {
-                HStack {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
                     Button { showSearch = true } label: {
-                        Label("Search", systemImage: "magnifyingglass")
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                            Text("Search")
+                            Spacer(minLength: 0)
+                        }
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .background(.regularMaterial, in: Capsule())
                     }
-                    .buttonStyle(.bordered)
-                    Spacer()
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Search")
                     Button { showLayers = true } label: {
                         Image(systemName: "square.3.layers.3d")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 44, height: 44)
+                            .background(.regularMaterial, in: Circle())
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
                     .accessibilityLabel("More map options")
                     .overlay(alignment: .topTrailing) {
                         if model.layerBadge > 0 {
                             Text("\(model.layerBadge)")
                                 .font(.caption2.bold())
-                                .foregroundStyle(Color.fieldCream)
+                                .monospacedDigit()
+                                .foregroundStyle(.white)
                                 .padding(4)
-                                .background(Color.fieldInk, in: Circle())
-                                .offset(x: 6, y: -6)
+                                .background(Theme.accentFill, in: Circle())
+                                .offset(x: 4, y: -4)
                         }
                     }
-                    Button { showLicenses = true } label: {
-                        Image(systemName: "info.circle")
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel("Licenses")
-                    Button { model.recenter() } label: {
-                        Image(systemName: "location")
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel("Location")
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Theme.screenPadding)
                 FilterBar(scrollToFood: model.focusFoodChip)
-                statusChip(statusLine)
-                if model.locationDenied && !model.debugPlaza {
-                    statusChip("Location is off. The map is staying on Santa Fe Plaza.")
-                }
-                if let loadError = model.loadError {
-                    statusChip(loadError)
-                }
-                Spacer()
-                HStack {
+                Spacer(minLength: 0)
+                HStack(alignment: .bottom, spacing: 12) {
                     Text("© OpenStreetMap contributors")
                         .font(.caption2)
-                        .foregroundStyle(Color.fieldInk)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.fieldCream.opacity(0.92), in: Capsule())
-                    Spacer()
+                        .foregroundStyle(Theme.mapInk)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.mapCream.opacity(0.92), in: Capsule())
+                    Spacer(minLength: 0)
+                    Button { model.recenter() } label: {
+                        Image(systemName: "location")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 50, height: 50)
+                            .background(.regularMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Location")
                 }
-                .padding(.horizontal, 12)
-                NearbyPanel()
-                    .frame(maxHeight: 320)
+                .padding(.horizontal, Theme.screenPadding)
+                NearbyPanel(statusLine: statusLine)
             }
             .padding(.top, 8)
+            .safeAreaPadding(.bottom, 8)
         }
         .sheet(isPresented: $showSearch) {
             SearchSheet(initialQuery: model.launch.search ?? "")
-                .presentationDetents([.medium, .large])
+                .pilgrimSheet()
         }
-        .sheet(isPresented: $showLicenses) { LicensesView() }
-        .sheet(isPresented: $showLayers) { LayersSheet() }
+        .sheet(isPresented: $showLayers) {
+            LayersSheet()
+                .pilgrimSheet()
+        }
         .sheet(item: $model.selectedPlace) { place in
             DetailSheet(place: place)
+                .pilgrimSheet()
         }
         .sheet(item: $model.selectedTrail) { trail in
             TrailSheet(trail: trail)
+                .pilgrimSheet()
         }
         .sheet(item: $tapMenu) { menu in
             NavigationStack {
@@ -153,19 +162,28 @@ private struct MapChrome: View {
                         tapMenu = nil
                         model.openPlace(choice.place)
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(choice.place.name)
-                                .foregroundStyle(.primary)
-                            Text("\(PlaceText.kindLabel(for: choice.place)) · \(PlaceText.distanceLabel(choice.meters))")
-                                .font(.subheadline)
-                                .foregroundStyle(.primary)
+                        HStack(spacing: 12) {
+                            IconTile(systemName: "mappin.and.ellipse")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(choice.place.name)
+                                    .foregroundStyle(.primary)
+                                Text("\(PlaceText.kindLabel(for: choice.place)) · \(PlaceText.distanceLabel(choice.meters))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
                         }
                     }
                 }
                 .navigationTitle("Places here")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { tapMenu = nil }
+                    }
+                }
             }
-            .presentationDetents([.medium])
+            .pilgrimSheet()
         }
         .alert("Online tiles", isPresented: $model.pendingOnlineConfirm) {
             Button("Keep offline") { model.onlineTiles = false }
@@ -178,29 +196,18 @@ private struct MapChrome: View {
     }
 
     private var statusLine: String {
-        var lines: [String] = []
-        if model.filter.publicLand { lines.append(MapFilter.publicLandSubtitle) }
+        if let loadError = model.loadError { return loadError }
+        if model.locationDenied && !model.debugPlaza {
+            return "Location is off. The map is staying on Santa Fe Plaza."
+        }
+        if model.filter.publicLand { return MapFilter.publicLandSubtitle }
         if model.filter.openNow {
             let coverage = MapFilter.coverage(model.places)
-            lines.append(coverage.line)
-            if let none = coverage.noneOpenLine { lines.append(none) }
+            if let none = coverage.noneOpenLine { return none }
+            return coverage.line
         }
-        if lines.isEmpty {
-            if model.onlineTiles { return "Streets on. Land and landmarks stay on." }
-            return "Offline. Place names are in the pack."
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private func statusChip(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(Color.fieldInk)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.fieldCream, in: Capsule())
-            .overlay(Capsule().stroke(Color.fieldInk, lineWidth: 1))
+        if model.onlineTiles { return "Streets on. Land and landmarks stay on." }
+        return "Offline. Place names are in the pack."
     }
 }
 
@@ -215,13 +222,7 @@ private struct FilterBar: View {
                 ScrollView(.horizontal, showsIndicators: true) {
                     HStack(spacing: 8) {
                         if model.filter.anyChip {
-                            Button("Reset") { model.resetFilters() }
-                                .buttonStyle(.plain)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color.fieldCream)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.fieldInk, in: Capsule())
+                            Chip(title: "Reset", on: true) { model.resetFilters() }
                         }
                         chip("Catholic sites", on: model.filter.catholic) { model.filter.catholic.toggle() }
                         chip("Churches and shrines", on: model.filter.churches) { model.filter.churches.toggle() }
@@ -230,10 +231,14 @@ private struct FilterBar: View {
                         chip("Parks", on: model.filter.parks) { model.filter.parks.toggle() }
                         foodChip
                         chip("Open now", on: model.filter.openNow) { model.filter.openNow.toggle() }
+                        Color.clear.frame(width: 28)
                     }
-                    .padding(.leading)
-                    .padding(.trailing, 48)
+                    .padding(.leading, 16)
+                    .padding(.trailing, 56)
                 }
+                .scrollClipDisabled(true)
+                .contentMargins(.trailing, 16, for: .scrollContent)
+                .sensoryFeedback(.selection, trigger: model.filter)
                 .onAppear {
                     if scrollToFood {
                         proxy.scrollTo("food", anchor: .center)
@@ -249,55 +254,90 @@ private struct FilterBar: View {
                 .font(.subheadline.weight(.semibold))
             Text(MapFilter.foodCount(model.places) == 0 ? MapFilter.foodSubtitle : "\(MapFilter.foodCount(model.places)) in the pack")
                 .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-        .foregroundStyle(Color.fieldInk)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.fieldCream, in: Capsule())
-        .overlay(Capsule().stroke(Color.fieldBrown, lineWidth: 1))
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .background {
+            ZStack {
+                Capsule().fill(.regularMaterial)
+                Capsule().fill(Theme.control.opacity(0.12))
+            }
+        }
         .id("food")
         .accessibilityLabel("Food and rest, \(MapFilter.foodSubtitle)")
     }
 
     private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(on ? Color.fieldCream : Color.fieldInk)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(on ? Color.fieldInk : Color.fieldCream, in: Capsule())
-                .overlay(Capsule().stroke(Color.fieldInk, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
+        Chip(title: title, on: on, action: action)
     }
 }
 
 struct NearbyPanel: View {
     @Environment(AtlasModel.self) private var model
+    var statusLine: String
+    @State private var expanded = false
 
     var body: some View {
-        ScrollView {
-            card
-        }
-        .frame(maxHeight: 320)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding()
-    }
-
-    private var card: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("What you can do here")
-                .font(.headline)
-                .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                expanded.toggle()
+            } label: {
+                VStack(spacing: 8) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.45))
+                        .frame(width: 36, height: 5)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("What you can do here")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Spacer(minLength: 8)
+                        Image(systemName: expanded ? "chevron.down" : "chevron.up")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(expanded ? "Show less about this place" : "Show more about this place")
             Text(model.summary?.headline ?? Copy.text("unknown"))
                 .font(.body)
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text(statusLine)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            if expanded {
+                ScrollView {
+                    details
+                        .padding(.bottom, 8)
+                }
+                .frame(maxHeight: 220)
+            }
+        }
+        .padding(Theme.screenPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color(.secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
+        .padding(.horizontal, Theme.screenPadding)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 12) {
             Text(model.summary?.permissionLine ?? PlaceText.permissionLine)
-                .font(.body)
-                .foregroundStyle(.primary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let summary = model.summary {
                 ForEach(summary.landmarks) { row in
@@ -312,72 +352,75 @@ struct NearbyPanel: View {
                 }
                 if !summary.landmarkGap.isEmpty {
                     Text(summary.landmarkGap)
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 if let trail = summary.trails.first, let record = model.trail(id: trail.trailId) {
                     Button {
                         model.openTrail(record)
                     } label: {
-                        HStack(alignment: .firstTextBaseline) {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            IconTile(systemName: "figure.hiking")
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(trail.name)
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Text("Hiking trail")
                                     .font(.subheadline)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer(minLength: 8)
                             Text(PlaceText.distanceLabel(trail.meters))
                                 .font(.subheadline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
                         }
                     }
                     .buttonStyle(.plain)
                 }
                 if !summary.trailGap.isEmpty {
                     Text(summary.trailGap)
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 if summary.headline != summary.land {
-                    DisclosureGroup("About this land") {
-                        Text(summary.land)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                            .padding(.top, 4)
-                    }
-                    .font(.body)
-                    .foregroundStyle(.primary)
+                    SectionTitle(text: "About this land")
+                    Text(summary.land)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(summary.closures.joined(separator: " "))
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                if !summary.closures.isEmpty {
+                    Text(summary.closures.joined(separator: " "))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if model.cameraMovedFromSummary {
                 Button("Use this point") { model.useCameraPoint() }
                     .buttonStyle(.bordered)
             }
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func landmarkLabel(_ row: ExploreRow) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            IconTile(systemName: "mappin.and.ellipse")
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(row.category)
                     .font(.subheadline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             Text(PlaceText.distanceLabel(row.meters))
                 .font(.subheadline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
         }
     }
 }
@@ -394,17 +437,17 @@ struct LayersSheet: View {
                     Toggle(isOn: $model.showTerrain) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Terrain")
-                            Text("Hillshade and 100 m contours, stored on this phone.")
-                                .font(.body)
-                                .foregroundStyle(.primary)
+                            Text("Hillshade, 100 ft contours, and labeled 500 ft index lines, stored on this phone.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     Toggle(isOn: $model.showParcels) {
                         VStack(alignment: .leading, spacing: 2) {
-                            labeledSwatch("5C5346", "Albuquerque lot lines")
+                            Text("Albuquerque lot lines")
                             Text("Albuquerque only. Not in Santa Fe.")
-                                .font(.body)
-                                .foregroundStyle(.primary)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     Toggle("Online OpenFreeMap tiles", isOn: Binding(
@@ -418,8 +461,47 @@ struct LayersSheet: View {
                         }
                     ))
                     Toggle("Hide places with no hours", isOn: $model.filter.hidePlacesWithoutHours)
+                    LabeledContent("Appearance") {
+                        Text("Follows this iPhone")
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    SectionTitle(text: "Map")
                 }
-                Section("Marker legend") {
+                Section {
+                    NavigationLink {
+                        LicensesView()
+                    } label: {
+                        HStack(spacing: 12) {
+                            IconTile(systemName: "doc.text")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Licenses")
+                                Text("Datasets and terms")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    SectionTitle(text: "About")
+                }
+                Section {
+                    terrainRow(weight: 3, color: Color(red: 0.16, green: 0.14, blue: 0.11), title: "Index contour, every 500 ft", detail: "Heavier line, labeled with elevation")
+                    terrainRow(weight: 1, color: Color(red: 0.55, green: 0.49, blue: 0.43), title: "Intermediate contour, every 100 ft", detail: "Thinner and lighter")
+                    HStack(spacing: 12) {
+                        IconTile(systemName: "mountain.2")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Hillshade")
+                                .foregroundStyle(.primary)
+                            Text("Slope from the bundled elevation. Flat ground stays even.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    SectionTitle(text: "Terrain legend")
+                }
+                Section {
                     ForEach(PinRole.allCases, id: \.rawValue) { role in
                         HStack(spacing: 12) {
                             Image(uiImage: PinArt.image(for: role))
@@ -429,17 +511,22 @@ struct LayersSheet: View {
                                 .foregroundStyle(.primary)
                         }
                     }
+                } header: {
+                    SectionTitle(text: "Marker legend")
                 }
-                Section("Land colors") {
+                Section {
                     ForEach(PackStyle.legend, id: \.name) { item in
                         labeledSwatch(item.hex, item.name)
                     }
                     Text("Lot lines are City of Albuquerque parcels without owner names. They are not a survey and not permission to enter. Santa Fe County parcels are not in this pack.")
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    SectionTitle(text: "Land colors")
                 }
             }
             .navigationTitle("More map options")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -448,13 +535,28 @@ struct LayersSheet: View {
         }
     }
 
+    private func terrainRow(weight: CGFloat, color: Color, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Capsule()
+                .fill(color)
+                .frame(width: 36, height: weight)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundStyle(.primary)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func labeledSwatch(_ hex: String, _ title: String) -> some View {
         HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.fieldCream)
-                .frame(width: 18, height: 18)
-                .overlay(RoundedRectangle(cornerRadius: 3).fill(Color(hex: hex).opacity(PackStyle.landOpacity)))
-                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.fieldInk.opacity(0.35), lineWidth: 1))
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Theme.mapCream)
+                .frame(width: 28, height: 28)
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: hex).opacity(PackStyle.landOpacity)))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
             Text(title)
                 .foregroundStyle(.primary)
         }
@@ -477,8 +579,18 @@ struct SearchSheet: View {
             List(hits) { hit in
                 searchRow(hit)
             }
+            .listStyle(.insetGrouped)
             .searchable(text: $query, prompt: "Search names on this phone")
             .navigationTitle(model.filter.searchTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear {
+                model.revealSearch(query)
+            }
             .onChange(of: query) { _, newValue in
                 model.revealSearch(newValue)
             }
@@ -518,14 +630,28 @@ struct SearchSheet: View {
     }
 
     private func searchLabel(_ hit: SearchHit) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(hit.name)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(searchDetail(hit))
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 12) {
+            IconTile(systemName: iconName(hit))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(hit.name)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(searchDetail(hit))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func iconName(_ hit: SearchHit) -> String {
+        switch hit.kind {
+        case .place: return "mappin.and.ellipse"
+        case .trail: return "figure.hiking"
+        case .town: return "building.2"
+        case .land: return "map"
+        case .note: return "info.circle"
         }
     }
 
@@ -563,10 +689,6 @@ struct SearchSheet: View {
 }
 
 extension Color {
-    static let fieldInk = Color(red: 0x1C / 255, green: 0x19 / 255, blue: 0x15 / 255)
-    static let fieldCream = Color(red: 0xF4 / 255, green: 0xEF / 255, blue: 0xE4 / 255)
-    static let fieldBrown = Color(red: 0x3A / 255, green: 0x32 / 255, blue: 0x28 / 255)
-
     init(hex: String) {
         var value: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&value)

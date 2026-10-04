@@ -25,20 +25,23 @@ struct DisclaimerGate: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 18) {
                     Text("Pilgrim Atlas")
                         .font(.largeTitle.bold())
                         .foregroundStyle(.primary)
                     Text("A map of public datasets for Santa Fe, Albuquerque, and northern New Mexico.")
                         .font(.title3)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.secondary)
                     Text("This does not give you permission to enter.")
                         .font(.body)
                         .foregroundStyle(.primary)
-                        .padding(12)
+                        .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary, lineWidth: 1.5))
+                        .background(Theme.statusAmber.opacity(0.16), in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                                .stroke(Theme.statusAmber.opacity(0.06), lineWidth: 1)
+                        )
                     DisclosureGroup(isExpanded: $detailsExpanded) {
                         VStack(alignment: .leading, spacing: 12) {
                             Text(Copy.text("trespass"))
@@ -53,20 +56,22 @@ struct DisclaimerGate: View {
                         .padding(.top, 8)
                     } label: {
                         Text("Details")
+                            .font(.body.weight(.semibold))
                     }
-                    .font(.body)
                     .foregroundStyle(.primary)
                 }
-                .padding()
+                .padding(Theme.screenPadding)
                 .padding(.bottom, 88)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Before you walk")
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {
                 Button("I understand") { model.acceptDisclaimer() }
-                    .buttonStyle(.borderedProminent)
-                    .padding()
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(PrimaryButtonStyle())
+                    .padding(.horizontal, Theme.screenPadding)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemGroupedBackground))
             }
         }
     }

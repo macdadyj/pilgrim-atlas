@@ -13,26 +13,33 @@ struct DetailSheet: View {
         NavigationStack {
             List {
                 Section {
-                    Text(place.name)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .top, spacing: 12) {
+                        IconTile(systemName: place.catholic ? "cross.fill" : "mappin.and.ellipse")
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(place.name)
+                                .font(.title2.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            let mark = Theme.hoursMark(hours)
+                            StatusMark(kind: mark.0, title: mark.1)
+                            if case .none = hours {
+                                Text(MapFilter.hoursMissing)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     if !place.denomination.isEmpty {
                         labeledRow("Denomination", PlaceText.denominationLabel(place.denomination))
                     }
-                    if case .none = hours {
-                        Text(MapFilter.hoursMissing)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                    }
                     if let note = PlaceText.diamondNote(for: place) {
                         Text(note)
-                            .font(.body)
-                            .foregroundStyle(.primary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 if !lines.isEmpty || facts.contains(where: { ["Service times", "Mass times", "Confession times"].contains($0.label) }) {
-                    Section("Hours") {
+                    Section {
                         ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                             Text(line)
                                 .font(.body.monospacedDigit())
@@ -45,17 +52,15 @@ struct DetailSheet: View {
                             if !facts.contains(where: { $0.label == "Hours note" }) {
                                 Text(MapFilter.hoursUnparsed)
                                     .font(.subheadline)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(.secondary)
                             }
-                        case .clock(let open):
-                            Text(open ? "Open now" : "Closed now")
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(.primary)
+                        case .clock:
+                            EmptyView()
                         }
                         if let note = facts.first(where: { $0.label == "Hours note" }) {
                             Text(note.value)
                                 .font(.subheadline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.secondary)
                         }
                         if let schedules = facts.first(where: { $0.label == "Schedules" }) {
                             Text(schedules.value)
@@ -65,57 +70,68 @@ struct DetailSheet: View {
                         ForEach(facts.filter { ["Service times", "Mass times", "Confession times"].contains($0.label) }) { fact in
                             LabeledContent(fact.label, value: fact.value)
                         }
+                    } header: {
+                        SectionTitle(text: "Hours")
                     }
                 }
                 if let address = facts.first(where: { $0.label == "Address" }) {
-                    Section("Address") {
+                    Section {
                         Text(address.value)
                             .font(.body)
                             .foregroundStyle(.primary)
                         if let raw = address.url, let url = URL(string: raw) {
                             Link("Open in Maps", destination: url)
                         }
+                    } header: {
+                        SectionTitle(text: "Address")
                     }
                 }
                 let details = facts.filter { fact in
                     !["Hours", "Hours note", "Schedules", "Address", "Website", "Wikipedia", "Wikidata", "Photo", "Service times", "Mass times", "Confession times"].contains(fact.label)
                 }
                 if !details.isEmpty {
-                    Section("Details") {
+                    Section {
                         ForEach(details) { fact in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(fact.label)
                                     .font(.subheadline)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(.secondary)
                                 Text(fact.value)
                                     .font(.body)
                                     .foregroundStyle(.primary)
                             }
                         }
+                    } header: {
+                        SectionTitle(text: "Details")
                     }
                 }
                 let links = facts.filter { ["Website", "Wikipedia", "Wikidata", "Photo"].contains($0.label) }
                 if !links.isEmpty {
-                    Section("Links") {
+                    Section {
                         ForEach(links) { fact in
                             if let raw = fact.url, let url = URL(string: raw) {
                                 Link(PlaceText.externalLinkTitle(label: fact.label, value: fact.value), destination: url)
                             }
                         }
+                    } header: {
+                        SectionTitle(text: "Links")
                     }
                 }
-                Section("Source") {
+                Section {
                     Text(PlaceText.sourceLine(source: place.source, sourceDate: place.sourceDate))
                         .font(.body)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(Copy.text("mass_footnote"))
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                } header: {
+                    SectionTitle(text: "Source")
                 }
             }
-            .contentMargins(.bottom, 28, for: .scrollContent)
+            .listStyle(.insetGrouped)
+            .contentMargins(.bottom, 16, for: .scrollContent)
             .navigationTitle(PlaceText.kindLabel(for: place))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -129,11 +145,12 @@ struct DetailSheet: View {
     private func labeledRow(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
             Text(value)
                 .font(.body)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -147,10 +164,13 @@ struct TrailSheet: View {
         NavigationStack {
             List {
                 Section {
-                    Text(trail.name.isEmpty ? "Unnamed hiking route" : trail.name)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .top, spacing: 12) {
+                        IconTile(systemName: "figure.hiking")
+                        Text(trail.name.isEmpty ? "Unnamed hiking route" : trail.name)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     TrailSketch(geometry: trail.geometry)
                         .frame(height: 140)
                         .accessibilityLabel("Trail line")
@@ -159,14 +179,17 @@ struct TrailSheet: View {
                     labeledTrailRow("Difficulty", "Not in the pack.")
                     labeledTrailRow("Access", AtlasQuery.trailSentence(trail.access))
                 }
-                Section("Source") {
+                Section {
                     Text(PlaceText.sourceLine(source: trail.source, sourceDate: trail.sourceDate))
                         .font(.body)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
+                } header: {
+                    SectionTitle(text: "Source")
                 }
             }
-            .contentMargins(.bottom, 28, for: .scrollContent)
+            .listStyle(.insetGrouped)
+            .contentMargins(.bottom, 16, for: .scrollContent)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -186,11 +209,12 @@ struct TrailSheet: View {
     private func labeledTrailRow(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
             Text(value)
                 .font(.body)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -222,8 +246,8 @@ private struct TrailSketch: View {
                 context.stroke(path, with: .color(brown), lineWidth: 3)
             }
         }
-        .background(Color.fieldCream, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.fieldInk.opacity(0.35), lineWidth: 1))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
     }
 
     private func trailLines(_ geometry: GeoJSONGeometry) -> [[LonLat]] {

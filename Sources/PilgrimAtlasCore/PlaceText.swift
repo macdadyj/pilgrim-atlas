@@ -121,7 +121,10 @@ package enum PlaceText {
     package static func accessSentence(_ value: String) -> String? {
         let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleaned.isEmpty { return nil }
-        return "Tagged access=\(cleaned). That tag is not a legal ruling."
+        if cleaned.lowercased() == "private" {
+            return "The map tag says private. That is how OpenStreetMap recorded it, not a ruling about your visit."
+        }
+        return "The map tag says \(cleaned). That is how OpenStreetMap recorded it, not a ruling about your visit."
     }
 
     package static func websiteURL(_ value: String) -> String? {

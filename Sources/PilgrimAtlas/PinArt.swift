@@ -9,8 +9,8 @@ enum PinArt {
         return renderer.image { _ in
             let bounds = CGRect(x: 6, y: 4, width: 60, height: 64)
             let path = shape(role, in: bounds)
-            UIColor(red: 0.96, green: 0.94, blue: 0.89, alpha: 1).setStroke()
-            path.lineWidth = 10
+            UIColor.white.setStroke()
+            path.lineWidth = 12
             path.lineJoinStyle = .round
             path.lineCapStyle = .round
             path.stroke()

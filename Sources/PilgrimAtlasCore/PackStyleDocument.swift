@@ -1,11 +1,10 @@
 import Foundation
 
-/// Offline MapLibre style. Land and trails use their own source max zoom so a
-/// camera at zoom 15 overzooms tiles that actually contain those layers. The
-/// archive max zoom is 14, and those tiles hold places (and Albuquerque parcels)
-/// only. One shared `pack` source therefore paints pins on a cream field.
+/// Offline MapLibre style. Land uses a detail archive through zoom 14.
+/// Trails stay on the main pack and overzoom from zoom 12. The main pack's
+/// zoom 14 tiles hold places (and Albuquerque parcels) only.
 package enum PackStyleDocument {
-    package static let landOpacity = 0.58
+    package static let landOpacity = 0.48
     package static let placeLayerIDs = [
         "places-landmark",
         "places-viewpoint",
@@ -37,14 +36,16 @@ package enum PackStyleDocument {
         glyphsURL: String,
         online: Bool,
         hillshadeURL: String? = nil,
-        contourURL: String? = nil
+        contourURL: String? = nil,
+        landURL: String? = nil
     ) -> String {
         let root = rootObject(
             packURL: packURL,
             glyphsURL: glyphsURL,
             online: online,
             hillshadeURL: hillshadeURL,
-            contourURL: contourURL
+            contourURL: contourURL,
+            landURL: landURL
         )
         guard JSONSerialization.isValidJSONObject(root),
               let data = try? JSONSerialization.data(withJSONObject: root),
@@ -97,6 +98,12 @@ package enum PackStyleDocument {
         if zoom(sources["pack-land"]) != contract.landMaxZoom { problems.append("land-maxzoom") }
         if zoom(sources["pack-trails"]) != contract.trailMaxZoom { problems.append("trail-maxzoom") }
         if zoom(sources["pack"]) != contract.placeMaxZoom { problems.append("place-maxzoom") }
+        if sources["hillshade"] != nil, zoom(sources["hillshade"]) != contract.hillshadeMaxZoom {
+            problems.append("hillshade-maxzoom")
+        }
+        if sources["contours"] != nil, zoom(sources["contours"]) != contract.terrainMaxZoom {
+            problems.append("contour-maxzoom")
+        }
         let layers = root["layers"] as? [[String: Any]] ?? []
         let ids = layers.compactMap { $0["id"] as? String }
         guard let landIndex = ids.firstIndex(of: "land-usfs"),
@@ -106,7 +113,7 @@ package enum PackStyleDocument {
         if let hill = ids.firstIndex(of: "hillshade"), hill > landIndex {
             problems.append("hillshade-above-land")
         }
-        if let contours = ids.firstIndex(of: "contours"), let trails = ids.firstIndex(of: "trails") {
+        if let contours = ids.firstIndex(of: "contours-index"), let trails = ids.firstIndex(of: "trails") {
             if contours < landIndex || contours > trails { problems.append("contour-order") }
         }
         for layer in layers {
@@ -131,6 +138,7 @@ package enum PackStyleDocument {
             if identifier == "places-catholic" {
                 let layout = layer["layout"] as? [String: Any] ?? [:]
                 if layout["text-allow-overlap"] as? Bool == true { problems.append("label-overlap") }
+                if layout["icon-allow-overlap"] as? Bool != true { problems.append("catholic-priority") }
                 if layout["text-optional"] as? Bool != true { problems.append("label-required") }
                 if layout["text-variable-anchor"] == nil { problems.append("label-anchor") }
             }
@@ -155,8 +163,13 @@ package enum PackStyleDocument {
     }
 
     package static func placeOpacity(filter: AtlasFilter) -> Double {
-        if filter.trails && !filter.restrictsPlaces { return 0.28 }
+        if filter.trails && !filter.restrictsPlaces { return 0.55 }
         return 1
+    }
+
+    /// Trail mode fades the marker, not the name. A 0.28 label on cream cannot be read.
+    package static func labelOpacity(filter: AtlasFilter) -> Double {
+        1
     }
 
     private static func parse(_ json: String) -> [String: Any]? {
@@ -202,12 +215,13 @@ package enum PackStyleDocument {
         glyphsURL: String,
         online: Bool,
         hillshadeURL: String?,
-        contourURL: String?
+        contourURL: String?,
+        landURL: String?
     ) -> [String: Any] {
         let contract = RenderContract.load()
         var sources: [String: Any] = [
             "pack": vectorSource(packURL, contract.placeMaxZoom),
-            "pack-land": vectorSource(packURL, contract.landMaxZoom),
+            "pack-land": vectorSource(landURL ?? packURL, contract.landMaxZoom),
             "pack-trails": vectorSource(packURL, contract.trailMaxZoom),
         ]
         let hillshade = hillshadeURL?.hasPrefix("pmtiles://") == true ? hillshadeURL : nil
@@ -217,14 +231,14 @@ package enum PackStyleDocument {
                 "type": "raster",
                 "url": hillshade,
                 "tileSize": 256,
-                "maxzoom": contract.landMaxZoom,
+                "maxzoom": contract.hillshadeMaxZoom,
             ]
         }
         if let contours {
             sources["contours"] = [
                 "type": "vector",
                 "url": contours,
-                "maxzoom": contract.landMaxZoom,
+                "maxzoom": contract.terrainMaxZoom,
             ]
         }
         if online {
@@ -245,7 +259,7 @@ package enum PackStyleDocument {
                 "id": "hillshade",
                 "type": "raster",
                 "source": "hillshade",
-                "paint": ["raster-opacity": 0.92, "raster-fade-duration": 0],
+                "paint": ["raster-opacity": 1, "raster-fade-duration": 0],
             ])
         }
         if online {
@@ -287,14 +301,48 @@ package enum PackStyleDocument {
         ])
         if contours != nil {
             layers.append([
-                "id": "contours",
+                "id": "contours-intermediate",
                 "type": "line",
                 "source": "contours",
                 "source-layer": "contours",
+                "filter": ["!=", ["get", "index"], 1],
                 "paint": [
-                    "line-color": "#5C5146",
-                    "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 15, 1.2],
-                    "line-opacity": 0.8,
+                    "line-color": "#B7A99A",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 16, 0.9],
+                    "line-opacity": 0.55,
+                ],
+            ])
+            layers.append([
+                "id": "contours-index",
+                "type": "line",
+                "source": "contours",
+                "source-layer": "contours",
+                "filter": ["==", ["get", "index"], 1],
+                "paint": [
+                    "line-color": "#2A241C",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.1, 16, 2.2],
+                    "line-opacity": 0.9,
+                ],
+            ])
+            layers.append([
+                "id": "contour-labels",
+                "type": "symbol",
+                "source": "contours",
+                "source-layer": "contours",
+                "filter": ["==", ["get", "index"], 1],
+                "layout": [
+                    "text-field": ["concat", ["to-string", ["get", "elev"]], " ft"],
+                    "text-font": ["NotoSansRegular"],
+                    "text-size": 11,
+                    "symbol-placement": "line",
+                    "text-optional": true,
+                    "text-max-angle": 30,
+                    "text-padding": 8,
+                ],
+                "paint": [
+                    "text-color": "#2A241C",
+                    "text-halo-color": "#FFFFFF",
+                    "text-halo-width": 1.6,
                 ],
             ])
         }
@@ -416,16 +464,16 @@ package enum PackStyleDocument {
         let trailhead = ["trailhead"]
         let special = chapel + shrine + viewpoint + museum + parking + water + trailhead
         return [
-            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 10, iconSize: 0.88),
-            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, sort: 40, iconSize: 0.88),
-            symbol("places-museum", "museum", filter: named(museum), overlap: false, sort: 40, iconSize: 0.88),
-            symbol("places-parking", "parking", filter: named(parking), overlap: false, sort: 40, iconSize: 0.88),
-            symbol("places-water", "water", filter: named(water), overlap: false, sort: 40, iconSize: 0.88),
-            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 40, iconSize: 0.88),
-            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, sort: 60, iconSize: 0.88),
-            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, sort: 50, iconSize: 0.88),
-            symbol("places-chapel", "chapel", filter: named(chapel), overlap: true, sort: 90, iconSize: 1.05),
-            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 100, iconSize: 1.05),
+            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, sort: 6, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, sort: 5, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-museum", "museum", filter: named(museum), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-parking", "parking", filter: named(parking), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-water", "water", filter: named(water), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 12, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"]),
+            symbol("places-chapel", "chapel", filter: named(chapel), overlap: false, sort: 2, iconSize: 0.92, anchors: ["bottom", "right", "left", "top"]),
+            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 1, iconSize: 1.0, anchors: ["top", "left", "right", "bottom"]),
         ]
     }
 
@@ -451,7 +499,8 @@ package enum PackStyleDocument {
         filter: [Any],
         overlap: Bool,
         sort: Double,
-        iconSize: Double
+        iconSize: Double,
+        anchors: [String]
     ) -> [String: Any] {
         [
             "id": identifier,
@@ -463,23 +512,25 @@ package enum PackStyleDocument {
                 "icon-image": icon,
                 "icon-size": iconSize,
                 "icon-allow-overlap": overlap,
-                "icon-padding": 4,
+                "icon-ignore-placement": false,
+                "icon-padding": 6,
                 "symbol-sort-key": sort,
+                "symbol-z-order": "source",
                 "text-field": ["get", "name"],
                 "text-font": ["NotoSansRegular"],
-                "text-size": 12,
-                "text-variable-anchor": ["top", "bottom", "left", "right"],
-                "text-radial-offset": 1.35,
+                "text-size": identifier == "places-catholic" ? 13 : 12,
+                "text-variable-anchor": anchors,
+                "text-radial-offset": 1.7,
                 "text-justify": "auto",
                 "text-allow-overlap": false,
                 "text-optional": true,
-                "text-padding": 4,
-                "text-max-width": 11,
+                "text-padding": 10,
+                "text-max-width": 10,
             ],
             "paint": [
                 "text-color": "#1C1915",
-                "text-halo-color": "#F4EFE4",
-                "text-halo-width": 1.6,
+                "text-halo-color": "#FFFFFF",
+                "text-halo-width": 2.0,
             ],
         ]
     }

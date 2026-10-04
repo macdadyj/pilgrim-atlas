@@ -2,7 +2,7 @@
 
 Source tiles are Mapzen Terrain Tiles on AWS Open Data (Terrarium RGB),
 licensed CC BY 4.0 and ODbL. This script derives a hillshade JPEG archive and
-100-meter contour vectors so the phone does not call that server.
+100-foot contours with a heavier 500-foot index so the phone does not call that server.
 """
 
 import gzip
@@ -23,9 +23,11 @@ from shapely.geometry import LineString, box
 from .bbox import NORTHERN_NM
 
 TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-HILL_ZOOMS = range(7, 12)
-CONTOUR_ZOOMS = range(10, 12)
-CONTOUR_INTERVAL_M = 100
+HILL_ZOOMS = range(7, 13)
+CONTOUR_ZOOMS = range(12, 13)
+CONTOUR_INTERVAL_FT = 100
+INDEX_INTERVAL_FT = 500
+FEET_PER_METER = 3.280839895
 USER_AGENT = "PilgrimAtlas/terrain (offline pack; contact team@lojo.engineering)"
 
 
@@ -87,17 +89,24 @@ def _hillshade_jpeg(image: Image.Image, zoom: int, lat: float) -> bytes:
     g = padded[2:, :-2]
     h = padded[2:, 1:-1]
     i = padded[2:, 2:]
-    dzdx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell)
-    dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / (8 * cell)
+    exaggeration = 4.0
+    dzdx = ((c + 2 * f + i) - (a + 2 * d + g)) / (8 * cell) * exaggeration
+    dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / (8 * cell) * exaggeration
     slope = np.arctan(np.hypot(dzdx, dzdy))
     aspect = np.arctan2(dzdy, -dzdx)
     azimuth = math.radians(315)
     altitude = math.radians(45)
     shade = np.cos(altitude) * np.cos(slope) + np.sin(altitude) * np.sin(slope) * np.cos(azimuth - aspect)
     shade = np.clip(shade, 0.0, 1.0)
-    value = (70 + 175 * shade).astype(np.uint8)
+    flat = math.cos(altitude)
+    contrast = np.clip((shade - flat) * 2.4 + 0.48, 0.0, 1.0)
+    value = (20 + 230 * contrast).astype(np.uint8)
     rgb = np.stack(
-        [value, (value.astype(np.float64) * 0.97).astype(np.uint8), (value.astype(np.float64) * 0.90).astype(np.uint8)],
+        [
+            (value.astype(np.float64) * 0.86).astype(np.uint8),
+            (value.astype(np.float64) * 0.90).astype(np.uint8),
+            (value.astype(np.float64) * 0.96).astype(np.uint8),
+        ],
         axis=-1,
     )
     buffer = BytesIO()
@@ -162,14 +171,14 @@ def _stitch(pairs: list[tuple[tuple[float, float], tuple[float, float]]]) -> lis
 
 
 def _contours(image: Image.Image, bounds: tuple[float, float, float, float]) -> list:
-    grid = _elevation(image, step=2)
+    grid = _elevation(image, step=2) * FEET_PER_METER
     height, width = grid.shape
     if height < 2 or width < 2:
         return []
     low = float(np.min(grid))
     high = float(np.max(grid))
-    level = int(math.floor(low / CONTOUR_INTERVAL_M) * CONTOUR_INTERVAL_M)
-    stop = int(math.ceil(high / CONTOUR_INTERVAL_M) * CONTOUR_INTERVAL_M)
+    level = int(math.floor(low / CONTOUR_INTERVAL_FT) * CONTOUR_INTERVAL_FT)
+    stop = int(math.ceil(high / CONTOUR_INTERVAL_FT) * CONTOUR_INTERVAL_FT)
     tile = box(*bounds)
     lines = []
     while level <= stop:
@@ -203,15 +212,19 @@ def _contours(image: Image.Image, bounds: tuple[float, float, float, float]) -> 
         for line in _stitch(segments):
             if line.is_empty or not line.intersects(tile):
                 continue
-            lines.append((line, level))
-        level += CONTOUR_INTERVAL_M
+            index = 1 if level % INDEX_INTERVAL_FT == 0 else 0
+            lines.append((line, level, index))
+        level += CONTOUR_INTERVAL_FT
     return lines
 
 
 def _encode_contours(features: list, bounds) -> bytes | None:
     if not features:
         return None
-    encoded = [{"geometry": geom, "properties": {"elev": elev}} for geom, elev in features]
+    encoded = [
+        {"geometry": geom, "properties": {"elev": int(elev), "index": int(index)}}
+        for geom, elev, index in features
+    ]
     tile = mapbox_vector_tile.encode(
         [{"name": "contours", "features": encoded}],
         default_options={"quantize_bounds": bounds, "extents": 4096},
@@ -265,8 +278,8 @@ def build(hillshade_path: Path, contour_path: Path, cache: Path) -> None:
     contour_meta = {
         "name": "Pilgrim Atlas contours",
         "format": "pbf",
-        "attribution": "100 m contours derived from Mapzen Terrain Tiles, CC BY 4.0 and ODbL",
-        "vector_layers": [{"id": "contours", "fields": {"elev": "Number"}}],
+        "attribution": "Contours derived from Mapzen Terrain Tiles, CC BY 4.0 and ODbL. Index lines are 500 ft.",
+        "vector_layers": [{"id": "contours", "fields": {"elev": "Number", "index": "Number"}}],
     }
     with write(str(hillshade_path)) as hill_writer, write(str(contour_path)) as contour_writer:
         for index, (zoom, x, y) in enumerate(jobs):
@@ -280,8 +293,8 @@ def build(hillshade_path: Path, contour_path: Path, cache: Path) -> None:
                     contour_writer.write_tile(zxy_to_tileid(zoom, x, y), encoded)
             if index and index % 20 == 0:
                 print(f"  shaded {index}/{len(jobs)}", flush=True)
-        hill_writer.finalize(_header(7, 11, Compression.NONE, TileType.JPEG), hill_meta)
-        contour_writer.finalize(_header(10, 11, Compression.GZIP, TileType.MVT), contour_meta)
+        hill_writer.finalize(_header(7, 12, Compression.NONE, TileType.JPEG), hill_meta)
+        contour_writer.finalize(_header(12, 12, Compression.GZIP, TileType.MVT), contour_meta)
     print(f"hillshade {hillshade_path.stat().st_size} contours {contour_path.stat().st_size}", flush=True)
 
 

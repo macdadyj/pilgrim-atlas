@@ -39,7 +39,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var focusFoodChip = false
     var pendingOnlineConfirm = false
     var cameraToken = 0
-    var cameraZoom = 15.0
+    var cameraZoom = 16.0
     var fitBounds: CameraFit?
     var fitToken = 0
     var locationDenied = false
@@ -137,7 +137,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         AtlasQuery.search(query, places: places, trails: trails, origin: summaryPoint, lands: lands, filter: filter)
     }
 
-    /// Fits the camera to the first results and keeps pins visible while a chip would hide them.
+    /// Recenters on the nearest hit so a chip plus a common word does not fit the whole region.
     func revealSearch(_ query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -149,32 +149,42 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
             if let point = coordinate(for: hit) {
                 points.append(point)
             }
-            if points.count == 8 { break }
+            if points.count == 24 { break }
         }
-        guard let first = points.first else {
+        guard let nearest = points.first else {
             searchReveal = false
             return
         }
         searchReveal = true
         summaryPinned = true
-        if points.count == 1 {
-            summaryPoint = first
-            focusCamera(on: first, zoom: 15)
+        let cluster = points.filter { Geometry.haversineMeters($0, nearest) <= 2_500 }
+        if cluster.count <= 1 {
+            summaryPoint = nearest
+            focusCamera(on: nearest, zoom: 16)
             refreshSummary()
             return
         }
-        var minLon = first.lon
-        var minLat = first.lat
-        var maxLon = first.lon
-        var maxLat = first.lat
-        for point in points.dropFirst() {
+        var minLon = cluster[0].lon
+        var minLat = cluster[0].lat
+        var maxLon = cluster[0].lon
+        var maxLat = cluster[0].lat
+        for point in cluster.dropFirst() {
             minLon = min(minLon, point.lon)
             minLat = min(minLat, point.lat)
             maxLon = max(maxLon, point.lon)
             maxLat = max(maxLat, point.lat)
         }
-        summaryPoint = LonLat(lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2)
-        fitCamera(CameraFit(minLon: minLon, minLat: minLat, maxLon: maxLon, maxLat: maxLat))
+        let mid = LonLat(lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2)
+        let span = max(
+            Geometry.haversineMeters(LonLat(lon: minLon, lat: mid.lat), LonLat(lon: maxLon, lat: mid.lat)),
+            Geometry.haversineMeters(LonLat(lon: mid.lon, lat: minLat), LonLat(lon: mid.lon, lat: maxLat))
+        )
+        summaryPoint = span > 8_000 ? nearest : mid
+        if span > 8_000 {
+            focusCamera(on: nearest, zoom: 16)
+        } else {
+            fitCamera(CameraFit(minLon: minLon, minLat: minLat, maxLon: maxLon, maxLat: maxLat))
+        }
         refreshSummary()
     }
 
@@ -194,7 +204,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         guard let locator else {
             summaryPoint = DebugPin.plaza
             summaryPinned = true
-            focusCamera(on: DebugPin.plaza, zoom: 15)
+            focusCamera(on: DebugPin.plaza, zoom: 16)
             refreshSummary()
             return
         }
@@ -208,7 +218,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         if let userCoordinate {
             summaryPoint = userCoordinate
             summaryPinned = false
-            focusCamera(on: userCoordinate, zoom: 15)
+            focusCamera(on: userCoordinate, zoom: 16)
             refreshSummary()
         }
         locator.requestWhenInUseAuthorization()
@@ -278,7 +288,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
             self.userCoordinate = coordinate
             if !self.didCenterOnUser && !self.summaryPinned {
                 self.summaryPoint = coordinate
-                self.focusCamera(on: coordinate, zoom: 15)
+                self.focusCamera(on: coordinate, zoom: 16)
                 self.didCenterOnUser = true
             }
             if !self.summaryPinned {
@@ -309,7 +319,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private func holdOnPlaza() {
         summaryPoint = DebugPin.plaza
         summaryPinned = true
-        focusCamera(on: DebugPin.plaza, zoom: 15)
+        focusCamera(on: DebugPin.plaza, zoom: 16)
         refreshSummary()
     }
 

@@ -27,6 +27,7 @@ struct AtlasMapView: UIViewRepresentable {
         let ornament = CGPoint(x: 8, y: 400)
         map.logoViewMargins = ornament
         map.attributionButtonMargins = ornament
+        map.contentInset = UIEdgeInsets(top: 108, left: 8, bottom: 300, right: 8)
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.numberOfTapsRequired = 1
         map.addGestureRecognizer(tap)
@@ -59,6 +60,7 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
+        map.contentInset = UIEdgeInsets(top: 108, left: 8, bottom: 300, right: 8)
         if context.coordinator.lastOnline != model.onlineTiles {
             context.coordinator.lastOnline = model.onlineTiles
             map.styleURL = PackStyle.fileURL(online: model.onlineTiles)
@@ -205,7 +207,8 @@ enum PackStyle {
             glyphsURL: glyphsTemplate(),
             online: online,
             hillshadeURL: archiveURL("northern-new-mexico-hillshade"),
-            contourURL: archiveURL("northern-new-mexico-contours")
+            contourURL: archiveURL("northern-new-mexico-contours"),
+            landURL: archiveURL("northern-new-mexico-land")
         )
         try? json.data(using: .utf8)?.write(to: destination)
         return destination
@@ -233,7 +236,11 @@ enum PackStyle {
             let identifier = layer.identifier
             if let fill = layer as? MLNFillStyleLayer, let kind = landKind(identifier) {
                 fill.fillOpacity = landOpacityExpression(kind: kind, filter: filter)
-            } else if identifier == "hillshade" || identifier == "contours" {
+            } else if identifier == "hillshade"
+                || identifier == "contours-intermediate"
+                || identifier == "contours-index"
+                || identifier == "contour-labels"
+            {
                 layer.isVisible = terrain
             } else if identifier == "trails" || identifier == "trails-casing" {
                 layer.isVisible = trails
@@ -243,15 +250,14 @@ enum PackStyle {
                 let shown = reveal || PackStyleDocument.showsPlaceLayer(identifier, filter: filter)
                 layer.isVisible = places && shown
                 if let symbol = layer as? MLNSymbolStyleLayer {
-                    let opacity = reveal ? 1.0 : PackStyleDocument.placeOpacity(filter: filter)
-                    if opacity < 1 {
-                        let value = NSExpression(forConstantValue: NSNumber(value: opacity))
-                        symbol.iconOpacity = value
-                        symbol.textOpacity = value
-                    } else {
-                        symbol.iconOpacity = nil
-                        symbol.textOpacity = nil
-                    }
+                    let iconOpacity = reveal ? 1.0 : PackStyleDocument.placeOpacity(filter: filter)
+                    let textOpacity = reveal ? 1.0 : PackStyleDocument.labelOpacity(filter: filter)
+                    symbol.iconOpacity = iconOpacity < 1
+                        ? NSExpression(forConstantValue: NSNumber(value: iconOpacity))
+                        : nil
+                    symbol.textOpacity = textOpacity < 1
+                        ? NSExpression(forConstantValue: NSNumber(value: textOpacity))
+                        : nil
                 }
                 if identifier == "places-worship", let vector = layer as? MLNVectorStyleLayer {
                     if filter.churches && !filter.catholic {
