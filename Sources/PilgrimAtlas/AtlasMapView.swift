@@ -13,7 +13,11 @@ struct AtlasMapView: UIViewRepresentable {
     var onSelect: (LonLat, [PlaceRecord]) -> Void
 
     private static let topInset: CGFloat = 180
-    private static let ornamentGap: CGFloat = 16
+    /// Logo and info button, just above the card. The caption and location control sit above this band.
+    static let ornamentGap: CGFloat = 16
+    /// Tall enough for the info button. The wordmark is shorter.
+    static let ornamentBand: CGFloat = 44
+    static let ornamentRowGap: CGFloat = 8
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onSelect: onSelect)
@@ -117,6 +121,8 @@ struct AtlasMapView: UIViewRepresentable {
     private func applyChrome(on map: MLNMapView) {
         map.contentInset = UIEdgeInsets(top: Self.topInset, left: 8, bottom: bottomObstruction, right: 8)
         let margin = CGPoint(x: 8, y: Self.ornamentGap)
+        map.logoViewPosition = .bottomLeft
+        map.attributionButtonPosition = .bottomRight
         map.logoViewMargins = margin
         map.attributionButtonMargins = margin
     }

@@ -159,7 +159,7 @@ private struct MapChrome: View {
                     .padding(.horizontal, Theme.screenPadding)
                 }
                 .padding(.top, 8)
-                .padding(.bottom, max(0, obstruction - geo.safeAreaInsets.bottom) + 16)
+                .padding(.bottom, max(0, obstruction - geo.safeAreaInsets.bottom) + AtlasMapView.ornamentGap + AtlasMapView.ornamentBand + AtlasMapView.ornamentRowGap)
                 .zIndex(1)
         }
         }
