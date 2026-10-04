@@ -477,6 +477,20 @@ final class LogicTests: XCTestCase {
         XCTAssertNotNil(length)
         XCTAssertGreaterThan(length ?? 0, 1000)
         XCTAssertTrue(Geometry.lengthLabel(length).contains("km"))
+        XCTAssertFalse(Geometry.isBranchedNetwork(skyline.geometry))
+        let network = GeoJSONGeometry.multiLineString([
+            [LonLat(lon: -105.80, lat: 35.70), LonLat(lon: -105.70, lat: 35.80)],
+            [LonLat(lon: -105.70, lat: 35.80), LonLat(lon: -105.60, lat: 35.70)],
+            [LonLat(lon: -105.70, lat: 35.80), LonLat(lon: -105.70, lat: 35.90)],
+        ])
+        XCTAssertTrue(Geometry.isBranchedNetwork(network))
+        XCTAssertTrue(Geometry.lengthSentence(network).contains("network of ways"))
+        let chain = GeoJSONGeometry.multiLineString([
+            [LonLat(lon: -105.80, lat: 35.70), LonLat(lon: -105.70, lat: 35.80)],
+            [LonLat(lon: -105.70, lat: 35.80), LonLat(lon: -105.60, lat: 35.70)],
+        ])
+        XCTAssertFalse(Geometry.isBranchedNetwork(chain))
+        XCTAssertTrue(Geometry.lengthSentence(chain).contains("km"))
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-catholic", filter: AtlasFilter(catholic: true)), true)
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(catholic: true)), false)
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(churches: true)), true)
@@ -487,6 +501,17 @@ final class LogicTests: XCTestCase {
             online: false
         )
         XCTAssertEqual(PackStyleDocument.missingLayers(in: style), [])
+        XCTAssertEqual(PackStyleDocument.renderProblems(in: style), [])
+        let terrainStyle = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: false,
+            hillshadeURL: "pmtiles://file:///tmp/northern-new-mexico-hillshade.pmtiles",
+            contourURL: "pmtiles://file:///tmp/northern-new-mexico-contours.pmtiles"
+        )
+        XCTAssertEqual(PackStyleDocument.renderProblems(in: terrainStyle), [])
+        XCTAssertTrue(terrainStyle.contains("\"hillshade\""))
+        XCTAssertTrue(terrainStyle.contains("\"contours\""))
         XCTAssertFalse(PackStyleDocument.missingLayers(in: "{\"layers\":[]}").isEmpty)
         XCTAssertFalse(PackStyleDocument.missingRenderedLayers([], packIsVector: false).isEmpty)
         XCTAssertEqual(

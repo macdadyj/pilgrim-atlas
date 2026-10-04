@@ -82,6 +82,30 @@ package enum Geometry {
         return String(format: "%.1f km", meters / 1000)
     }
 
+    /// A branched multiline is a network. Summing every part reports the whole
+    /// network, which is not the length of one trail.
+    package static func lengthSentence(_ geometry: GeoJSONGeometry) -> String {
+        if isBranchedNetwork(geometry) {
+            return "Length is not shown. This record is a network of ways, not one trail."
+        }
+        return lengthLabel(lengthMeters(geometry))
+    }
+
+    package static func isBranchedNetwork(_ geometry: GeoJSONGeometry) -> Bool {
+        guard case .multiLineString(let lines) = geometry else { return false }
+        var degree: [String: Int] = [:]
+        for line in lines where line.count >= 2 {
+            guard let start = line.first, let end = line.last else { continue }
+            degree[nodeKey(start), default: 0] += 1
+            degree[nodeKey(end), default: 0] += 1
+        }
+        return degree.values.contains { $0 > 2 }
+    }
+
+    private static func nodeKey(_ point: LonLat) -> String {
+        String(format: "%.4f,%.4f", point.lon, point.lat)
+    }
+
     package static func contains(_ point: LonLat, _ geometry: GeoJSONGeometry) -> Bool {
         switch geometry {
         case .polygon(let rings):

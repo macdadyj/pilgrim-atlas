@@ -38,6 +38,8 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.showTrails = model.showTrails
         context.coordinator.showPlaces = model.showPlaces
         context.coordinator.showParcels = model.showParcels
+        context.coordinator.showTerrain = model.showTerrain
+        context.coordinator.searchReveal = model.searchReveal
         context.coordinator.filter = model.filter
         context.coordinator.selectedID = model.selectedPlace?.id
         return map
@@ -51,6 +53,8 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.showTrails = model.showTrails
         context.coordinator.showPlaces = model.showPlaces
         context.coordinator.showParcels = model.showParcels
+        context.coordinator.showTerrain = model.showTerrain
+        context.coordinator.searchReveal = model.searchReveal
         context.coordinator.filter = model.filter
         context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
@@ -98,8 +102,10 @@ struct AtlasMapView: UIViewRepresentable {
         PackStyle.applyVisibility(
             on: map,
             places: model.showPlaces,
-            trails: model.showTrails && model.filter.showsTrails,
+            trails: model.showTrails && (model.filter.showsTrails || model.searchReveal),
             parcels: model.showParcels,
+            terrain: model.showTerrain,
+            reveal: model.searchReveal,
             filter: model.filter
         )
     }
@@ -115,6 +121,8 @@ struct AtlasMapView: UIViewRepresentable {
         var showTrails = true
         var showPlaces = true
         var showParcels = false
+        var showTerrain = true
+        var searchReveal = false
         var filter = AtlasFilter.empty
         var selectedID: Int?
         var onPackLayersMissing: ([String]) -> Void = { _ in }
@@ -159,8 +167,10 @@ struct AtlasMapView: UIViewRepresentable {
             PackStyle.applyVisibility(
                 on: mapView,
                 places: showPlaces,
-                trails: showTrails && filter.showsTrails,
+                trails: showTrails && (filter.showsTrails || searchReveal),
                 parcels: showParcels,
+                terrain: showTerrain,
+                reveal: searchReveal,
                 filter: filter
             )
         }
@@ -190,7 +200,13 @@ enum PackStyle {
     static func fileURL(online: Bool) -> URL {
         let destination = FileManager.default.temporaryDirectory
             .appendingPathComponent("pilgrim-atlas-style-\(online ? "online" : "offline").json")
-        let json = PackStyleDocument.json(packURL: packURL(), glyphsURL: glyphsTemplate(), online: online)
+        let json = PackStyleDocument.json(
+            packURL: packURL(),
+            glyphsURL: glyphsTemplate(),
+            online: online,
+            hillshadeURL: archiveURL("northern-new-mexico-hillshade"),
+            contourURL: archiveURL("northern-new-mexico-contours")
+        )
         try? json.data(using: .utf8)?.write(to: destination)
         return destination
     }
@@ -203,20 +219,31 @@ enum PackStyle {
     }
 
     @MainActor
-    static func applyVisibility(on map: MLNMapView, places: Bool, trails: Bool, parcels: Bool, filter: AtlasFilter) {
+    static func applyVisibility(
+        on map: MLNMapView,
+        places: Bool,
+        trails: Bool,
+        parcels: Bool,
+        terrain: Bool,
+        reveal: Bool,
+        filter: AtlasFilter
+    ) {
         guard let style = map.style else { return }
         for layer in style.layers {
             let identifier = layer.identifier
             if let fill = layer as? MLNFillStyleLayer, let kind = landKind(identifier) {
                 fill.fillOpacity = landOpacityExpression(kind: kind, filter: filter)
+            } else if identifier == "hillshade" || identifier == "contours" {
+                layer.isVisible = terrain
             } else if identifier == "trails" || identifier == "trails-casing" {
                 layer.isVisible = trails
             } else if identifier == "parcels" {
                 layer.isVisible = parcels
             } else if PackStyleDocument.placeLayerIDs.contains(identifier) {
-                layer.isVisible = places && PackStyleDocument.showsPlaceLayer(identifier, filter: filter)
+                let shown = reveal || PackStyleDocument.showsPlaceLayer(identifier, filter: filter)
+                layer.isVisible = places && shown
                 if let symbol = layer as? MLNSymbolStyleLayer {
-                    let opacity = PackStyleDocument.placeOpacity(filter: filter)
+                    let opacity = reveal ? 1.0 : PackStyleDocument.placeOpacity(filter: filter)
                     if opacity < 1 {
                         let value = NSExpression(forConstantValue: NSNumber(value: opacity))
                         symbol.iconOpacity = value
@@ -277,8 +304,12 @@ enum PackStyle {
     }
 
     private static func packURL() -> String? {
+        archiveURL("northern-new-mexico")
+    }
+
+    private static func archiveURL(_ name: String) -> String? {
         guard let pmtiles = Bundle.module.url(
-            forResource: "northern-new-mexico",
+            forResource: name,
             withExtension: "pmtiles",
             subdirectory: "Resources"
         ) else { return nil }

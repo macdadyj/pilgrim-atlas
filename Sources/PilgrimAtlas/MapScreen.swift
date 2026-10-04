@@ -136,7 +136,7 @@ private struct MapChrome: View {
         }
         .sheet(isPresented: $showSearch) {
             SearchSheet(initialQuery: model.launch.search ?? "")
-                .presentationDetents(model.launch.search == nil ? [.large] : [.medium, .large])
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showLicenses) { LicensesView() }
         .sheet(isPresented: $showLayers) { LayersSheet() }
@@ -212,7 +212,7 @@ private struct FilterBar: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 6) {
             ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
+                ScrollView(.horizontal, showsIndicators: true) {
                     HStack(spacing: 8) {
                         if model.filter.anyChip {
                             Button("Reset") { model.resetFilters() }
@@ -232,19 +232,8 @@ private struct FilterBar: View {
                         chip("Open now", on: model.filter.openNow) { model.filter.openNow.toggle() }
                     }
                     .padding(.leading)
-                    .padding(.trailing, 28)
+                    .padding(.trailing, 48)
                 }
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black, location: 0),
-                            .init(color: .black, location: 0.88),
-                            .init(color: .clear, location: 1),
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
                 .onAppear {
                     if scrollToFood {
                         proxy.scrollTo("food", anchor: .center)
@@ -305,9 +294,11 @@ struct NearbyPanel: View {
             Text(model.summary?.headline ?? Copy.text("unknown"))
                 .font(.body)
                 .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
             Text(model.summary?.permissionLine ?? PlaceText.permissionLine)
                 .font(.body)
                 .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
             if let summary = model.summary {
                 ForEach(summary.landmarks) { row in
                     if let place = model.place(id: row.placeId) {
@@ -332,6 +323,7 @@ struct NearbyPanel: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(trail.name)
                                     .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Text("Hiking trail")
                                     .font(.subheadline)
                                     .foregroundStyle(.primary)
@@ -377,6 +369,7 @@ struct NearbyPanel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.name)
                     .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(row.category)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
@@ -398,6 +391,14 @@ struct LayersSheet: View {
         NavigationStack {
             Form {
                 Section {
+                    Toggle(isOn: $model.showTerrain) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Terrain")
+                            Text("Hillshade and 100 m contours, stored on this phone.")
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                        }
+                    }
                     Toggle(isOn: $model.showParcels) {
                         VStack(alignment: .leading, spacing: 2) {
                             labeledSwatch("5C5346", "Albuquerque lot lines")
@@ -478,6 +479,12 @@ struct SearchSheet: View {
             }
             .searchable(text: $query, prompt: "Search names on this phone")
             .navigationTitle(model.filter.searchTitle)
+            .onChange(of: query) { _, newValue in
+                model.revealSearch(newValue)
+            }
+            .onDisappear {
+                model.endSearch()
+            }
             .overlay {
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ContentUnavailableView(
@@ -514,9 +521,11 @@ struct SearchSheet: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(hit.name)
                 .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
             Text(searchDetail(hit))
                 .font(.subheadline)
                 .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

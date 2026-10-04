@@ -108,11 +108,14 @@ struct DetailSheet: View {
                     Text(PlaceText.sourceLine(source: place.source, sourceDate: place.sourceDate))
                         .font(.body)
                         .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(Copy.text("mass_footnote"))
                         .font(.body)
                         .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .contentMargins(.bottom, 28, for: .scrollContent)
             .navigationTitle(PlaceText.kindLabel(for: place))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -131,6 +134,7 @@ struct DetailSheet: View {
             Text(value)
                 .font(.body)
                 .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -150,7 +154,7 @@ struct TrailSheet: View {
                     TrailSketch(geometry: trail.geometry)
                         .frame(height: 140)
                         .accessibilityLabel("Trail line")
-                    labeledTrailRow("Length", Geometry.lengthLabel(Geometry.lengthMeters(trail.geometry)))
+                    labeledTrailRow("Length", Geometry.lengthSentence(trail.geometry))
                     labeledTrailRow("Surface", "Not in the pack.")
                     labeledTrailRow("Difficulty", "Not in the pack.")
                     labeledTrailRow("Access", AtlasQuery.trailSentence(trail.access))
@@ -159,8 +163,10 @@ struct TrailSheet: View {
                     Text(PlaceText.sourceLine(source: trail.source, sourceDate: trail.sourceDate))
                         .font(.body)
                         .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .contentMargins(.bottom, 28, for: .scrollContent)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

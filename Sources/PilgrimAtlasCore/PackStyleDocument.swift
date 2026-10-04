@@ -1,10 +1,11 @@
 import Foundation
 
-/// Offline MapLibre style. Land, trails, and place symbols all read the pack
-/// vector source. A style that omits those layers is a failed map: the cream
-/// background is all that remains.
+/// Offline MapLibre style. Land and trails use their own source max zoom so a
+/// camera at zoom 15 overzooms tiles that actually contain those layers. The
+/// archive max zoom is 14, and those tiles hold places (and Albuquerque parcels)
+/// only. One shared `pack` source therefore paints pins on a cream field.
 package enum PackStyleDocument {
-    package static let landOpacity = 0.85
+    package static let landOpacity = 0.58
     package static let placeLayerIDs = [
         "places-landmark",
         "places-viewpoint",
@@ -31,8 +32,20 @@ package enum PackStyleDocument {
         "places-chapel",
     ]
 
-    package static func json(packURL: String?, glyphsURL: String, online: Bool) -> String {
-        let root = rootObject(packURL: packURL, glyphsURL: glyphsURL, online: online)
+    package static func json(
+        packURL: String?,
+        glyphsURL: String,
+        online: Bool,
+        hillshadeURL: String? = nil,
+        contourURL: String? = nil
+    ) -> String {
+        let root = rootObject(
+            packURL: packURL,
+            glyphsURL: glyphsURL,
+            online: online,
+            hillshadeURL: hillshadeURL,
+            contourURL: contourURL
+        )
         guard JSONSerialization.isValidJSONObject(root),
               let data = try? JSONSerialization.data(withJSONObject: root),
               let text = String(data: data, encoding: .utf8)
@@ -55,7 +68,7 @@ package enum PackStyleDocument {
                 continue
             }
             if id == "background" { continue }
-            if layer["source"] as? String != "pack" {
+            if layer["source"] as? String != expectedSource(id) {
                 missing.append(id)
                 continue
             }
@@ -72,6 +85,57 @@ package enum PackStyleDocument {
         var missing = requiredLayerIDs.filter { !present.contains($0) }
         if !packIsVector { missing.append("pack") }
         return missing
+    }
+
+    /// Empty when land and trails overzoom the zooms that contain them, fills stay
+    /// opaque enough to see, and no full-map beige layer sits above the land.
+    package static func renderProblems(in json: String) -> [String] {
+        let contract = RenderContract.load()
+        guard let root = parse(json) else { return ["style"] }
+        var problems = missingLayers(in: json)
+        let sources = root["sources"] as? [String: Any] ?? [:]
+        if zoom(sources["pack-land"]) != contract.landMaxZoom { problems.append("land-maxzoom") }
+        if zoom(sources["pack-trails"]) != contract.trailMaxZoom { problems.append("trail-maxzoom") }
+        if zoom(sources["pack"]) != contract.placeMaxZoom { problems.append("place-maxzoom") }
+        let layers = root["layers"] as? [[String: Any]] ?? []
+        let ids = layers.compactMap { $0["id"] as? String }
+        guard let landIndex = ids.firstIndex(of: "land-usfs"),
+              let backgroundIndex = ids.firstIndex(of: "background")
+        else { return problems + ["order"] }
+        if backgroundIndex > landIndex { problems.append("background-above-land") }
+        if let hill = ids.firstIndex(of: "hillshade"), hill > landIndex {
+            problems.append("hillshade-above-land")
+        }
+        if let contours = ids.firstIndex(of: "contours"), let trails = ids.firstIndex(of: "trails") {
+            if contours < landIndex || contours > trails { problems.append("contour-order") }
+        }
+        for layer in layers {
+            let identifier = layer["id"] as? String ?? ""
+            let type = layer["type"] as? String ?? ""
+            let paint = layer["paint"] as? [String: Any] ?? [:]
+            let index = ids.firstIndex(of: identifier) ?? -1
+            if identifier.hasPrefix("land-"), type == "fill" {
+                let opacity = number(paint["fill-opacity"]) ?? 0
+                if opacity < contract.minFillOpacity { problems.append("\(identifier)-opacity") }
+            }
+            if identifier == "trails" {
+                let opacity = number(paint["line-opacity"]) ?? 1
+                if opacity < 0.5 { problems.append("trails-opacity") }
+            }
+            if index > landIndex {
+                if type == "background" { problems.append("opaque-background") }
+                if type == "fill", layer["filter"] == nil, (number(paint["fill-opacity"]) ?? 1) >= 0.98 {
+                    problems.append("opaque-cover-\(identifier)")
+                }
+            }
+            if identifier == "places-catholic" {
+                let layout = layer["layout"] as? [String: Any] ?? [:]
+                if layout["text-allow-overlap"] as? Bool == true { problems.append("label-overlap") }
+                if layout["text-optional"] as? Bool != true { problems.append("label-required") }
+                if layout["text-variable-anchor"] == nil { problems.append("label-anchor") }
+            }
+        }
+        return problems
     }
 
     /// Trails-only fades every pin. Place chips hide the roles they do not include.
@@ -100,17 +164,69 @@ package enum PackStyleDocument {
         return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
-    private static func packIsVector(_ root: [String: Any]) -> Bool {
-        guard let sources = root["sources"] as? [String: Any],
-              let pack = sources["pack"] as? [String: Any],
-              pack["type"] as? String == "vector",
-              let url = pack["url"] as? String
-        else { return false }
-        return url.hasPrefix("pmtiles://")
+    private static func expectedSource(_ identifier: String) -> String {
+        if identifier.hasPrefix("land-") { return "pack-land" }
+        if identifier == "trails" || identifier == "trails-casing" { return "pack-trails" }
+        return "pack"
     }
 
-    private static func rootObject(packURL: String?, glyphsURL: String, online: Bool) -> [String: Any] {
-        var sources: [String: Any] = ["pack": packSource(packURL)]
+    private static func zoom(_ source: Any?) -> Int? {
+        guard let source = source as? [String: Any] else { return nil }
+        if let value = source["maxzoom"] as? Int { return value }
+        if let value = source["maxzoom"] as? Double { return Int(value) }
+        if let value = source["maxzoom"] as? NSNumber { return value.intValue }
+        return nil
+    }
+
+    private static func number(_ value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? NSNumber { return value.doubleValue }
+        return nil
+    }
+
+    private static func packIsVector(_ root: [String: Any]) -> Bool {
+        guard let sources = root["sources"] as? [String: Any] else { return false }
+        for name in ["pack", "pack-land", "pack-trails"] {
+            guard let source = sources[name] as? [String: Any],
+                  source["type"] as? String == "vector",
+                  let url = source["url"] as? String,
+                  url.hasPrefix("pmtiles://")
+            else { return false }
+        }
+        return true
+    }
+
+    private static func rootObject(
+        packURL: String?,
+        glyphsURL: String,
+        online: Bool,
+        hillshadeURL: String?,
+        contourURL: String?
+    ) -> [String: Any] {
+        let contract = RenderContract.load()
+        var sources: [String: Any] = [
+            "pack": vectorSource(packURL, contract.placeMaxZoom),
+            "pack-land": vectorSource(packURL, contract.landMaxZoom),
+            "pack-trails": vectorSource(packURL, contract.trailMaxZoom),
+        ]
+        let hillshade = hillshadeURL?.hasPrefix("pmtiles://") == true ? hillshadeURL : nil
+        let contours = contourURL?.hasPrefix("pmtiles://") == true ? contourURL : nil
+        if let hillshade {
+            sources["hillshade"] = [
+                "type": "raster",
+                "url": hillshade,
+                "tileSize": 256,
+                "maxzoom": contract.landMaxZoom,
+            ]
+        }
+        if let contours {
+            sources["contours"] = [
+                "type": "vector",
+                "url": contours,
+                "maxzoom": contract.landMaxZoom,
+            ]
+        }
         if online {
             sources["openmaptiles"] = [
                 "type": "vector",
@@ -124,6 +240,14 @@ package enum PackStyleDocument {
                 "paint": ["background-color": "#EFE6D6"],
             ],
         ]
+        if hillshade != nil {
+            layers.append([
+                "id": "hillshade",
+                "type": "raster",
+                "source": "hillshade",
+                "paint": ["raster-opacity": 0.92, "raster-fade-duration": 0],
+            ])
+        }
         if online {
             layers.append([
                 "id": "ofm-water",
@@ -156,11 +280,24 @@ package enum PackStyleDocument {
         layers.append([
             "id": "land-private-line",
             "type": "line",
-            "source": "pack",
+            "source": "pack-land",
             "source-layer": "land",
             "filter": ["==", ["get", "kind"], "private_mapped"],
             "paint": ["line-color": "#4A4036", "line-width": 1.1],
         ])
+        if contours != nil {
+            layers.append([
+                "id": "contours",
+                "type": "line",
+                "source": "contours",
+                "source-layer": "contours",
+                "paint": [
+                    "line-color": "#5C5146",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 15, 1.2],
+                    "line-opacity": 0.8,
+                ],
+            ])
+        }
         if online {
             let roadClasses = ["motorway", "trunk", "primary", "secondary", "tertiary", "minor", "service"]
             let roadFilter: [Any] = ["in", ["get", "class"], ["literal", roadClasses]]
@@ -186,7 +323,7 @@ package enum PackStyleDocument {
         layers.append([
             "id": "trails-casing",
             "type": "line",
-            "source": "pack",
+            "source": "pack-trails",
             "source-layer": "trails",
             "paint": [
                 "line-color": "#F4EFE4",
@@ -196,7 +333,7 @@ package enum PackStyleDocument {
         layers.append([
             "id": "trails",
             "type": "line",
-            "source": "pack",
+            "source": "pack-trails",
             "source-layer": "trails",
             "paint": [
                 "line-color": "#6B4F3A",
@@ -243,18 +380,22 @@ package enum PackStyleDocument {
         ]
     }
 
-    private static func packSource(_ packURL: String?) -> [String: Any] {
+    private static func vectorSource(_ packURL: String?, _ maxZoom: Int) -> [String: Any] {
         if let packURL, packURL.hasPrefix("pmtiles://") {
-            return ["type": "vector", "url": packURL]
+            return ["type": "vector", "url": packURL, "maxzoom": maxZoom]
         }
-        return ["type": "geojson", "data": ["type": "FeatureCollection", "features": []]]
+        return [
+            "type": "geojson",
+            "data": ["type": "FeatureCollection", "features": []],
+            "maxzoom": maxZoom,
+        ]
     }
 
     private static func landLayer(_ identifier: String, _ kind: String, _ color: String) -> [String: Any] {
         [
             "id": identifier,
             "type": "fill",
-            "source": "pack",
+            "source": "pack-land",
             "source-layer": "land",
             "filter": ["==", ["get", "kind"], kind],
             "paint": [
@@ -275,16 +416,16 @@ package enum PackStyleDocument {
         let trailhead = ["trailhead"]
         let special = chapel + shrine + viewpoint + museum + parking + water + trailhead
         return [
-            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, textOptional: true, sort: 10),
-            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, textOptional: true, sort: 40),
-            symbol("places-museum", "museum", filter: named(museum), overlap: false, textOptional: true, sort: 40),
-            symbol("places-parking", "parking", filter: named(parking), overlap: false, textOptional: true, sort: 40),
-            symbol("places-water", "water", filter: named(water), overlap: false, textOptional: true, sort: 40),
-            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, textOptional: true, sort: 40),
-            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, textOptional: true, sort: 60),
-            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, textOptional: true, sort: 50),
-            symbol("places-chapel", "chapel", filter: named(chapel), overlap: true, textOptional: false, sort: 90),
-            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, textOptional: false, sort: 100),
+            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 10, iconSize: 0.88),
+            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, sort: 40, iconSize: 0.88),
+            symbol("places-museum", "museum", filter: named(museum), overlap: false, sort: 40, iconSize: 0.88),
+            symbol("places-parking", "parking", filter: named(parking), overlap: false, sort: 40, iconSize: 0.88),
+            symbol("places-water", "water", filter: named(water), overlap: false, sort: 40, iconSize: 0.88),
+            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 40, iconSize: 0.88),
+            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, sort: 60, iconSize: 0.88),
+            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, sort: 50, iconSize: 0.88),
+            symbol("places-chapel", "chapel", filter: named(chapel), overlap: true, sort: 90, iconSize: 1.05),
+            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 100, iconSize: 1.05),
         ]
     }
 
@@ -309,8 +450,8 @@ package enum PackStyleDocument {
         _ icon: String,
         filter: [Any],
         overlap: Bool,
-        textOptional: Bool,
-        sort: Double
+        sort: Double,
+        iconSize: Double
     ) -> [String: Any] {
         [
             "id": identifier,
@@ -320,22 +461,25 @@ package enum PackStyleDocument {
             "filter": filter,
             "layout": [
                 "icon-image": icon,
-                "icon-size": 0.62,
+                "icon-size": iconSize,
                 "icon-allow-overlap": overlap,
-                "icon-padding": 2,
+                "icon-padding": 4,
                 "symbol-sort-key": sort,
                 "text-field": ["get", "name"],
                 "text-font": ["NotoSansRegular"],
                 "text-size": 12,
-                "text-offset": [0.0, 1.25],
-                "text-anchor": "top",
-                "text-optional": textOptional,
-                "text-max-width": 8,
+                "text-variable-anchor": ["top", "bottom", "left", "right"],
+                "text-radial-offset": 1.35,
+                "text-justify": "auto",
+                "text-allow-overlap": false,
+                "text-optional": true,
+                "text-padding": 4,
+                "text-max-width": 11,
             ],
             "paint": [
                 "text-color": "#1C1915",
                 "text-halo-color": "#F4EFE4",
-                "text-halo-width": 1.4,
+                "text-halo-width": 1.6,
             ],
         ]
     }

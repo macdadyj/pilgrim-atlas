@@ -33,7 +33,8 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var showPlaces = true
     var showParcels = false
     var onlineTiles = false
-    var showTerrain = false
+    var showTerrain = true
+    var searchReveal = false
     var filter = AtlasFilter.empty
     var focusFoodChip = false
     var pendingOnlineConfirm = false
@@ -76,7 +77,6 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
         loadPack()
         filter = DebugLaunch.filter(from: parsed.filterTokens)
-        showTerrain = parsed.showTerrain
         focusFoodChip = parsed.focusFood
         applyDebugLaunch()
         refreshSummary()
@@ -87,6 +87,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         if showParcels { count += 1 }
         if onlineTiles { count += 1 }
         if filter.hidePlacesWithoutHours { count += 1 }
+        if !showTerrain { count += 1 }
         return count
     }
 
@@ -134,6 +135,51 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
 
     func search(_ query: String) -> [SearchHit] {
         AtlasQuery.search(query, places: places, trails: trails, origin: summaryPoint, lands: lands, filter: filter)
+    }
+
+    /// Fits the camera to the first results and keeps pins visible while a chip would hide them.
+    func revealSearch(_ query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            searchReveal = false
+            return
+        }
+        var points: [LonLat] = []
+        for hit in search(trimmed) {
+            if let point = coordinate(for: hit) {
+                points.append(point)
+            }
+            if points.count == 8 { break }
+        }
+        guard let first = points.first else {
+            searchReveal = false
+            return
+        }
+        searchReveal = true
+        summaryPinned = true
+        if points.count == 1 {
+            summaryPoint = first
+            focusCamera(on: first, zoom: 15)
+            refreshSummary()
+            return
+        }
+        var minLon = first.lon
+        var minLat = first.lat
+        var maxLon = first.lon
+        var maxLat = first.lat
+        for point in points.dropFirst() {
+            minLon = min(minLon, point.lon)
+            minLat = min(minLat, point.lat)
+            maxLon = max(maxLon, point.lon)
+            maxLat = max(maxLat, point.lat)
+        }
+        summaryPoint = LonLat(lon: (minLon + maxLon) / 2, lat: (minLat + maxLat) / 2)
+        fitCamera(CameraFit(minLon: minLon, minLat: minLat, maxLon: maxLon, maxLat: maxLat))
+        refreshSummary()
+    }
+
+    func endSearch() {
+        searchReveal = false
     }
 
     func place(id: Int) -> PlaceRecord? {
@@ -272,7 +318,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         if launch.showDisclaimer || launch.disclaimerDetailsOpen { return }
         applyTapOrPicker()
         if let query = launch.search {
-            moveCameraToSearch(query)
+            revealSearch(query)
         }
         if let query = launch.openPlace {
             openResolved(query)
@@ -307,41 +353,22 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         aim(at: point)
     }
 
-    private func moveCameraToSearch(_ query: String) {
-        let hits = search(query)
-        for hit in hits {
-            switch hit.kind {
-            case .place:
-                guard let id = hit.placeId, let found = place(id: id) else { continue }
-                summaryPoint = found.coordinate
-                summaryPinned = true
-                focusCamera(on: found.coordinate, zoom: 16)
-                refreshSummary()
-                return
-            case .trail:
-                guard let id = hit.trailId, let found = trail(id: id) else { continue }
-                guard let box = found.geometry.bbox else { return }
-                summaryPoint = LonLat(
-                    lon: (box.minLon + box.maxLon) / 2,
-                    lat: (box.minLat + box.maxLat) / 2
-                )
-                summaryPinned = true
-                fitCamera(
-                    CameraFit(minLon: box.minLon, minLat: box.minLat, maxLon: box.maxLon, maxLat: box.maxLat)
-                )
-                refreshSummary()
-                return
-            case .town, .land:
-                guard let lat = hit.lat, let lon = hit.lon else { continue }
-                let point = LonLat(lon: lon, lat: lat)
-                summaryPoint = point
-                summaryPinned = true
-                focusCamera(on: point, zoom: hit.kind == .town ? 13 : 11)
-                refreshSummary()
-                return
-            case .note:
-                continue
+    private func coordinate(for hit: SearchHit) -> LonLat? {
+        switch hit.kind {
+        case .place:
+            if let id = hit.placeId, let found = place(id: id) { return found.coordinate }
+            if let lat = hit.lat, let lon = hit.lon { return LonLat(lon: lon, lat: lat) }
+            return nil
+        case .trail:
+            if let id = hit.trailId, let found = trail(id: id), let box = found.geometry.bbox {
+                return LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
             }
+            return nil
+        case .town, .land:
+            if let lat = hit.lat, let lon = hit.lon { return LonLat(lon: lon, lat: lat) }
+            return nil
+        case .note:
+            return nil
         }
     }
 

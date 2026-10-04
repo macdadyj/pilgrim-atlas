@@ -19,6 +19,7 @@ let package = Package(
             name: "PilgrimAtlasCore",
             resources: [
                 .copy("sentences.json"),
+                .copy("render-contract.json"),
                 .copy("cabq_disclaimer.txt"),
                 .copy("slo_disclaimer.txt"),
             ]
