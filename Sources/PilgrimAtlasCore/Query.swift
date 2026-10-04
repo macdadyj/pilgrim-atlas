@@ -225,7 +225,9 @@ package enum AtlasQuery {
         let landmarks = landmarkRows(point: point, places: listedPlaces, kilometers: exploreKilometers)
         let anyPlace = listedPlaces.contains { Geometry.haversineMeters(point, $0.coordinate) <= exploreKilometers * 1000 }
         let landmarkGap: String
-        if !landmarks.isEmpty {
+        if filter.trails && !filter.restrictsPlaces {
+            landmarkGap = ""
+        } else if !landmarks.isEmpty {
             landmarkGap = ""
         } else if anyPlace {
             landmarkGap = "No Catholic landmark within 8 km"
@@ -265,7 +267,7 @@ package enum AtlasQuery {
             landmarkGap: landmarkGap,
             explore: explore,
             trails: Array(trailRows),
-            trailGap: filter.showsTrails ? (trailRows.isEmpty ? "No trail within 3 km" : "") : "",
+            trailGap: trailGapLine(filter: filter, empty: trailRows.isEmpty),
             closures: closures,
             notASurvey: Copy.text("not_a_survey")
         )
@@ -288,14 +290,15 @@ package enum AtlasQuery {
         let listedPlaces = places.filter { MapFilter.includeInLists($0, filter: filter, now: now, timeZone: timeZone) }
         let listedTrails = filter.showsTrails ? trails : []
         var scored: [(Double, SearchHit)] = []
+        var bestPlace: [String: (Double, SearchHit)] = [:]
         let unnamedCount = places.filter { fold($0.name) == fold("Unnamed place of worship") }.count
         for place in listedPlaces {
             if fold(place.name) == fold("Unnamed place of worship") { continue }
             guard let score = matchScore(needle: needle, queryTokens: queryTokens, name: place.name) else { continue }
             let meters = Int(Geometry.haversineMeters(origin, place.coordinate).rounded())
             let adjusted = score + Double(PlaceText.richness(place)) * 5 - Double(meters) / 1000
-            let subtitle = PlaceText.sameSiteNote(for: place, among: places) ?? PlaceText.kindLabel(for: place)
-            scored.append((
+            let subtitle = PlaceText.kindLabel(for: place)
+            let hit = (
                 adjusted,
                 SearchHit(
                     id: "place-\(place.id)",
@@ -310,8 +313,17 @@ package enum AtlasQuery {
                     meters: meters,
                     subtitle: subtitle
                 )
-            ))
+            )
+            let key = fold(place.name)
+            if let existing = bestPlace[key] {
+                let richer = adjusted > existing.0
+                let tie = adjusted == existing.0 && place.id < (existing.1.placeId ?? Int.max)
+                if richer || tie { bestPlace[key] = hit }
+            } else {
+                bestPlace[key] = hit
+            }
         }
+        scored.append(contentsOf: bestPlace.values)
         for trail in listedTrails {
             let displayName = trail.name.trimmingCharacters(in: .whitespacesAndNewlines)
             if displayName.isEmpty { continue }
@@ -459,6 +471,12 @@ package enum AtlasQuery {
 
     package static func trailSentence(_ access: String) -> String {
         accessLine(access)
+    }
+
+    private static func trailGapLine(filter: AtlasFilter, empty: Bool) -> String {
+        guard filter.showsTrails, empty else { return "" }
+        if filter.trails { return "No trail within 3 km of this point." }
+        return "No trail within 3 km"
     }
 
     private static func exploreRow(_ place: PlaceRecord, meters: Double) -> ExploreRow {

@@ -55,6 +55,33 @@ package enum Geometry {
         return 2 * earth * asin(min(1, sqrt(h)))
     }
 
+    package static func lengthMeters(_ geometry: GeoJSONGeometry) -> Double? {
+        let lines: [[LonLat]]
+        switch geometry {
+        case .lineString(let line):
+            lines = [line]
+        case .multiLineString(let many):
+            lines = many
+        case .polygon, .multiPolygon, .point:
+            return nil
+        }
+        var total = 0.0
+        var counted = false
+        for line in lines where line.count >= 2 {
+            counted = true
+            for pair in zip(line, line.dropFirst()) {
+                total += haversineMeters(pair.0, pair.1)
+            }
+        }
+        return counted ? total : nil
+    }
+
+    package static func lengthLabel(_ meters: Double?) -> String {
+        guard let meters, meters > 0 else { return "Length is not in the pack." }
+        if meters < 1000 { return String(format: "%.0f m", meters.rounded()) }
+        return String(format: "%.1f km", meters / 1000)
+    }
+
     package static func contains(_ point: LonLat, _ geometry: GeoJSONGeometry) -> Bool {
         switch geometry {
         case .polygon(let rings):

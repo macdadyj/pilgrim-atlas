@@ -135,7 +135,7 @@ package enum MapFilter {
     package static let publicLandSubtitle = "Forest, BLM, park, and open space. State Trust stays off this chip."
     package static let foodSubtitle = "Not in this pack yet."
     package static let stateTrustLine = "State Trust is not in Public land"
-    package static let notParkLine = "This polygon is not in Parks"
+    package static let notParkLine = "This point is not inside a park."
     package static let hoursMissing = "No visitor hours in the pack."
     package static let hoursUnparsed = "Hours listed, not a single clock."
     package static let terrainMissing = "Hillshade and contours are not in this pack yet."
@@ -191,6 +191,20 @@ package enum MapFilter {
         }
         let open = clocks.contains { clock in clock.covers(now, timeZone: timeZone) }
         return .clock(openNow: open)
+    }
+
+    /// True when two parsed ranges cover the same weekday. Those sources do not agree.
+    package static func hoursConflict(_ raw: String) -> Bool {
+        let parts = raw.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        var seen: Set<String> = []
+        for part in parts {
+            guard let clock = dayClock(part) else { return false }
+            for day in clock.days {
+                if seen.contains(day) { return true }
+                seen.insert(day)
+            }
+        }
+        return false
     }
 
     package static func hourLines(_ raw: String) -> [String] {

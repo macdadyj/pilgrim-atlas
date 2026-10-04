@@ -86,7 +86,6 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         var count = 0
         if showParcels { count += 1 }
         if onlineTiles { count += 1 }
-        if showTerrain { count += 1 }
         if filter.hidePlacesWithoutHours { count += 1 }
         return count
     }
@@ -286,7 +285,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         guard let point else { return }
         let hits = DebugLaunch.placesWithinTap(at: point, places: places)
         if hits.count > 1 || (wantsPicker && !hits.isEmpty) {
-            debugPickerPlaces = hits
+            debugPickerPlaces = PlaceText.dedupeByName(hits)
             debugTapPoint = point
             aim(at: point)
             return
@@ -295,7 +294,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
             let sample = DebugLaunch.placesPickerSample
             let sampleHits = DebugLaunch.placesWithinTap(at: sample, places: places)
             if !sampleHits.isEmpty {
-                debugPickerPlaces = sampleHits
+                debugPickerPlaces = PlaceText.dedupeByName(sampleHits)
                 debugTapPoint = sample
                 aim(at: sample)
             }

@@ -202,7 +202,8 @@ final class LogicTests: XCTestCase {
         let chimayo = AtlasQuery.search("Santuario de Chimayo", places: places, trails: [])
         XCTAssertEqual(chimayo.first?.placeId, 585)
         XCTAssertEqual(chimayo.first?.id, "place-585")
-        XCTAssertTrue(chimayo.contains { $0.placeId == 54 && $0.subtitle == PlaceText.sameSitePhrase })
+        XCTAssertFalse(chimayo.contains { $0.placeId == 54 })
+        XCTAssertFalse(chimayo.contains { $0.subtitle == PlaceText.sameSitePhrase })
         XCTAssertEqual(Set(chimayo.map(\.id)).count, chimayo.count)
         let typed = AtlasQuery.search("Cathedral Basilica of St. Francis", places: places, trails: [])
         XCTAssertEqual(typed.first?.placeId, 1295)
@@ -250,7 +251,8 @@ final class LogicTests: XCTestCase {
             sourceDate: "2026-10-02T20:21:34Z"
         )
         let facts = AtlasQuery.facts(for: loretto)
-        XCTAssertTrue(facts.contains { $0.label == "Hours" && $0.value.contains("Mo-Sa 09:00-17:00") })
+        XCTAssertTrue(facts.contains { $0.label == "Hours" && $0.value.contains("Mon–Sat") && $0.value.contains("9:00 AM") })
+        XCTAssertFalse(facts.contains { $0.label == "Hours" && $0.value.contains("Mo-Sa") })
         XCTAssertTrue(facts.contains { $0.label == "Hours note" && $0.value == PlaceText.hoursConflictNote })
         XCTAssertTrue(facts.contains { $0.label == "Access" && $0.value == "Tagged access=private. That tag is not a legal ruling." })
         XCTAssertEqual(PlaceText.wikipediaURL("en:Loretto Chapel"), "https://en.wikipedia.org/wiki/Loretto_Chapel")
@@ -434,6 +436,68 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(DebugLaunch.parse(["/PilgrimAtlas", "--debug-filter=food"]).focusFood)
         XCTAssertFalse(DebugLaunch.parse(["/PilgrimAtlas", "--debug-show-layers"]).filterTokens.contains("catholic"))
         XCTAssertEqual(MapFilter.foodCount([gallery, basilica]), 0)
+        var trailsOnly = AtlasFilter.empty
+        trailsOnly.trails = true
+        let trailSummary = AtlasQuery.nearby(
+            lat: 35.687,
+            lon: -105.9378,
+            places: [basilica],
+            trails: [],
+            lands: [],
+            filter: trailsOnly
+        )
+        XCTAssertEqual(trailSummary.trailGap, "No trail within 3 km of this point.")
+        XCTAssertEqual(trailSummary.landmarkGap, "")
+        var parks = AtlasFilter.empty
+        parks.parks = true
+        let parkSummary = AtlasQuery.nearby(
+            lat: 35.687,
+            lon: -105.9378,
+            places: [],
+            trails: [],
+            lands: [trust],
+            filter: parks
+        )
+        XCTAssertEqual(parkSummary.headline, MapFilter.notParkLine)
+        let statues = PlaceText.dedupeByName([
+            samplePlace(id: 732, name: "Saint Francis of Assisi", category: "landmark", catholic: false, lat: 35.68635, lon: -105.93623),
+            samplePlace(id: 733, name: "Saint Francis of Assisi", category: "landmark", catholic: false, lat: 35.68636, lon: -105.93622),
+        ])
+        XCTAssertEqual(statues.map(\.id), [732])
+        XCTAssertEqual(PlaceText.externalLinkTitle(label: "Wikidata", value: "Q3663700"), "Wikidata")
+        let skyline = TrailRecord(
+            id: 2,
+            name: "Skyline Trail",
+            access: "",
+            geometry: .lineString([LonLat(lon: -105.82, lat: 35.78), LonLat(lon: -105.78, lat: 35.80)]),
+            source: "OpenStreetMap",
+            sourceDate: "2026-10-02"
+        )
+        let length = Geometry.lengthMeters(skyline.geometry)
+        XCTAssertNotNil(length)
+        XCTAssertGreaterThan(length ?? 0, 1000)
+        XCTAssertTrue(Geometry.lengthLabel(length).contains("km"))
+        XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-catholic", filter: AtlasFilter(catholic: true)), true)
+        XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(catholic: true)), false)
+        XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(churches: true)), true)
+        XCTAssertEqual(PackStyleDocument.placeOpacity(filter: AtlasFilter(trails: true)), 0.28)
+        let style = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: false
+        )
+        XCTAssertEqual(PackStyleDocument.missingLayers(in: style), [])
+        XCTAssertFalse(PackStyleDocument.missingLayers(in: "{\"layers\":[]}").isEmpty)
+        XCTAssertFalse(PackStyleDocument.missingRenderedLayers([], packIsVector: false).isEmpty)
+        XCTAssertEqual(
+            PackStyleDocument.missingRenderedLayers(Set(PackStyleDocument.requiredLayerIDs), packIsVector: true),
+            []
+        )
+        XCTAssertTrue(MapFilter.hoursConflict("Mo-Sa 09:00-17:00; Mo-Sa 09:30-16:30"))
+        let conflict = PlaceText.hoursDisplay("Mo-Sa 09:00-17:00; Mo-Sa 09:30-16:30")
+        XCTAssertTrue(conflict.shown.contains("Mon–Sat"))
+        XCTAssertFalse(conflict.shown.contains("Mo-Sa"))
+        XCTAssertEqual(conflict.note, PlaceText.hoursConflictNote)
     }
 
     private func screenshotPlaces() -> [PlaceRecord] {

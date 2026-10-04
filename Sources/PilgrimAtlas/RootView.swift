@@ -58,6 +58,7 @@ struct DisclaimerGate: View {
                     .foregroundStyle(.primary)
                 }
                 .padding()
+                .padding(.bottom, 88)
             }
             .navigationTitle("Before you walk")
             .navigationBarTitleDisplayMode(.inline)

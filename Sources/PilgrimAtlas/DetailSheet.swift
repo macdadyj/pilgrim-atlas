@@ -4,7 +4,6 @@ import PilgrimAtlasCore
 
 struct DetailSheet: View {
     let place: PlaceRecord
-    @Environment(AtlasModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -19,19 +18,14 @@ struct DetailSheet: View {
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     if !place.denomination.isEmpty {
-                        LabeledContent("Denomination", value: PlaceText.denominationLabel(place.denomination))
+                        labeledRow("Denomination", PlaceText.denominationLabel(place.denomination))
                     }
                     if case .none = hours {
                         Text(MapFilter.hoursMissing)
                             .font(.subheadline)
-                            .foregroundStyle(Color.fieldBrown)
-                    }
-                    if let note = PlaceText.diamondNote(for: place) {
-                        Text(note)
-                            .font(.body)
                             .foregroundStyle(.primary)
                     }
-                    if let note = PlaceText.sameSiteNote(for: place, among: model.places) {
+                    if let note = PlaceText.diamondNote(for: place) {
                         Text(note)
                             .font(.body)
                             .foregroundStyle(.primary)
@@ -48,9 +42,11 @@ struct DetailSheet: View {
                         case .none:
                             EmptyView()
                         case .notAClock:
-                            Text(MapFilter.hoursUnparsed)
-                                .font(.subheadline)
-                                .foregroundStyle(Color.fieldBrown)
+                            if !facts.contains(where: { $0.label == "Hours note" }) {
+                                Text(MapFilter.hoursUnparsed)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                            }
                         case .clock(let open):
                             Text(open ? "Open now" : "Closed now")
                                 .font(.body.weight(.semibold))
@@ -59,12 +55,12 @@ struct DetailSheet: View {
                         if let note = facts.first(where: { $0.label == "Hours note" }) {
                             Text(note.value)
                                 .font(.subheadline)
-                                .foregroundStyle(Color.fieldBrown)
+                                .foregroundStyle(.primary)
                         }
                         if let schedules = facts.first(where: { $0.label == "Schedules" }) {
                             Text(schedules.value)
                                 .font(.subheadline)
-                                .foregroundStyle(Color.fieldBrown)
+                                .foregroundStyle(.primary)
                         }
                         ForEach(facts.filter { ["Service times", "Mass times", "Confession times"].contains($0.label) }) { fact in
                             LabeledContent(fact.label, value: fact.value)
@@ -103,7 +99,7 @@ struct DetailSheet: View {
                     Section("Links") {
                         ForEach(links) { fact in
                             if let raw = fact.url, let url = URL(string: raw) {
-                                Link(linkTitle(fact), destination: url)
+                                Link(PlaceText.externalLinkTitle(label: fact.label, value: fact.value), destination: url)
                             }
                         }
                     }
@@ -127,11 +123,14 @@ struct DetailSheet: View {
         }
     }
 
-    private func linkTitle(_ fact: FactLine) -> String {
-        switch fact.label {
-        case "Wikipedia": return PlaceText.wikipediaTitle(fact.value)
-        case "Wikidata": return fact.value
-        default: return fact.label
+    private func labeledRow(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+            Text(value)
+                .font(.body)
+                .foregroundStyle(.primary)
         }
     }
 }
@@ -148,9 +147,13 @@ struct TrailSheet: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(AtlasQuery.trailSentence(trail.access))
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                    TrailSketch(geometry: trail.geometry)
+                        .frame(height: 140)
+                        .accessibilityLabel("Trail line")
+                    labeledTrailRow("Length", Geometry.lengthLabel(Geometry.lengthMeters(trail.geometry)))
+                    labeledTrailRow("Surface", "Not in the pack.")
+                    labeledTrailRow("Difficulty", "Not in the pack.")
+                    labeledTrailRow("Access", AtlasQuery.trailSentence(trail.access))
                 }
                 Section("Source") {
                     Text(PlaceText.sourceLine(source: trail.source, sourceDate: trail.sourceDate))
@@ -171,6 +174,60 @@ struct TrailSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+
+    private func labeledTrailRow(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+            Text(value)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct TrailSketch: View {
+    let geometry: GeoJSONGeometry
+
+    var body: some View {
+        Canvas { context, size in
+            let lines = trailLines(geometry)
+            guard let box = geometry.bbox, !lines.isEmpty else { return }
+            let pad = 12.0
+            let spanLon = max(box.maxLon - box.minLon, 1e-6)
+            let spanLat = max(box.maxLat - box.minLat, 1e-6)
+            func point(_ coordinate: LonLat) -> CGPoint {
+                let x = pad + (coordinate.lon - box.minLon) / spanLon * (size.width - pad * 2)
+                let y = pad + (box.maxLat - coordinate.lat) / spanLat * (size.height - pad * 2)
+                return CGPoint(x: x, y: y)
+            }
+            let brown = Color(red: 0x6B / 255, green: 0x4F / 255, blue: 0x3A / 255)
+            for line in lines {
+                guard let first = line.first else { continue }
+                var path = Path()
+                path.move(to: point(first))
+                for coordinate in line.dropFirst() {
+                    path.addLine(to: point(coordinate))
+                }
+                context.stroke(path, with: .color(brown), lineWidth: 3)
+            }
+        }
+        .background(Color.fieldCream, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.fieldInk.opacity(0.35), lineWidth: 1))
+    }
+
+    private func trailLines(_ geometry: GeoJSONGeometry) -> [[LonLat]] {
+        switch geometry {
+        case .lineString(let line):
+            return [line]
+        case .multiLineString(let lines):
+            return lines
+        case .polygon, .multiPolygon, .point:
+            return []
         }
     }
 }

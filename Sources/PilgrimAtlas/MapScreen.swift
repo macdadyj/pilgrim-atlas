@@ -58,13 +58,18 @@ private struct MapChrome: View {
                 if hits.count == 1, let place = hits.first {
                     model.openPlace(place)
                 } else if hits.count > 1 {
+                    let unique = PlaceText.dedupeByName(hits)
+                    if unique.count == 1, let place = unique.first {
+                        model.openPlace(place)
+                    } else {
                     model.aim(at: coordinate)
-                    tapMenu = TapMenu(choices: hits.map { place in
+                    tapMenu = TapMenu(choices: unique.map { place in
                         PlaceHit(
                             place: place,
                             meters: Int(Geometry.haversineMeters(coordinate, place.coordinate).rounded())
                         )
                     })
+                    }
                 } else {
                     model.aim(at: coordinate)
                 }
@@ -173,29 +178,29 @@ private struct MapChrome: View {
     }
 
     private var statusLine: String {
-        if model.filter.anyChip {
-            var lines = [model.filter.summary]
-            if model.filter.publicLand { lines.append(MapFilter.publicLandSubtitle) }
-            if model.filter.openNow {
-                let coverage = MapFilter.coverage(model.places)
-                lines.append(coverage.line)
-                if let none = coverage.noneOpenLine { lines.append(none) }
-            }
-            return lines.joined(separator: "\n")
+        var lines: [String] = []
+        if model.filter.publicLand { lines.append(MapFilter.publicLandSubtitle) }
+        if model.filter.openNow {
+            let coverage = MapFilter.coverage(model.places)
+            lines.append(coverage.line)
+            if let none = coverage.noneOpenLine { lines.append(none) }
         }
-        if model.showTerrain { return MapFilter.terrainMissing }
-        if model.onlineTiles { return "Streets on. Land and landmarks stay on." }
-        return "Offline. Place names are in the pack."
+        if lines.isEmpty {
+            if model.onlineTiles { return "Streets on. Land and landmarks stay on." }
+            return "Offline. Place names are in the pack."
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func statusChip(_ text: String) -> some View {
         Text(text)
             .font(.caption)
-            .foregroundStyle(.primary)
+            .foregroundStyle(Color.fieldInk)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(Color.fieldCream, in: Capsule())
+            .overlay(Capsule().stroke(Color.fieldInk, lineWidth: 1))
     }
 }
 
@@ -209,6 +214,15 @@ private struct FilterBar: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
+                        if model.filter.anyChip {
+                            Button("Reset") { model.resetFilters() }
+                                .buttonStyle(.plain)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.fieldCream)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.fieldInk, in: Capsule())
+                        }
                         chip("Catholic sites", on: model.filter.catholic) { model.filter.catholic.toggle() }
                         chip("Churches and shrines", on: model.filter.churches) { model.filter.churches.toggle() }
                         chip("Trails", on: model.filter.trails) { model.filter.trails.toggle() }
@@ -217,24 +231,25 @@ private struct FilterBar: View {
                         foodChip
                         chip("Open now", on: model.filter.openNow) { model.filter.openNow.toggle() }
                     }
-                    .padding(.horizontal)
+                    .padding(.leading)
+                    .padding(.trailing, 28)
                 }
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black, location: 0),
+                            .init(color: .black, location: 0.88),
+                            .init(color: .clear, location: 1),
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
                 .onAppear {
                     if scrollToFood {
                         proxy.scrollTo("food", anchor: .center)
                     }
                 }
-            }
-            if model.filter.anyChip {
-                HStack(spacing: 8) {
-                    Text(model.filter.summary)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                    Button("Reset") { model.resetFilters() }
-                        .buttonStyle(.bordered)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal)
             }
         }
     }
@@ -246,7 +261,7 @@ private struct FilterBar: View {
             Text(MapFilter.foodCount(model.places) == 0 ? MapFilter.foodSubtitle : "\(MapFilter.foodCount(model.places)) in the pack")
                 .font(.caption2)
         }
-        .foregroundStyle(Color.fieldBrown)
+        .foregroundStyle(Color.fieldInk)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(Color.fieldCream, in: Capsule())
@@ -289,7 +304,7 @@ struct NearbyPanel: View {
                 .foregroundStyle(.primary)
             Text(model.summary?.headline ?? Copy.text("unknown"))
                 .font(.body)
-                .foregroundStyle(Color.fieldBrown)
+                .foregroundStyle(.primary)
             Text(model.summary?.permissionLine ?? PlaceText.permissionLine)
                 .font(.body)
                 .foregroundStyle(.primary)
@@ -319,7 +334,7 @@ struct NearbyPanel: View {
                                     .foregroundStyle(.primary)
                                 Text("Hiking trail")
                                     .font(.subheadline)
-                                    .foregroundStyle(Color.fieldBrown)
+                                    .foregroundStyle(.primary)
                             }
                             Spacer(minLength: 8)
                             Text(PlaceText.distanceLabel(trail.meters))
@@ -346,7 +361,7 @@ struct NearbyPanel: View {
                 }
                 Text(summary.closures.joined(separator: " "))
                     .font(.subheadline)
-                    .foregroundStyle(Color.fieldBrown)
+                    .foregroundStyle(.primary)
             }
             if model.cameraMovedFromSummary {
                 Button("Use this point") { model.useCameraPoint() }
@@ -364,7 +379,7 @@ struct NearbyPanel: View {
                     .foregroundStyle(.primary)
                 Text(row.category)
                     .font(.subheadline)
-                    .foregroundStyle(Color.fieldBrown)
+                    .foregroundStyle(.primary)
             }
             Spacer(minLength: 8)
             Text(PlaceText.distanceLabel(row.meters))
@@ -402,12 +417,6 @@ struct LayersSheet: View {
                         }
                     ))
                     Toggle("Hide places with no hours", isOn: $model.filter.hidePlacesWithoutHours)
-                    Toggle("Terrain", isOn: $model.showTerrain)
-                    if model.showTerrain {
-                        Text(MapFilter.terrainMissing)
-                            .font(.body)
-                            .foregroundStyle(Color.fieldBrown)
-                    }
                 }
                 Section("Marker legend") {
                     ForEach(PinRole.allCases, id: \.rawValue) { role in
@@ -469,11 +478,6 @@ struct SearchSheet: View {
             }
             .searchable(text: $query, prompt: "Search names on this phone")
             .navigationTitle(model.filter.searchTitle)
-            .safeAreaInset(edge: .top) {
-                FilterBar(scrollToFood: false)
-                    .padding(.vertical, 4)
-                    .background(.background)
-            }
             .overlay {
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ContentUnavailableView(
@@ -512,7 +516,7 @@ struct SearchSheet: View {
                 .foregroundStyle(.primary)
             Text(searchDetail(hit))
                 .font(.subheadline)
-                .foregroundStyle(Color.fieldBrown)
+                .foregroundStyle(.primary)
         }
     }
 

@@ -26,13 +26,13 @@ struct LicensesView: View {
                                 Link(link.title, destination: url)
                                 Text(link.note)
                                     .font(.footnote)
-                                    .foregroundStyle(Color.fieldBrown)
+                                    .foregroundStyle(.primary)
                             }
                         }
                     }
                     Text("MapLibre Native is BSD-2-Clause. SQLite is public domain. Census TIGER data is not used as a land-status layer, and the TIGER trademark is not part of the app name.")
                         .font(.footnote)
-                        .foregroundStyle(Color.fieldBrown)
+                        .foregroundStyle(.primary)
                 }
                 .padding()
             }

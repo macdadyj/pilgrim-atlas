@@ -2,7 +2,7 @@ import Foundation
 
 package enum PlaceText {
     package static let permissionLine = "This is not permission to enter."
-    package static let hoursConflictNote = "OpenStreetMap has two hour ranges. Both are shown raw."
+    package static let hoursConflictNote = "These ranges cover the same days. The sources do not agree."
     package static let diamondNote = "OpenStreetMap lists this as a landmark, so the map uses the diamond."
     package static let sameSitePhrase = "same site, second OpenStreetMap object"
 
@@ -84,22 +84,38 @@ package enum PlaceText {
     }
 
     package static func hoursDisplay(_ raw: String) -> (shown: String, note: String?) {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return ("", nil) }
-        let parts = trimmed.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
-        var covered: [String: Int] = [:]
-        var pretty: [String] = []
-        for part in parts {
-            guard let parsed = parseHoursPart(part) else { return (trimmed, nil) }
-            for day in parsed.days {
-                covered[day, default: 0] += 1
+        let lines = MapFilter.hourLines(raw)
+        if lines.isEmpty { return ("", nil) }
+        let shown = lines.joined(separator: "\n")
+        if MapFilter.hoursConflict(raw) { return (shown, hoursConflictNote) }
+        if case .notAClock = MapFilter.hoursReading(raw) { return (shown, MapFilter.hoursUnparsed) }
+        return (shown, nil)
+    }
+
+    package static func externalLinkTitle(label: String, value: String) -> String {
+        switch label {
+        case "Wikipedia": return wikipediaTitle(value)
+        case "Wikidata": return "Wikidata"
+        default: return label
+        }
+    }
+
+    /// One row per name. Keeps the closer place unless a later one is a richer record.
+    package static func dedupeByName(_ places: [PlaceRecord]) -> [PlaceRecord] {
+        var best: [String: PlaceRecord] = [:]
+        var order: [String] = []
+        for place in places {
+            let key = AtlasQuery.fold(place.name)
+            if let existing = best[key] {
+                if richness(place) > richness(existing) {
+                    best[key] = place
+                }
+            } else {
+                order.append(key)
+                best[key] = place
             }
-            pretty.append(parsed.text)
         }
-        if covered.values.contains(where: { $0 > 1 }) {
-            return (trimmed, hoursConflictNote)
-        }
-        return (pretty.joined(separator: "; "), nil)
+        return order.compactMap { best[$0] }
     }
 
     package static func accessSentence(_ value: String) -> String? {
@@ -205,74 +221,5 @@ package enum PlaceText {
             }
         }
         return bestName
-    }
-
-    private static let dayNames = [
-        "Mo": "Mon", "Tu": "Tue", "We": "Wed", "Th": "Thu", "Fr": "Fri", "Sa": "Sat", "Su": "Sun",
-    ]
-    private static let dayOrder = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
-
-    private struct ParsedHours {
-        var days: [String]
-        var text: String
-    }
-
-    private static func parseHoursPart(_ part: String) -> ParsedHours? {
-        let pieces = part.split(separator: " ").map(String.init)
-        guard pieces.count >= 2 else { return nil }
-        guard let days = expandDays(pieces[0]), !days.isEmpty else { return nil }
-        let timeSpec = pieces.dropFirst().joined(separator: " ")
-        guard let time = formatTimeRange(timeSpec) else { return nil }
-        return ParsedHours(days: days, text: "\(formatDayList(days)) \(time)")
-    }
-
-    private static func expandDays(_ spec: String) -> [String]? {
-        var days: [String] = []
-        for token in spec.split(separator: ",") {
-            let piece = String(token)
-            if piece.contains("-") {
-                let ends = piece.split(separator: "-", maxSplits: 1).map(String.init)
-                guard ends.count == 2,
-                      let start = dayOrder.firstIndex(of: ends[0]),
-                      let finish = dayOrder.firstIndex(of: ends[1]),
-                      start <= finish
-                else { return nil }
-                days.append(contentsOf: dayOrder[start...finish])
-            } else {
-                guard dayOrder.contains(piece) else { return nil }
-                days.append(piece)
-            }
-        }
-        return days
-    }
-
-    private static func formatDayList(_ days: [String]) -> String {
-        let indexes = days.compactMap { dayOrder.firstIndex(of: $0) }
-        if let first = indexes.first, let last = indexes.last, indexes.count == days.count, indexes.count > 1 {
-            let span = Array(first...last)
-            if indexes == span {
-                let start = dayNames[dayOrder[first]] ?? dayOrder[first]
-                let finish = dayNames[dayOrder[last]] ?? dayOrder[last]
-                return "\(start)–\(finish)"
-            }
-        }
-        return days.map { dayNames[$0] ?? $0 }.joined(separator: ", ")
-    }
-
-    private static func formatTimeRange(_ spec: String) -> String? {
-        let ends = spec.split(separator: "-").map { $0.trimmingCharacters(in: .whitespaces) }
-        guard ends.count == 2, let start = formatTime(ends[0]), let finish = formatTime(ends[1]) else { return nil }
-        return "\(start)–\(finish)"
-    }
-
-    private static func formatTime(_ value: String) -> String? {
-        let parts = value.split(separator: ":").map(String.init)
-        guard parts.count == 2, let hour = Int(parts[0]), let minute = Int(parts[1]), (0..<24).contains(hour), (0..<60).contains(minute) else {
-            return nil
-        }
-        let suffix = hour < 12 ? "AM" : "PM"
-        let clock = hour % 12 == 0 ? 12 : hour % 12
-        let minutes = String(format: "%02d", minute)
-        return "\(clock):\(minutes) \(suffix)"
     }
 }

@@ -24,6 +24,9 @@ struct AtlasMapView: UIViewRepresentable {
             zoomLevel: model.cameraZoom,
             animated: false
         )
+        let ornament = CGPoint(x: 8, y: 400)
+        map.logoViewMargins = ornament
+        map.attributionButtonMargins = ornament
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.numberOfTapsRequired = 1
         map.addGestureRecognizer(tap)
@@ -89,17 +92,15 @@ struct AtlasMapView: UIViewRepresentable {
                 animated: true
             )
         }
+        context.coordinator.onPackLayersMissing = { missing in
+            model.loadError = "Pack map layers did not render: \(missing.joined(separator: ", "))."
+        }
         PackStyle.applyVisibility(
             on: map,
+            places: model.showPlaces,
             trails: model.showTrails && model.filter.showsTrails,
             parcels: model.showParcels,
             filter: model.filter
-        )
-        PlaceSymbols.update(
-            on: map,
-            places: model.places,
-            filter: model.filter,
-            selectedID: model.selectedPlace?.id
         )
     }
 
@@ -116,6 +117,7 @@ struct AtlasMapView: UIViewRepresentable {
         var showParcels = false
         var filter = AtlasFilter.empty
         var selectedID: Int?
+        var onPackLayersMissing: ([String]) -> Void = { _ in }
 
         init(onSelect: @escaping (LonLat, [PlaceRecord]) -> Void) {
             self.onSelect = onSelect
@@ -150,9 +152,13 @@ struct AtlasMapView: UIViewRepresentable {
         @MainActor
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             PackStyle.installMarkers(on: style)
-            PlaceSymbols.install(on: style, places: places, filter: filter, selectedID: selectedID)
+            let present = Set(style.layers.map(\.identifier))
+            let packIsVector = style.source(withIdentifier: "pack") is MLNVectorTileSource
+            let missing = PackStyleDocument.missingRenderedLayers(present, packIsVector: packIsVector)
+            if !missing.isEmpty { onPackLayersMissing(missing) }
             PackStyle.applyVisibility(
                 on: mapView,
+                places: showPlaces,
                 trails: showTrails && filter.showsTrails,
                 parcels: showParcels,
                 filter: filter
@@ -179,29 +185,25 @@ enum PackStyle {
         ("Open Space closed", "A33B3B"),
         ("Surface status unclear", "B7A99A"),
     ]
-    static let landOpacity = 0.85
+    static let landOpacity = PackStyleDocument.landOpacity
 
     static func fileURL(online: Bool) -> URL {
         let destination = FileManager.default.temporaryDirectory
             .appendingPathComponent("pilgrim-atlas-style-\(online ? "online" : "offline").json")
-        let json = styleJSON(online: online)
+        let json = PackStyleDocument.json(packURL: packURL(), glyphsURL: glyphsTemplate(), online: online)
         try? json.data(using: .utf8)?.write(to: destination)
         return destination
     }
 
     @MainActor
     static func installMarkers(on style: MLNStyle) {
-        let markers = [("catholic", "marker-catholic"), ("worship", "marker-worship"), ("landmark", "marker-landmark")]
-        for (name, file) in markers {
-            guard let url = Bundle.module.url(forResource: file, withExtension: "png", subdirectory: "Resources"),
-                  let image = UIImage(contentsOfFile: url.path)
-            else { continue }
-            style.setImage(image, forName: name)
+        for role in PinRole.allCases {
+            style.setImage(PinArt.image(for: role), forName: role.rawValue)
         }
     }
 
     @MainActor
-    static func applyVisibility(on map: MLNMapView, trails: Bool, parcels: Bool, filter: AtlasFilter) {
+    static func applyVisibility(on map: MLNMapView, places: Bool, trails: Bool, parcels: Bool, filter: AtlasFilter) {
         guard let style = map.style else { return }
         for layer in style.layers {
             let identifier = layer.identifier
@@ -211,6 +213,29 @@ enum PackStyle {
                 layer.isVisible = trails
             } else if identifier == "parcels" {
                 layer.isVisible = parcels
+            } else if PackStyleDocument.placeLayerIDs.contains(identifier) {
+                layer.isVisible = places && PackStyleDocument.showsPlaceLayer(identifier, filter: filter)
+                if let symbol = layer as? MLNSymbolStyleLayer {
+                    let opacity = PackStyleDocument.placeOpacity(filter: filter)
+                    if opacity < 1 {
+                        let value = NSExpression(forConstantValue: NSNumber(value: opacity))
+                        symbol.iconOpacity = value
+                        symbol.textOpacity = value
+                    } else {
+                        symbol.iconOpacity = nil
+                        symbol.textOpacity = nil
+                    }
+                }
+                if identifier == "places-worship", let vector = layer as? MLNVectorStyleLayer {
+                    if filter.churches && !filter.catholic {
+                        vector.predicate = NSPredicate(
+                            format: "category == 'worship' AND catholic == 0 AND name != %@",
+                            "Unnamed place of worship"
+                        )
+                    } else {
+                        vector.predicate = NSPredicate(format: "category == 'worship' AND catholic == 0")
+                    }
+                }
             }
         }
     }
@@ -240,84 +265,24 @@ enum PackStyle {
         if kind == "local_protected", filter.parks {
             return NSExpression(mglJSONObject: [
                 "case",
-                ["in", "park", ["downcase", ["get", "name"]]],
-                landOpacity,
-                0.18,
+                ["in", "park", ["downcase", ["coalesce", ["get", "name"], ""]]],
+                NSNumber(value: landOpacity),
+                NSNumber(value: 0.18),
             ])
         }
+        let fading = filter.publicLand || filter.parks
         let shown = MapFilter.landShown(kind: kind, name: "", filter: filter)
-        return NSExpression(forConstantValue: shown ? landOpacity : 0.18)
+        let opacity = fading ? (shown ? landOpacity : 0.18) : landOpacity
+        return NSExpression(forConstantValue: NSNumber(value: opacity))
     }
 
-    private static func styleJSON(online: Bool) -> String {
-        var sources = [packSource()]
-        if online {
-            sources.append(#""openmaptiles": {"type": "vector", "url": "https://tiles.openfreemap.org/planet"}"#)
-        }
-        var layers = [
-            "{\"id\": \"background\", \"type\": \"background\", \"paint\": {\"background-color\": \"#EFE6D6\"}}"
-        ]
-        if online {
-            layers.append(
-                ##"{"id": "ofm-water", "type": "fill", "source": "openmaptiles", "source-layer": "water", "paint": {"fill-color": "#C5D5E4"}}"##
-            )
-        }
-        layers.append(landLayer("land-tribal", "tribal", "#7A3E8C"))
-        layers.append(landLayer("land-nps", "nps", "#1F6F8A"))
-        layers.append(landLayer("land-usfs", "usfs", "#1F7A3A"))
-        layers.append(landLayer("land-usfs-inholding", "usfs_inholding", "#A89880"))
-        layers.append(landLayer("land-usfs-other", "usfs_other", "#6E8F72"))
-        layers.append(landLayer("land-blm", "blm", "#C48A12"))
-        layers.append(landLayer("land-dod", "dod", "#8C3030"))
-        layers.append(landLayer("land-federal", "federal_other", "#3D5A73"))
-        layers.append(landLayer("land-trust", "state_trust", "#E06A1F"))
-        layers.append(landLayer("land-state", "state_other", "#C4A06A"))
-        layers.append(landLayer("land-abq-closed", "abq_closed", "#A33B3B"))
-        layers.append(landLayer("land-abq-open", "abq_open", "#4F8A32"))
-        layers.append(landLayer("land-local", "local_protected", "#2F8F7A"))
-        layers.append(landLayer("land-private", "private_mapped", "#C4B49A"))
-        layers.append(landLayer("land-undefined", "sma_undefined", "#B7A99A"))
-        layers.append(
-            "{\"id\": \"land-private-line\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"land\", \"filter\": [\"==\", [\"get\", \"kind\"], \"private_mapped\"], \"paint\": {\"line-color\": \"#4A4036\", \"line-width\": 1.1}}"
-        )
-        if online {
-            let roadClasses = #"["motorway", "trunk", "primary", "secondary", "tertiary", "minor", "service"]"#
-            let roadFilter = #"["in", ["get", "class"], ["literal", \#(roadClasses)]]"#
-            layers.append(
-                ##"{"id": "ofm-roads-casing", "type": "line", "source": "openmaptiles", "source-layer": "transportation", "filter": \##(roadFilter), "paint": {"line-color": "#6E6254", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.4, 14, 2.4, 16, 6]}}"##
-            )
-            layers.append(
-                ##"{"id": "ofm-roads", "type": "line", "source": "openmaptiles", "source-layer": "transportation", "filter": \##(roadFilter), "paint": {"line-color": "#FBF7F0", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.2, 14, 1.3, 16, 3.6]}}"##
-            )
-        }
-        layers.append(
-            "{\"id\": \"trails-casing\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"trails\", \"paint\": {\"line-color\": \"#F4EFE4\", \"line-width\": [\"interpolate\", [\"linear\"], [\"zoom\"], 10, 3, 16, 7]}}"
-        )
-        layers.append(
-            "{\"id\": \"trails\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"trails\", \"paint\": {\"line-color\": \"#6B4F3A\", \"line-width\": [\"interpolate\", [\"linear\"], [\"zoom\"], 10, 1.6, 16, 4]}}"
-        )
-        layers.append(
-            "{\"id\": \"parcels\", \"type\": \"line\", \"source\": \"pack\", \"source-layer\": \"parcels\", \"minzoom\": 13, \"paint\": {\"line-color\": \"#5C5346\", \"line-width\": 0.8}}"
-        )
-        if online {
-            layers.append(
-                """
-                {"id": "ofm-road-labels", "type": "symbol", "source": "openmaptiles", "source-layer": "transportation_name", "minzoom": 14, "layout": {"text-field": ["get", "name"], "text-font": ["NotoSansRegular"], "text-size": 11, "symbol-placement": "line", "text-optional": true}, "paint": {"text-color": "#2A241C", "text-halo-color": "#FBF7F0", "text-halo-width": 1.2}}
-                """
-            )
-        }
-        let glyphs = jsonString(glyphsTemplate())
-        return """
-        {"version": 8, "name": "Pilgrim Atlas", "glyphs": "\(glyphs)", "sources": {\(sources.joined(separator: ","))}, "layers": [\(layers.joined(separator: ","))]}
-        """
-    }
-
-    private static func packSource() -> String {
-        if let pmtiles = Bundle.module.url(forResource: "northern-new-mexico", withExtension: "pmtiles", subdirectory: "Resources") {
-            let url = jsonString("pmtiles://file://\(pmtiles.path)")
-            return #""pack": {"type": "vector", "url": "\#(url)"}"#
-        }
-        return #""pack": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}}"#
+    private static func packURL() -> String? {
+        guard let pmtiles = Bundle.module.url(
+            forResource: "northern-new-mexico",
+            withExtension: "pmtiles",
+            subdirectory: "Resources"
+        ) else { return nil }
+        return "pmtiles://file://\(pmtiles.path)"
     }
 
     private static func glyphsTemplate() -> String {
@@ -331,19 +296,6 @@ enum PackStyle {
         }
         return "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf"
     }
-
-    private static func jsonString(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-    }
-
-    private static func landLayer(_ identifier: String, _ kind: String, _ color: String, opacity: Double = landOpacity) -> String {
-        """
-        {"id": "\(identifier)", "type": "fill", "source": "pack", "source-layer": "land", "filter": ["==", ["get", "kind"], "\(kind)"], "paint": {"fill-color": "\(color)", "fill-opacity": \(opacity), "fill-outline-color": "\(color)"}}
-        """
-    }
-
 }
 
 #endif

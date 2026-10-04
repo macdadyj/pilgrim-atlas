@@ -111,9 +111,8 @@ These flags exist only in a debug build. A release build compiles them out and i
 | Open now, visitor-hours line visible | `--debug-santa-fe-plaza --debug-filter=open-now` |
 | Catholic sites and Open now, map not emptied | `--debug-santa-fe-plaza --debug-filter=catholic,open-now` |
 | Search chapel inside Catholic sites | `--debug-santa-fe-plaza --debug-filter=catholic --debug-search=chapel` |
-| Terrain toggle, hillshade not in the pack | `--debug-santa-fe-plaza --debug-terrain` |
 
-`--debug-filter=food` does not clear the map. The chip stays disabled and reads “Not in this pack yet.” `--debug-show-layers` still opens More map options and does not turn a chip on. `--debug-show-places-picker` opens the same picker for the basilica cluster when you do not pass a coordinate. Without a debug flag, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix. Search, chips, and licenses stay on the device. The field-app design notes are in `docs/design.md`.
+`--debug-filter=food` does not clear the map. The chip stays disabled and reads “Not in this pack yet.” `--debug-show-layers` still opens More map options and does not turn a chip on. `--debug-terrain` is accepted and does not show a control: hillshade and contours are not in the pack, so there is no Terrain switch. `--debug-show-places-picker` opens the same picker for the basilica cluster when you do not pass a coordinate. Without a debug flag, the map opens on the plaza until the phone has a GPS fix, and the location button recenters on that fix. Search, chips, and licenses stay on the device. The field-app design notes are in `docs/design.md`.
 
 ## Layout
 
