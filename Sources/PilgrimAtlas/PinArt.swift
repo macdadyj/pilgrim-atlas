@@ -1,6 +1,8 @@
 #if canImport(UIKit)
 import UIKit
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 enum PinArt {
     static func image(for role: PinRole) -> UIImage {

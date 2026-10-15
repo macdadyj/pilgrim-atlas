@@ -1,7 +1,9 @@
 #if canImport(UIKit)
 import SwiftUI
 import UIKit
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 struct PlaceHit: Identifiable {
     var place: PlaceRecord
@@ -20,7 +22,6 @@ struct MapScreen: View {
     var body: some View {
         MapChrome(
             showLayers: model.launch.showLayers,
-            showFilters: model.showFilters,
             tapMenu: launchMenu,
             cardFull: model.launch.cardFull
         )
@@ -46,11 +47,10 @@ private struct MapChrome: View {
     @State private var cardExpanded: Bool
     @State private var sheetsReady = false
 
-    init(showLayers: Bool, showFilters: Bool, tapMenu: TapMenu?, cardFull: Bool) {
+    init(showLayers: Bool, tapMenu: TapMenu?, cardFull: Bool) {
         _showLayers = State(initialValue: showLayers)
         _tapMenu = State(initialValue: tapMenu)
         _cardExpanded = State(initialValue: cardFull)
-        _ = showFilters
     }
 
     var body: some View {

@@ -195,6 +195,63 @@ final class AtlasUITests: XCTestCase {
         attach(app.screenshot(), name: "catholic-filter")
     }
 
+    func testFiltersOpenFromLaunchArgument() {
+        let app = launch("--debug-santa-fe-plaza", "--debug-show-filters", "--debug-filter=food")
+        XCTAssertTrue(
+            app.navigationBars["Filters"].waitForExistence(timeout: 25)
+                || app.otherElements["filters-sheet"].waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(
+            app.otherElements["filter-row-food"].waitForExistence(timeout: 6)
+                || app.staticTexts["Food and rest"].waitForExistence(timeout: 4)
+        )
+        attach(app.screenshot(), name: "filters-food")
+        tapDone(app, identifier: "filters-done", title: "Done")
+        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 8))
+    }
+
+    func testSearchTownOpensTheMap() {
+        let app = launch("--debug-santa-fe-plaza", "--debug-search=Taos")
+        let hit = app.buttons["search-hit-town-taos"]
+        XCTAssertTrue(hit.waitForExistence(timeout: 25))
+        attach(app.screenshot(), name: "search-taos")
+        hit.tap()
+        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 8))
+    }
+
+    func testSettingsTogglesAppearanceAndWelcome() {
+        let app = launch("--debug-tab=settings")
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 25))
+        toggle(app, "toggle-terrain")
+        toggle(app, "toggle-parcels")
+        if app.switches["toggle-online-tiles"].waitForExistence(timeout: 3) {
+            app.switches["toggle-online-tiles"].tap()
+            if app.alerts["Online tiles"].waitForExistence(timeout: 4) {
+                app.alerts["Online tiles"].buttons["Use OpenFreeMap"].tap()
+            }
+        }
+        let picker = app.pickers["appearance-picker"]
+        if picker.waitForExistence(timeout: 3) {
+            picker.tap()
+            if app.buttons["Dark"].waitForExistence(timeout: 3) {
+                app.buttons["Dark"].tap()
+            }
+        } else if app.buttons["Match iPhone"].waitForExistence(timeout: 2) {
+            app.buttons["Match iPhone"].tap()
+            if app.buttons["Dark"].waitForExistence(timeout: 3) {
+                app.buttons["Dark"].tap()
+            }
+        }
+        attach(app.screenshot(), name: "settings-appearance")
+        if !app.buttons["welcome-again"].waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.buttons["welcome-again"].waitForExistence(timeout: 6))
+        app.buttons["welcome-again"].tap()
+        XCTAssertTrue(app.buttons["onboarding-continue"].waitForExistence(timeout: 8))
+        attach(app.screenshot(), name: "welcome-again")
+    }
+
     func testDisclaimerScreenshotPath() {
         let app = launch("--debug-disclaimer-details-open")
         XCTAssertTrue(app.buttons["onboarding-understand"].waitForExistence(timeout: 20))

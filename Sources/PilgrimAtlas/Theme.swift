@@ -1,7 +1,9 @@
 #if canImport(UIKit)
 import SwiftUI
 import UIKit
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 /// LOJO-shaped chrome. Cream and ink stay on the map. Screens use system surfaces.
 enum Theme {
@@ -48,15 +50,56 @@ enum Theme {
     }
 }
 
+/// One tile color per symbol, so list rows are not all the same burgundy square.
+enum TilePalette {
+    static func colors(for systemImage: String) -> [Color] {
+        switch systemImage {
+        case "cross.fill", "cross":
+            return [Color(red: 0x8C / 255, green: 0x2F / 255, blue: 0x39 / 255), Color(red: 0x3A / 255, green: 0x22 / 255, blue: 0x18 / 255)]
+        case "figure.hiking":
+            return [Color(red: 0x6B / 255, green: 0x4F / 255, blue: 0x3A / 255), Color(red: 0x3A / 255, green: 0x22 / 255, blue: 0x18 / 255)]
+        case "tree.fill", "leaf.fill":
+            return [Color(red: 0x1F / 255, green: 0x7A / 255, blue: 0x3A / 255), Color(red: 0x14 / 255, green: 0x4A / 255, blue: 0x28 / 255)]
+        case "drop.fill":
+            return [Color(red: 0x1F / 255, green: 0x6F / 255, blue: 0x8A / 255), Color(red: 0x14 / 255, green: 0x3A / 255, blue: 0x55 / 255)]
+        case "mountain.2", "mountain.2.fill":
+            return [Color(red: 0x5C / 255, green: 0x6B / 255, blue: 0x73 / 255), Color(red: 0x2C / 255, green: 0x33 / 255, blue: 0x38 / 255)]
+        case "eye.fill", "binoculars":
+            return [Color(red: 0xC4 / 255, green: 0x62 / 255, blue: 0x2D / 255), Color(red: 0x8C / 255, green: 0x3E / 255, blue: 0x16 / 255)]
+        case "fork.knife":
+            return [Color(red: 0xC4 / 255, green: 0x8A / 255, blue: 0x12 / 255), Color(red: 0x8C / 255, green: 0x5A / 255, blue: 0x10 / 255)]
+        case "clock", "clock.fill":
+            return [Color(red: 0x2F / 255, green: 0x8F / 255, blue: 0x7A / 255), Color(red: 0x1A / 255, green: 0x55 / 255, blue: 0x48 / 255)]
+        case "building.2", "building.columns", "building.columns.fill":
+            return [Color(red: 0x3D / 255, green: 0x5A / 255, blue: 0x73 / 255), Color(red: 0x24 / 255, green: 0x34 / 255, blue: 0x44 / 255)]
+        case "map", "square.grid.3x3", "globe":
+            return [Color(red: 0xE0 / 255, green: 0x6A / 255, blue: 0x1F / 255), Color(red: 0x8C / 255, green: 0x3E / 255, blue: 0x12 / 255)]
+        case "hexagon.fill", "diamond.fill":
+            return [Color(red: 0xC4 / 255, green: 0x62 / 255, blue: 0x2D / 255), Color(red: 0x6B / 255, green: 0x3A / 255, blue: 0x1F / 255)]
+        case "parkingsign":
+            return [Color(red: 0x1F / 255, green: 0x6F / 255, blue: 0x8A / 255), Color(red: 0x14 / 255, green: 0x40 / 255, blue: 0x55 / 255)]
+        case "doc.text", "info.circle", "xmark":
+            return [Theme.accentFill, Theme.partner]
+        default:
+            return [Theme.accentFill, Theme.partner]
+        }
+    }
+}
+
 struct IconTile: View {
     var systemName: String
+    var colors: [Color]? = nil
 
     var body: some View {
+        let palette = colors ?? TilePalette.colors(for: systemName)
         Image(systemName: systemName)
             .font(.body.weight(.semibold))
             .foregroundStyle(.white)
             .frame(width: 36, height: 36)
-            .background(Theme.accentGradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(
+                LinearGradient(colors: palette, startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
             .accessibilityHidden(true)
     }
 }

@@ -1,6 +1,8 @@
 #if canImport(UIKit)
 import Foundation
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 import SQLite3
 
 enum PackError: Error, CustomStringConvertible {

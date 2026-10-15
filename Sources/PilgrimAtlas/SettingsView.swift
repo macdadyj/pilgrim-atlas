@@ -1,6 +1,8 @@
 #if canImport(UIKit)
 import SwiftUI
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 struct SettingsView: View {
     @Environment(AtlasModel.self) private var model

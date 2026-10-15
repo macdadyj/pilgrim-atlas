@@ -1,6 +1,8 @@
 #if canImport(UIKit)
 import SwiftUI
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 enum AppTab: String, Hashable {
     case map

@@ -28,8 +28,7 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
 fi
 xcodebuild test \
   -project PilgrimAtlas.xcodeproj \
-  -scheme PilgrimAtlas \
-  -only-testing:PilgrimAtlasTests \
+  -scheme PilgrimAtlasTests \
   -destination "platform=iOS Simulator,id=${UDID}" \
   -clonedSourcePackagesDirPath build/SourcePackages \
   -derivedDataPath build/DerivedData \

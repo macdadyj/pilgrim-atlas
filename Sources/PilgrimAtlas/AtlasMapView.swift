@@ -1,7 +1,9 @@
 #if canImport(UIKit)
 import CoreLocation
 import MapLibre
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 import SwiftUI
 import UIKit
 

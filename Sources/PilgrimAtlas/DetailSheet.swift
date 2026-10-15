@@ -1,6 +1,8 @@
 #if canImport(UIKit)
 import SwiftUI
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 struct DetailSheet: View {
     let place: PlaceRecord

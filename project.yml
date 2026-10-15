@@ -1,6 +1,7 @@
 # Generated into PilgrimAtlas.xcodeproj by XcodeGen during macOS CI.
-# xtool still builds the phone from Package.swift; this project exists so
-# `xcodebuild` can compile, test, and archive the same sources.
+# xtool still builds the phone from Package.swift. This project compiles the
+# same sources as one app module so `package` types stay visible without a
+# second library target.
 name: PilgrimAtlas
 options:
   bundleIdPrefix: com.lojo
@@ -28,20 +29,6 @@ settings:
     "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
 
 targets:
-  PilgrimAtlasCore:
-    type: library.static
-    platform: iOS
-    sources:
-      - path: Sources/PilgrimAtlasCore
-        excludes:
-          - "*.json"
-          - "*.txt"
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.lojo.PilgrimAtlas.core
-        SKIP_INSTALL: YES
-        DEFINES_MODULE: YES
-
   PilgrimAtlas:
     type: application
     platform: iOS
@@ -49,6 +36,10 @@ targets:
       - path: Sources/PilgrimAtlas
         excludes:
           - Resources
+      - path: Sources/PilgrimAtlasCore
+        excludes:
+          - "*.json"
+          - "*.txt"
       - path: Sources/PilgrimAtlas/Resources
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/sentences.json
@@ -61,7 +52,6 @@ targets:
         buildPhase: resources
       - path: Assets.xcassets
     dependencies:
-      - target: PilgrimAtlasCore
       - package: MapLibre
         product: MapLibre
       - sdk: libc++.tbd
@@ -75,6 +65,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SUPPORTS_MACCATALYST: NO
         ENABLE_PREVIEWS: YES
+        ENABLE_TESTABILITY: YES
         OTHER_LDFLAGS: "$(inherited) -lsqlite3"
 
   PilgrimAtlasTests:
@@ -84,6 +75,10 @@ targets:
       - path: Tests/PilgrimAtlasCoreTests
         excludes:
           - Fixtures
+      - path: Sources/PilgrimAtlasCore
+        excludes:
+          - "*.json"
+          - "*.txt"
       - path: Tests/PilgrimAtlasCoreTests/Fixtures
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/sentences.json
@@ -94,8 +89,6 @@ targets:
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/slo_disclaimer.txt
         buildPhase: resources
-    dependencies:
-      - target: PilgrimAtlasCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lojo.PilgrimAtlas.tests
@@ -121,18 +114,19 @@ schemes:
     build:
       targets:
         PilgrimAtlas: all
-        PilgrimAtlasTests: [test]
-        PilgrimAtlasUITests: [test]
     run:
       config: Debug
+    archive:
+      config: Release
+      customArchiveName: PilgrimAtlas
+  PilgrimAtlasTests:
+    build:
+      targets:
+        PilgrimAtlasTests: [test]
     test:
       config: Debug
       targets:
         - PilgrimAtlasTests
-        - PilgrimAtlasUITests
-    archive:
-      config: Release
-      customArchiveName: PilgrimAtlas
   PilgrimAtlasUI:
     build:
       targets:

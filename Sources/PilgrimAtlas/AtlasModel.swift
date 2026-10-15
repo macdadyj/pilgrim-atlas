@@ -2,7 +2,9 @@
 import CoreLocation
 import Foundation
 import Observation
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 struct CameraFit: Equatable {
     var minLon: Double

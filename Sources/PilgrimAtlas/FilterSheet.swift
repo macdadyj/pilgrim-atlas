@@ -1,6 +1,8 @@
 #if canImport(UIKit)
 import SwiftUI
+#if SWIFT_PACKAGE
 import PilgrimAtlasCore
+#endif
 
 struct FilterSheet: View {
     @Environment(AtlasModel.self) private var model
@@ -9,6 +11,7 @@ struct FilterSheet: View {
     var body: some View {
         @Bindable var model = model
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 if model.filter.anyChip {
                     Section {
@@ -36,6 +39,12 @@ struct FilterSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .onAppear {
+                if model.focusFoodChip {
+                    proxy.scrollTo("food", anchor: .center)
+                }
+            }
+            }
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

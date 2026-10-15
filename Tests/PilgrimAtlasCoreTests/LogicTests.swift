@@ -1,5 +1,7 @@
 import XCTest
+#if SWIFT_PACKAGE
 @testable import PilgrimAtlasCore
+#endif
 
 final class LogicTests: XCTestCase {
     func testOwnerFieldsAreRemovedAndAgencyFieldsStay() {
@@ -446,6 +448,36 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(filter.activeControls.map(\.id), ["catholic", "trails"])
         filter.toggle("food")
         XCTAssertFalse(filter.isOn("food"))
+        XCTAssertEqual(AppInfo.versionLine(marketing: "1.0", build: "5.3"), "1.0 (5.3)")
+    }
+
+    func testEachFilterControlChangesOnlyItsOwnField() {
+        for control in FilterControl.all {
+            var filter = AtlasFilter.empty
+            filter.toggle(control.id)
+            XCTAssertEqual(filter.isOn(control.id), control.enabled, control.id)
+            let flags = [
+                filter.catholic, filter.churches, filter.trails,
+                filter.publicLand, filter.parks, filter.openNow,
+            ]
+            XCTAssertEqual(flags.filter { $0 }.count, control.enabled ? 1 : 0, control.id)
+            filter.toggle(control.id)
+            XCTAssertFalse(filter.anyChip, control.id)
+        }
+    }
+
+    func testTownSearchUsesThePackedTownList() {
+        XCTAssertEqual(
+            PlaceText.towns.map(\.name),
+            ["Santa Fe", "Chimayó", "Española", "Los Alamos", "Taos", "Albuquerque", "Dulce"]
+        )
+        let hits = AtlasQuery.search("Taos", places: [], trails: [])
+        XCTAssertEqual(hits.first?.kind, .town)
+        XCTAssertEqual(hits.first?.id, "town-taos")
+        XCTAssertEqual(hits.first?.name, "Taos")
+        XCTAssertTrue(AtlasQuery.search("zzzz-no-such-place", places: [], trails: []).isEmpty)
+        let chimayo = AtlasQuery.search("Chimayo", places: [], trails: [])
+        XCTAssertTrue(chimayo.contains { $0.id == "town-chimayo" })
     }
 
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
