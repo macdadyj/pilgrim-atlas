@@ -130,6 +130,36 @@ struct Chip: View {
                 }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("chip-\(title)")
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+struct IconChip: View {
+    var title: String
+    var systemImage: String
+    var on: Bool
+    var enabled: Bool = true
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(on ? Color.white : Color.primary)
+                .frame(width: 44, height: 44)
+                .background {
+                    ZStack {
+                        Circle().fill(.regularMaterial)
+                        Circle().fill(on ? Theme.accentFill : Theme.control.opacity(0.12))
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.55)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier("chip-\(title)")
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
@@ -142,6 +172,80 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 50)
             .background(Theme.accentGradient, in: RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous))
             .opacity(configuration.isPressed ? 0.86 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Theme.control)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(
+                Theme.control.opacity(0.12),
+                in: RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous)
+            )
+            .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+enum AppearanceChoice: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "Match iPhone"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+@MainActor
+enum Haptics {
+    static func light() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func selection() { UISelectionFeedbackGenerator().selectionChanged() }
+    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+}
+
+struct EmptyStateCard: View {
+    var systemImage: String
+    var title: String
+    var message: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundStyle(Theme.accentGradient)
+                .symbolEffect(.pulse, options: .repeating, isActive: false)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(8)
+        .fieldCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("empty-state")
     }
 }
 

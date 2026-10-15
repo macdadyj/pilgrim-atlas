@@ -410,6 +410,42 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(cardSpaced.cardFull)
         XCTAssertFalse(DebugLaunch.parse(["/PilgrimAtlas", "--debug-card=short"]).cardFull)
         XCTAssertFalse(plain.cardFull)
+
+        let settings = DebugLaunch.parse(["/PilgrimAtlas", "--debug-show-settings"])
+        XCTAssertTrue(settings.showSettings)
+        XCTAssertEqual(settings.tab, "settings")
+        XCTAssertTrue(settings.suppressesLocation)
+        XCTAssertTrue(settings.skipsDisclaimer)
+
+        let filters = DebugLaunch.parse(["/PilgrimAtlas", "--debug-show-filters"])
+        XCTAssertTrue(filters.showFilters)
+        XCTAssertTrue(filters.skipsDisclaimer)
+
+        let onboarding = DebugLaunch.parse(["/PilgrimAtlas", "--debug-onboarding"])
+        XCTAssertTrue(onboarding.showOnboarding)
+        XCTAssertFalse(onboarding.skipsDisclaimer)
+        XCTAssertTrue(onboarding.suppressesLocation)
+
+        let searchTab = DebugLaunch.parse(["/PilgrimAtlas", "--debug-tab=search"])
+        XCTAssertEqual(searchTab.tab, "search")
+        XCTAssertTrue(searchTab.skipsDisclaimer)
+        XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas", "--debug-tab=terminal"]).tab)
+    }
+
+    func testAppInfoAndFilterControls() {
+        XCTAssertEqual(AppInfo.versionLine(marketing: "1.0", build: "101"), "1.0 (101)")
+        XCTAssertEqual(FilterControl.all.map(\.id), [
+            "catholic", "churches", "trails", "public-land", "parks", "food", "open-now",
+        ])
+        XCTAssertFalse(FilterControl.all.first { $0.id == "food" }?.enabled ?? true)
+        var filter = AtlasFilter.empty
+        filter.toggle("catholic")
+        filter.toggle("trails")
+        XCTAssertTrue(filter.catholic)
+        XCTAssertTrue(filter.trails)
+        XCTAssertEqual(filter.activeControls.map(\.id), ["catholic", "trails"])
+        filter.toggle("food")
+        XCTAssertFalse(filter.isOn("food"))
     }
 
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
@@ -652,7 +688,12 @@ final class LogicTests: XCTestCase {
     }
 
     private func packedSkylineGeometry() -> GeoJSONGeometry? {
-        guard let url = Bundle.module.url(forResource: "skyline-trail", withExtension: "geojson") else {
+        #if SWIFT_PACKAGE
+        let bundle = Bundle.module
+        #else
+        let bundle = Bundle(for: LogicTests.self)
+        #endif
+        guard let url = bundle.url(forResource: "skyline-trail", withExtension: "geojson") else {
             return nil
         }
         return GeoJSONParser.geometry(from: (try? Data(contentsOf: url)) ?? Data())

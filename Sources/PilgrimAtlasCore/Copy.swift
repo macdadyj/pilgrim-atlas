@@ -13,7 +13,7 @@ package enum Copy {
     }
 
     private static func load(_ name: String, _ ext: String) -> [String: String] {
-        guard let url = Bundle.module.url(forResource: name, withExtension: ext),
+        guard let url = ResourceBundle.url(forResource: name, withExtension: ext),
               let data = try? Data(contentsOf: url),
               let decoded = try? JSONDecoder().decode([String: String].self, from: data)
         else {
@@ -23,7 +23,7 @@ package enum Copy {
     }
 
     private static func loadText(_ name: String) -> String {
-        guard let url = Bundle.module.url(forResource: name, withExtension: "txt"),
+        guard let url = ResourceBundle.url(forResource: name, withExtension: "txt"),
               let text = try? String(contentsOf: url, encoding: .utf8)
         else {
             preconditionFailure("Missing \(name).txt")

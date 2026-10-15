@@ -23,6 +23,11 @@ package struct DebugLaunch: Equatable, Sendable {
     /// Opens the nearby card at the 40 percent detent, with no drag.
     package var cardFull: Bool
     package var appearance: DebugAppearance?
+    package var showSettings: Bool
+    package var showFilters: Bool
+    package var showOnboarding: Bool
+    /// `map`, `search`, or `settings`.
+    package var tab: String?
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -38,7 +43,11 @@ package struct DebugLaunch: Equatable, Sendable {
         focusFood: false,
         outsideCoverage: false,
         cardFull: false,
-        appearance: nil
+        appearance: nil,
+        showSettings: false,
+        showFilters: false,
+        showOnboarding: false,
+        tab: nil
     )
 
     /// North of the pack, same longitude as the plaza, for screenshots without GPS.
@@ -62,12 +71,16 @@ package struct DebugLaunch: Equatable, Sendable {
             || showTerrain
             || outsideCoverage
             || cardFull
+            || showSettings
+            || showFilters
+            || showOnboarding
+            || tab != nil
     }
 
     /// Map screenshots skip the first-launch gate for this process only.
-    /// Disclaimer flags win, so the gate still shows when those are set.
+    /// Disclaimer and onboarding flags win, so the gate still shows when those are set.
     package var skipsDisclaimer: Bool {
-        if showDisclaimer || disclaimerDetailsOpen { return false }
+        if showDisclaimer || disclaimerDetailsOpen || showOnboarding { return false }
         return suppressesLocation
     }
 
@@ -167,6 +180,20 @@ extension DebugLaunch {
                 launch.showLayers = true
             } else if argument == "--debug-outside-coverage" {
                 launch.outsideCoverage = true
+            } else if argument == "--debug-show-settings" {
+                launch.showSettings = true
+                launch.tab = "settings"
+            } else if argument == "--debug-show-filters" {
+                launch.showFilters = true
+            } else if argument == "--debug-onboarding" {
+                launch.showOnboarding = true
+            } else if let value = taking("--debug-tab", argument, arguments, index) {
+                let tab = value.value
+                if tab == "map" || tab == "search" || tab == "settings" {
+                    launch.tab = tab
+                }
+                index = value.next
+                continue
             } else if let value = taking("--debug-card", argument, arguments, index) {
                 if value.value == "full" { launch.cardFull = true }
                 index = value.next

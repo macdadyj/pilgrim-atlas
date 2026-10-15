@@ -433,3 +433,52 @@ package enum MapFilter {
         return "\(clock):\(String(format: "%02d", minute)) \(suffix)"
     }
 }
+
+/// One filter control. Food and rest stays in the list so the empty pack is visible, but it is not tappable.
+package struct FilterControl: Equatable, Sendable, Identifiable {
+    package var id: String
+    package var title: String
+    package var systemImage: String
+    package var subtitle: String
+    package var enabled: Bool
+
+    package static let all: [FilterControl] = [
+        FilterControl(id: "catholic", title: "Catholic sites", systemImage: "cross.fill", subtitle: "Tagged Roman Catholic worship", enabled: true),
+        FilterControl(id: "churches", title: "Churches and shrines", systemImage: "building.columns", subtitle: "Chapels, churches, and shrines", enabled: true),
+        FilterControl(id: "trails", title: "Trails", systemImage: "figure.hiking", subtitle: "Hiking routes in the pack", enabled: true),
+        FilterControl(id: "public-land", title: "Public land", systemImage: "tree.fill", subtitle: MapFilter.publicLandSubtitle, enabled: true),
+        FilterControl(id: "parks", title: "Parks", systemImage: "leaf.fill", subtitle: "National parks, city Open Space, and named parks", enabled: true),
+        FilterControl(id: "food", title: "Food and rest", systemImage: "fork.knife", subtitle: MapFilter.foodSubtitle, enabled: false),
+        FilterControl(id: "open-now", title: "Open now", systemImage: "clock.fill", subtitle: "Places whose visitor hours match this clock", enabled: true),
+    ]
+}
+
+extension AtlasFilter {
+    package func isOn(_ id: String) -> Bool {
+        switch id {
+        case "catholic": return catholic
+        case "churches": return churches
+        case "trails": return trails
+        case "public-land": return publicLand
+        case "parks": return parks
+        case "open-now": return openNow
+        default: return false
+        }
+    }
+
+    package mutating func toggle(_ id: String) {
+        switch id {
+        case "catholic": catholic.toggle()
+        case "churches": churches.toggle()
+        case "trails": trails.toggle()
+        case "public-land": publicLand.toggle()
+        case "parks": parks.toggle()
+        case "open-now": openNow.toggle()
+        default: break
+        }
+    }
+
+    package var activeControls: [FilterControl] {
+        FilterControl.all.filter { $0.enabled && isOn($0.id) }
+    }
+}

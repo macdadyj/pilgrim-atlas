@@ -27,7 +27,7 @@ struct PackSnapshot: Sendable {
 
 enum PackDatabase {
     static func load() throws -> PackSnapshot {
-        guard let url = Bundle.module.url(
+        guard let url = PackResources.url(
             forResource: "northern-new-mexico",
             withExtension: "sqlite",
             subdirectory: "Resources"

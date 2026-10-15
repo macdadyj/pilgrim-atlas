@@ -14,8 +14,8 @@ struct AtlasMapView: UIViewRepresentable {
     var bottomSafeArea: CGFloat
     var onSelect: (LonLat, [PlaceRecord]) -> Void
 
-    /// Search, the chip row, and one full pin, so symbols sit below the chips.
-    private static let topInset: CGFloat = 248
+    /// Search row, optional active-filter icons, and one full pin.
+    var topInset: CGFloat = 132
     /// Logo and info button, just above the card. The caption and location control sit above this band.
     static let ornamentGap: CGFloat = 16
     /// Tall enough for the info button. The wordmark is shorter.
@@ -110,19 +110,20 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.onPackLayersMissing = { missing in
             model.loadError = "Pack map layers did not render: \(missing.joined(separator: ", "))."
         }
-        PackStyle.applyVisibility(
-            on: map,
-            places: model.showPlaces,
-            trails: model.showTrails && (model.filter.showsTrails || model.searchReveal),
-            parcels: model.showParcels,
-            terrain: model.showTerrain,
-            reveal: model.searchReveal,
-            filter: model.filter
-        )
+            PackStyle.applyVisibility(
+                on: map,
+                land: model.showLand,
+                places: model.showPlaces,
+                trails: model.showTrails && (model.filter.showsTrails || model.searchReveal),
+                parcels: model.showParcels,
+                terrain: model.showTerrain,
+                reveal: model.searchReveal,
+                filter: model.filter
+            )
     }
 
     private func applyChrome(on map: MLNMapView) {
-        map.contentInset = UIEdgeInsets(top: Self.topInset, left: 8, bottom: bottomObstruction, right: 8)
+        map.contentInset = UIEdgeInsets(top: topInset, left: 8, bottom: bottomObstruction, right: 8)
         let margin = CGPoint(x: 8, y: Self.ornamentGap + bottomSafeArea)
         map.logoViewPosition = .bottomLeft
         map.attributionButtonPosition = .bottomRight
@@ -186,6 +187,7 @@ struct AtlasMapView: UIViewRepresentable {
             if !missing.isEmpty { onPackLayersMissing(missing) }
             PackStyle.applyVisibility(
                 on: mapView,
+                land: showLand,
                 places: showPlaces,
                 trails: showTrails && (filter.showsTrails || searchReveal),
                 parcels: showParcels,
@@ -243,6 +245,7 @@ enum PackStyle {
     @MainActor
     static func applyVisibility(
         on map: MLNMapView,
+        land: Bool,
         places: Bool,
         trails: Bool,
         parcels: Bool,
@@ -254,6 +257,7 @@ enum PackStyle {
         for layer in style.layers {
             let identifier = layer.identifier
             if let fill = layer as? MLNFillStyleLayer, let kind = landKind(identifier) {
+                fill.isVisible = land
                 fill.fillOpacity = landOpacityExpression(kind: kind, filter: filter)
             } else if identifier == "hillshade"
                 || identifier == "contours-casing"
@@ -334,7 +338,7 @@ enum PackStyle {
     }
 
     private static func archiveURL(_ name: String) -> String? {
-        guard let pmtiles = Bundle.module.url(
+        guard let pmtiles = PackResources.url(
             forResource: name,
             withExtension: "pmtiles",
             subdirectory: "Resources"
@@ -343,7 +347,7 @@ enum PackStyle {
     }
 
     private static func glyphsTemplate() -> String {
-        if let file = Bundle.module.url(
+        if let file = PackResources.url(
             forResource: "0-255",
             withExtension: "pbf",
             subdirectory: "Resources/glyphs/NotoSansRegular"

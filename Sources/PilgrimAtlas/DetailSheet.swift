@@ -138,9 +138,11 @@ struct DetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("place-done")
                 }
             }
         }
+        .accessibilityIdentifier("place-sheet")
     }
 
     private func labeledRow(_ title: String, _ value: String) -> some View {
@@ -203,9 +205,11 @@ struct TrailSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("trail-done")
                 }
             }
         }
+        .accessibilityIdentifier("trail-sheet")
     }
 
     private func labeledTrailRow(_ title: String, _ value: String) -> some View {

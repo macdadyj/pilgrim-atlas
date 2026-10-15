@@ -2,82 +2,67 @@
 import SwiftUI
 import PilgrimAtlasCore
 
+enum AppTab: String, Hashable {
+    case map
+    case search
+    case settings
+}
+
 struct RootView: View {
     @Environment(AtlasModel.self) private var model
+    @AppStorage("pilgrim.appearance") private var appearanceRaw = AppearanceChoice.system.rawValue
 
     var body: some View {
         Group {
             if model.acceptedDisclaimer {
-                MapScreen()
+                tabs
             } else {
-                DisclaimerGate(detailsOpen: model.disclaimerDetailsOpen)
+                OnboardingView(startPage: model.onboardingPage, detailsOpen: model.disclaimerDetailsOpen)
+                    .transition(.opacity)
             }
         }
-        .preferredColorScheme(debugScheme)
+        .animation(.easeInOut(duration: 0.35), value: model.acceptedDisclaimer)
+        .preferredColorScheme(resolvedScheme)
+        .tint(Theme.control)
     }
 
-    private var debugScheme: ColorScheme? {
-        switch model.launch.appearance {
-        case .light: return .light
-        case .dark: return .dark
-        case nil: return nil
+    private var tabs: some View {
+        @Bindable var model = model
+        return TabView(selection: $model.selectedTab) {
+            MapScreen()
+                .tabItem { Label("Map", systemImage: "map") }
+                .tag(AppTab.map)
+                .accessibilityIdentifier("tab-map")
+
+            SearchSheet()
+                .tabItem { Label("Search", systemImage: "magnifyingglass") }
+                .tag(AppTab.search)
+                .accessibilityIdentifier("tab-search")
+
+            SettingsView()
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(AppTab.settings)
+                .accessibilityIdentifier("tab-settings")
+        }
+        .sheet(isPresented: $model.showFilters) {
+            FilterSheet()
+                .pilgrimSheet()
+        }
+        .alert("Online tiles", isPresented: $model.pendingOnlineConfirm) {
+            Button("Keep offline") { model.onlineTiles = false }
+                .accessibilityIdentifier("online-tiles-keep-offline")
+            Button("Use OpenFreeMap") { model.onlineTiles = true }
+                .accessibilityIdentifier("online-tiles-use")
+        } message: {
+            Text("OpenFreeMap will see this phone's IP address and the map tiles it requests. That is an approximate location. Pilgrim Atlas still does not upload your GPS position, and it does not run a server.")
         }
     }
-}
 
-struct DisclaimerGate: View {
-    @Environment(AtlasModel.self) private var model
-    @State private var detailsExpanded: Bool
-
-    init(detailsOpen: Bool) {
-        _detailsExpanded = State(initialValue: detailsOpen)
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("A map of public datasets for Santa Fe, Albuquerque, and northern New Mexico.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("This does not give you permission to enter.")
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.statusAmber.opacity(0.16), in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                                .stroke(Theme.statusAmber.opacity(0.06), lineWidth: 1)
-                        )
-                    DisclosureGroup(isExpanded: $detailsExpanded) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(Copy.text("trespass"))
-                            Text(Copy.text("not_a_survey"))
-                            Text(Copy.text("state_trust"))
-                            Text(Copy.text("closures"))
-                            Text("Your location stays on this phone. Pilgrim Atlas has no account and no server of its own. Online map tiles, if you turn them on later, are a separate choice.")
-                            Text(Copy.text("mass_footnote"))
-                        }
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .padding(.top, 4)
-                    } label: {
-                        Text("Details")
-                            .font(.body.weight(.semibold))
-                    }
-                    .foregroundStyle(.primary)
-                    Button("I understand") { model.acceptDisclaimer() }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .padding(.top, 4)
-                }
-                .padding(Theme.screenPadding)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Before you walk")
-            .navigationBarTitleDisplayMode(.inline)
+    private var resolvedScheme: ColorScheme? {
+        if let debug = model.launch.appearance {
+            return debug == .light ? .light : .dark
         }
+        return AppearanceChoice(rawValue: appearanceRaw)?.colorScheme
     }
 }
 

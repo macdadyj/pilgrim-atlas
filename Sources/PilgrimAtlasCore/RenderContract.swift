@@ -12,7 +12,7 @@ package struct RenderContract: Decodable, Equatable, Sendable {
     package var minFillOpacity: Double
 
     package static func load() -> RenderContract {
-        guard let url = Bundle.module.url(forResource: "render-contract", withExtension: "json"),
+        guard let url = ResourceBundle.url(forResource: "render-contract", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let contract = try? JSONDecoder().decode(RenderContract.self, from: data)
         else {

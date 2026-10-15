@@ -47,6 +47,10 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var disclaimerDetailsOpen = false
     var debugPickerPlaces: [PlaceRecord] = []
     var debugTapPoint: LonLat?
+    var selectedTab: AppTab = .map
+    var showFilters = false
+    var searchQuery = ""
+    var onboardingPage = 0
     let launch: DebugLaunch
     /// True when this launch must not touch location services.
     let debugPlaza: Bool
@@ -58,9 +62,12 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         launch = parsed
         debugPlaza = parsed.suppressesLocation
         super.init()
-        if parsed.showDisclaimer || parsed.disclaimerDetailsOpen {
+        if parsed.showDisclaimer || parsed.disclaimerDetailsOpen || parsed.showOnboarding {
             acceptedDisclaimer = false
             disclaimerDetailsOpen = parsed.disclaimerDetailsOpen
+            if parsed.showDisclaimer || parsed.disclaimerDetailsOpen {
+                onboardingPage = 2
+            }
         } else if parsed.skipsDisclaimer {
             acceptedDisclaimer = true
         }
@@ -79,6 +86,16 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
         loadPack()
         filter = DebugLaunch.filter(from: parsed.filterTokens)
         focusFoodChip = parsed.focusFood
+        if parsed.showTerrain { showTerrain = true }
+        if parsed.showFilters || parsed.focusFood { showFilters = true }
+        if let tab = parsed.tab, let parsedTab = AppTab(rawValue: tab) {
+            selectedTab = parsedTab
+        }
+        if parsed.showSettings { selectedTab = .settings }
+        if let query = parsed.search {
+            searchQuery = query
+            selectedTab = .search
+        }
         applyDebugLaunch()
         refreshSummary()
     }
@@ -257,6 +274,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     func openPlace(_ place: PlaceRecord) {
         selectedPlace = place
         selectedTrail = nil
+        selectedTab = .map
         summaryPoint = place.coordinate
         summaryPinned = true
         focusCamera(on: place.coordinate, zoom: 16)
@@ -266,6 +284,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     func openTrail(_ trail: TrailRecord) {
         selectedTrail = trail
         selectedPlace = nil
+        selectedTab = .map
         guard let box = trail.geometry.bbox else { return }
         summaryPoint = LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
         summaryPinned = true

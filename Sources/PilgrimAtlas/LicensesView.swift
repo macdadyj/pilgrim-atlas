@@ -41,6 +41,7 @@ struct LicensesView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Licenses")
             .navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("licenses-screen")
     }
 
     private func section(_ title: String, _ body: String) -> some View {
