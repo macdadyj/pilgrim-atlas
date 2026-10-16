@@ -31,6 +31,8 @@ package struct DebugLaunch: Equatable, Sendable {
     /// One landmark role, such as `catholic` or `chapel`.
     package var onlyRole: String?
     package var center: LonLat?
+    /// A stand-in GPS fix, such as a ZIP centroid, with no location prompt.
+    package var simulatedUser: LonLat?
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -52,8 +54,12 @@ package struct DebugLaunch: Equatable, Sendable {
         showOnboarding: false,
         tab: nil,
         onlyRole: nil,
-        center: nil
+        center: nil,
+        simulatedUser: nil
     )
+
+    /// Northeast Albuquerque in ZIP 87110, near Louisiana Boulevard and Menaul.
+    package static let northeastAlbuquerque = LonLat(lon: -106.5700, lat: 35.1086)
 
     /// North of the pack, same longitude as the plaza, for screenshots without GPS.
     package static let outsideCoverageSample = LonLat(lon: -105.94, lat: 39.0)
@@ -82,6 +88,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || tab != nil
             || onlyRole != nil
             || center != nil
+            || simulatedUser != nil
     }
 
     /// A real packed place for each pin role, used to open that layer on a pin.
@@ -231,6 +238,13 @@ extension DebugLaunch {
                 continue
             } else if let value = taking("--debug-center", argument, arguments, index) {
                 launch.center = coordinate(value.value)
+                index = value.next
+                continue
+            } else if let value = taking("--debug-location", argument, arguments, index) {
+                if let point = coordinate(value.value) {
+                    launch.simulatedUser = point
+                    launch.center = point
+                }
                 index = value.next
                 continue
             } else if let value = taking("--debug-tab", argument, arguments, index) {
