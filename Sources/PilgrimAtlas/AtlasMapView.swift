@@ -75,6 +75,7 @@ struct AtlasMapView: UIViewRepresentable {
         applyChrome(on: map)
         if context.coordinator.lastOnline != model.onlineTiles {
             context.coordinator.lastOnline = model.onlineTiles
+            context.coordinator.lastPlaceIDs = nil
             map.styleURL = PackStyle.fileURL(online: model.onlineTiles, places: model.places)
         }
         if context.coordinator.lastFit != model.fitToken, let fit = model.fitBounds {
@@ -113,18 +114,19 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.onPackLayersMissing = { missing in
             model.loadError = "Pack map layers did not render: \(missing.joined(separator: ", "))."
         }
-            PackStyle.applyVisibility(
-                on: map,
-                land: model.showLand,
-                places: model.showPlaces,
-                trails: model.showTrails && (model.filter.showsTrails || model.searchReveal),
-                parcels: model.showParcels,
-                terrain: model.showTerrain,
-                reveal: model.searchReveal,
-                filter: model.filter,
-                onlyRole: model.onlyRole
-            )
-            context.coordinator.publishPinCount(on: map)
+        context.coordinator.syncPlaceSources(on: map)
+        PackStyle.applyVisibility(
+            on: map,
+            land: model.showLand,
+            places: model.showPlaces,
+            trails: model.showTrails && (model.filter.showsTrails || model.searchReveal),
+            parcels: model.showParcels,
+            terrain: model.showTerrain,
+            reveal: model.searchReveal,
+            filter: model.filter,
+            onlyRole: model.onlyRole
+        )
+        context.coordinator.publishPinCount(on: map)
     }
 
     private func applyChrome(on map: MLNMapView) {
@@ -153,6 +155,8 @@ struct AtlasMapView: UIViewRepresentable {
         var onlyRole: String?
         var selectedID: Int?
         var onPackLayersMissing: ([String]) -> Void = { _ in }
+        var lastPlaceIDs: [Int]?
+        private var lastPinCountTime = Date.distantPast
 
         init(onSelect: @escaping (LonLat, [PlaceRecord]) -> Void) {
             self.onSelect = onSelect
@@ -179,9 +183,27 @@ struct AtlasMapView: UIViewRepresentable {
         }
 
         @MainActor
+        func syncPlaceSources(on map: MLNMapView) {
+            guard map.style != nil else { return }
+            let signature = places.map(\.id)
+            guard signature != lastPlaceIDs else { return }
+            lastPlaceIDs = signature
+            PackStyle.syncPlaceSources(on: map, places: places)
+        }
+
+        @MainActor
         func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
             let center = mapView.centerCoordinate
             onCamera(LonLat(lon: center.longitude, lat: center.latitude))
+            publishPinCount(on: mapView)
+        }
+
+        /// Symbols are placed after the camera settles. Sampling only then left the count at 0.
+        @MainActor
+        func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
+            let now = Date()
+            guard fullyRendered || now.timeIntervalSince(lastPinCountTime) > 0.25 else { return }
+            lastPinCountTime = now
             publishPinCount(on: mapView)
         }
 
@@ -190,13 +212,29 @@ struct AtlasMapView: UIViewRepresentable {
             let visible = PackStyleDocument.placeLayerIDs.filter { identifier in
                 PackStyleDocument.showsPlaceLayer(identifier, filter: filter, onlyRole: onlyRole)
             }
-            let features = map.visibleFeatures(
+            let identifiers = Set(visible)
+            let inView = map.visibleFeatures(
                 in: map.bounds,
-                styleLayerIdentifiers: Set(visible),
+                styleLayerIdentifiers: identifiers,
                 predicate: nil
             )
+            let padded = Self.visibleMapRect(map)
+            let atCenter = map.visibleFeatures(
+                at: CGPoint(x: padded.midX, y: padded.midY),
+                styleLayerIdentifiers: identifiers,
+                predicate: nil
+            )
+            let count = max(inView.count, atCenter.count)
+            let text = "\(count)"
+            guard map.accessibilityIdentifier != "place-pin-count" || map.accessibilityLabel != text else { return }
             map.accessibilityIdentifier = "place-pin-count"
-            map.accessibilityLabel = "\(features.count)"
+            map.accessibilityLabel = text
+        }
+
+        private static func visibleMapRect(_ map: MLNMapView) -> CGRect {
+            let rect = map.bounds.inset(by: map.contentInset)
+            if rect.width < 20 || rect.height < 20 { return map.bounds }
+            return rect
         }
 
         @MainActor
@@ -206,6 +244,8 @@ struct AtlasMapView: UIViewRepresentable {
             let packIsVector = style.source(withIdentifier: "pack") is MLNVectorTileSource
             let missing = PackStyleDocument.missingRenderedLayers(present, packIsVector: packIsVector)
             if !missing.isEmpty { onPackLayersMissing(missing) }
+            lastPlaceIDs = nil
+            syncPlaceSources(on: mapView)
             PackStyle.applyVisibility(
                 on: mapView,
                 land: showLand,
@@ -265,6 +305,37 @@ enum PackStyle {
         }
     }
 
+    /// Replace each role source with the places that should draw. The layer has no filter.
+    @MainActor
+    static func syncPlaceSources(on map: MLNMapView, places: [PlaceRecord]) {
+        guard let style = map.style else { return }
+        installMarkers(on: style)
+        let grouped = PackStyleDocument.placesGroupedByRole(places)
+        for role in PinRole.allCases {
+            guard let source = style.source(withIdentifier: PackStyleDocument.placeSourceID(role.rawValue)) as? MLNShapeSource else {
+                continue
+            }
+            source.shape = pointCollection(grouped[role.rawValue] ?? [])
+        }
+    }
+
+    @MainActor
+    private static func pointCollection(_ places: [PlaceRecord]) -> MLNShape {
+        let features: [MLNPointFeature] = places.map { place in
+            let feature = MLNPointFeature()
+            feature.coordinate = CLLocationCoordinate2D(latitude: place.lat, longitude: place.lon)
+            feature.attributes = [
+                "name": place.name,
+                "label": PlaceText.pinLabel(place.name),
+                "role": MapFilter.pinRole(for: place).rawValue,
+                "category": place.category,
+            ]
+            return feature
+        }
+        let shapes: [MLNShape] = features
+        return MLNShapeCollectionFeature(shapes: shapes)
+    }
+
     @MainActor
     static func applyVisibility(
         on map: MLNMapView,
@@ -298,6 +369,12 @@ enum PackStyle {
                 let shown = reveal || PackStyleDocument.showsPlaceLayer(identifier, filter: filter, onlyRole: onlyRole)
                 layer.isVisible = places && shown
                 if let symbol = layer as? MLNSymbolStyleLayer {
+                    let roleName = String(identifier.dropFirst("places-".count))
+                    symbol.iconImageName = NSExpression(forConstantValue: roleName)
+                    let isolate = onlyRole != nil || filter.catholic || filter.churches
+                    let overlap = isolate || (PinRole(rawValue: roleName)?.allowsOverlap ?? false)
+                    symbol.iconAllowsOverlap = NSExpression(forConstantValue: NSNumber(value: overlap))
+                    symbol.iconIgnoresPlacement = NSExpression(forConstantValue: NSNumber(value: isolate))
                     let iconOpacity = reveal ? 1.0 : PackStyleDocument.placeOpacity(filter: filter)
                     let textOpacity = reveal ? 1.0 : PackStyleDocument.labelOpacity(filter: filter)
                     symbol.iconOpacity = iconOpacity < 1
@@ -307,15 +384,8 @@ enum PackStyle {
                         ? NSExpression(forConstantValue: NSNumber(value: textOpacity))
                         : nil
                 }
-                if identifier == "places-worship", let vector = layer as? MLNVectorStyleLayer {
-                    if filter.churches && !filter.catholic {
-                        vector.predicate = NSPredicate(
-                            format: "category == 'worship' AND catholic == 0 AND name != %@",
-                            "Unnamed place of worship"
-                        )
-                    } else {
-                        vector.predicate = NSPredicate(format: "category == 'worship' AND catholic == 0")
-                    }
+                if let vector = layer as? MLNVectorStyleLayer {
+                    vector.predicate = nil
                 }
             }
         }

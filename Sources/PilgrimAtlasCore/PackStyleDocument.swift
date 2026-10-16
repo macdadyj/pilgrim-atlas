@@ -71,6 +71,14 @@ package enum PackStyleDocument {
                 continue
             }
             if id == "background" { continue }
+            if id.hasPrefix("places-") {
+                let source = layer["source"] as? String ?? ""
+                let role = String(id.dropFirst("places-".count))
+                if source == placeSourceID(role) { continue }
+                let sourceLayer = layer["source-layer"] as? String
+                if source != "pack" || sourceLayer != "places" { missing.append(id) }
+                continue
+            }
             if layer["source"] as? String != expectedSource(id) {
                 missing.append(id)
                 continue
@@ -78,7 +86,6 @@ package enum PackStyleDocument {
             let sourceLayer = layer["source-layer"] as? String
             if id.hasPrefix("land-"), sourceLayer != "land" { missing.append(id) }
             if id == "trails" || id == "trails-casing", sourceLayer != "trails" { missing.append(id) }
-            if id.hasPrefix("places-"), sourceLayer != "places" { missing.append(id) }
         }
         if !packIsVector(root) { missing.append("pack") }
         return missing
@@ -146,6 +153,24 @@ package enum PackStyleDocument {
             }
         }
         return problems
+    }
+
+    /// GeoJSON source that holds only this role. The layer draws every feature in it.
+    package static func placeSourceID(_ role: String) -> String {
+        "pack-places-\(role)"
+    }
+
+    /// One bucket per pin role. A layer with no filter draws its whole bucket.
+    package static func placesGroupedByRole(_ places: [PlaceRecord]) -> [String: [PlaceRecord]] {
+        var grouped: [String: [PlaceRecord]] = [:]
+        for role in PinRole.allCases {
+            grouped[role.rawValue] = []
+        }
+        for place in places {
+            let role = MapFilter.pinRole(for: place).rawValue
+            grouped[role, default: []].append(place)
+        }
+        return grouped
     }
 
     /// Trails-only fades every pin. Place chips hide the roles they do not include.
@@ -249,10 +274,13 @@ package enum PackStyleDocument {
         }
         let drawnPlaces = places.map(AtlasQuery.mapPlaces)
         if let drawnPlaces {
-            sources["pack-places"] = [
-                "type": "geojson",
-                "data": placeFeatureCollection(drawnPlaces),
-            ]
+            let grouped = placesGroupedByRole(drawnPlaces)
+            for role in PinRole.allCases {
+                sources[placeSourceID(role.rawValue)] = [
+                    "type": "geojson",
+                    "data": placeFeatureCollection(grouped[role.rawValue] ?? []),
+                ]
+            }
         }
         if online {
             sources["openmaptiles"] = [
@@ -569,8 +597,7 @@ package enum PackStyleDocument {
         var layer: [String: Any] = [
             "id": identifier,
             "type": "symbol",
-            "source": geoJSON ? "pack-places" : "pack",
-            "filter": filter,
+            "source": geoJSON ? placeSourceID(icon) : "pack",
             "layout": [
                 "icon-image": icon,
                 "icon-size": iconSize,
@@ -596,8 +623,11 @@ package enum PackStyleDocument {
                 "text-halo-width": 2.0,
             ],
         ]
+        // GeoJSON layers omit the filter: each source is already one role.
+        // The old filter compared catholic as a number and searched names, and matched no features.
         if !geoJSON {
             layer["source-layer"] = "places"
+            layer["filter"] = filter
         }
         return layer
     }

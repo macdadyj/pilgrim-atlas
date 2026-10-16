@@ -750,19 +750,23 @@ final class LogicTests: XCTestCase {
             online: false,
             places: [basilica, loretto]
         )
+        let grouped = PackStyleDocument.placesGroupedByRole([basilica, loretto])
+        XCTAssertEqual(grouped["catholic"]?.map(\.id), [basilica.id])
+        XCTAssertEqual(grouped["chapel"]?.map(\.id), [loretto.id])
+        XCTAssertTrue((grouped["landmark"] ?? []).isEmpty)
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
         let sources = try XCTUnwrap(root["sources"] as? [String: Any])
-        let geo = try XCTUnwrap(sources["pack-places"] as? [String: Any])
+        let geo = try XCTUnwrap(sources["pack-places-catholic"] as? [String: Any])
         let data = try XCTUnwrap(geo["data"] as? [String: Any])
         let features = try XCTUnwrap(data["features"] as? [[String: Any]])
         let roles = features.compactMap { ($0["properties"] as? [String: Any])?["role"] as? String }
-        XCTAssertEqual(Set(roles), ["catholic", "chapel"])
+        XCTAssertEqual(roles, ["catholic"])
         let layers = try XCTUnwrap(root["layers"] as? [[String: Any]])
         for role in ["catholic", "chapel", "worship", "shrine", "viewpoint", "museum", "parking", "water", "trailhead", "landmark"] {
             let layer = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-\(role)" })
-            let filter = try XCTUnwrap(layer["filter"] as? [Any])
-            XCTAssertEqual(filter.first as? String, "==")
-            XCTAssertEqual(filter.last as? String, role)
+            XCTAssertEqual(layer["source"] as? String, "pack-places-\(role)")
+            XCTAssertNil(layer["filter"])
+            XCTAssertNil(layer["source-layer"])
         }
         let parsed = DebugLaunch.parse(["/PilgrimAtlas", "--debug-layer=catholic"])
         XCTAssertEqual(parsed.onlyRole, "catholic")

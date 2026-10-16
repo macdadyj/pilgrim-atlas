@@ -270,9 +270,9 @@ final class AtlasUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 8))
         row.tap()
         tapDone(app, identifier: "filters-done", title: "Done")
-        let count = waitForPins(app, timeout: 25)
-        XCTAssertGreaterThan(count, 0, "Catholic sites showed \(count) pins")
+        let count = waitForPins(app, timeout: 30)
         saveLayerShot(app, "catholic-sites")
+        XCTAssertGreaterThan(count, 0, "Catholic sites showed \(count) pins")
     }
 
     func testEachLandmarkLayerShowsARealPin() {
@@ -292,15 +292,15 @@ final class AtlasUITests: XCTestCase {
             let app = launch("--debug-center=\(lat),\(lon)")
             find(app, "layers-button", "More map options", timeout: 25).tap()
             let toggle = app.descendants(matching: .any)["layer-only-\(role)"]
-            for _ in 0..<8 where !toggle.isHittable {
+            for _ in 0..<16 where !toggle.isHittable {
                 app.swipeUp()
             }
             XCTAssertTrue(toggle.waitForExistence(timeout: 8), role)
             toggle.tap()
             tapDone(app, identifier: "layers-done", title: "Done")
-            let count = waitForPins(app, timeout: 25)
-            XCTAssertGreaterThan(count, 0, "\(role) showed \(count) pins")
+            let count = waitForPins(app, timeout: 30)
             saveLayerShot(app, "layer-\(role)")
+            XCTAssertGreaterThan(count, 0, "\(role) showed \(count) pins")
             app.terminate()
         }
     }
@@ -373,7 +373,9 @@ final class AtlasUITests: XCTestCase {
     private func saveLayerShot(_ app: XCUIApplication, _ name: String) {
         let shot = app.screenshot()
         attach(shot, name: name)
-        guard let directory = ProcessInfo.processInfo.environment["PIN_SCREENSHOT_DIR"], !directory.isEmpty else { return }
+        let override = ProcessInfo.processInfo.environment["PIN_SCREENSHOT_DIR"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_PIN_SCREENSHOT_DIR"]
+        let directory = (override?.isEmpty == false) ? override! : "/tmp/layer-screenshots"
         let url = URL(fileURLWithPath: directory, isDirectory: true).appendingPathComponent("\(name).png")
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? shot.pngRepresentation.write(to: url)

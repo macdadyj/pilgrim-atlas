@@ -24,7 +24,8 @@ PY
 )"
 echo "UI tests on ${UDID}"
 export PIN_SCREENSHOT_DIR="${ROOT}/build/layer-screenshots"
-mkdir -p "${PIN_SCREENSHOT_DIR}"
+mkdir -p "${PIN_SCREENSHOT_DIR}" /tmp/layer-screenshots
+set +e
 xcodebuild test \
   -project PilgrimAtlas.xcodeproj \
   -scheme PilgrimAtlasUI \
@@ -36,3 +37,7 @@ xcodebuild test \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="-" \
   DEVELOPMENT_TEAM=""
+status=$?
+set -e
+cp -f /tmp/layer-screenshots/*.png "${PIN_SCREENSHOT_DIR}/" 2>/dev/null || true
+exit "${status}"
