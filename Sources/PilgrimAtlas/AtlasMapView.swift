@@ -61,6 +61,8 @@ struct AtlasMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ map: MLNMapView, context: Context) {
+        let displayScale = map.traitCollection.displayScale
+        map.contentScaleFactor = displayScale > 1 ? displayScale : 2
         context.coordinator.onSelect = onSelect
         context.coordinator.onCamera = { model.noteCamera($0) }
         context.coordinator.places = places
