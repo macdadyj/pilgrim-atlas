@@ -81,7 +81,6 @@ struct OnboardingView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .accessibilityIdentifier("onboarding")
     }
 
     private var packBody: String {

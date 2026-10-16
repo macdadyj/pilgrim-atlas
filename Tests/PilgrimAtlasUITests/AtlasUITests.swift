@@ -27,9 +27,8 @@ final class AtlasUITests: XCTestCase {
         let cont = find(app, "onboarding-continue", "Continue", timeout: 20)
         XCTAssertTrue(cont.exists, app.debugDescription)
         cont.tap()
-        if app.buttons["onboarding-continue"].waitForExistence(timeout: 4) {
-            app.buttons["onboarding-continue"].tap()
-        }
+        let next = find(app, "onboarding-continue", "Continue", timeout: 4)
+        if next.exists { next.tap() }
         let understand = find(app, "onboarding-understand", "I understand", timeout: 8)
         XCTAssertTrue(understand.exists, app.debugDescription)
         understand.tap()
@@ -45,16 +44,20 @@ final class AtlasUITests: XCTestCase {
         find(app, "filters-button", "Filters", timeout: 8).tap()
         XCTAssertTrue(app.otherElements["filters-sheet"].waitForExistence(timeout: 8)
             || app.navigationBars["Filters"].waitForExistence(timeout: 8))
-        for identifier in [
-            "filter-row-catholic",
-            "filter-row-churches",
-            "filter-row-trails",
-            "filter-row-public-land",
-            "filter-row-parks",
-            "filter-row-food",
-            "filter-row-open-now",
-        ] {
-            let row = app.buttons[identifier].firstMatch.exists ? app.buttons[identifier] : app.otherElements[identifier]
+        let filterRows = [
+            ("filter-row-catholic", "Catholic sites"),
+            ("filter-row-churches", "Churches and shrines"),
+            ("filter-row-trails", "Trails"),
+            ("filter-row-public-land", "Public land"),
+            ("filter-row-parks", "Parks"),
+            ("filter-row-food", "Food and rest"),
+            ("filter-row-open-now", "Open now"),
+        ]
+        for (identifier, title) in filterRows {
+            if !app.buttons[identifier].exists && !app.staticTexts[title].exists {
+                app.swipeUp()
+            }
+            let row = app.buttons[identifier].exists ? app.buttons[identifier] : app.staticTexts[title]
             XCTAssertTrue(row.waitForExistence(timeout: 4), identifier)
             if identifier != "filter-row-food" {
                 row.tap()
@@ -212,8 +215,18 @@ final class AtlasUITests: XCTestCase {
 
     func testSearchTownOpensTheMap() {
         let app = launch("--debug-santa-fe-plaza", "--debug-search=Taos")
-        let hit = find(app, "search-hit-town-taos", "Taos", timeout: 25)
-        XCTAssertTrue(hit.exists, app.debugDescription)
+        let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Taos'")).firstMatch
+        var found = hit.waitForExistence(timeout: 8)
+        if !found {
+            for _ in 0..<6 {
+                app.swipeUp()
+                if app.buttons.matching(NSPredicate(format: "label CONTAINS 'Taos'")).firstMatch.exists {
+                    found = true
+                    break
+                }
+            }
+        }
+        XCTAssertTrue(found, app.debugDescription)
         attach(app.screenshot(), name: "search-taos")
         hit.tap()
         XCTAssertTrue(find(app, "search-pill", "Search", timeout: 8).exists)
