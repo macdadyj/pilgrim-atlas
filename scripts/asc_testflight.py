@@ -161,6 +161,14 @@ def group_contains_build(token, group_id, build_id):
     return False
 
 
+def group_refuses_assignment(body):
+    lowered = body.lower()
+    return (
+        "cannot be assigned to this internal group" in lowered
+        or "cannot add internal group" in lowered
+    )
+
+
 def assign_build(token, group_id, build_id):
     payload = {"data": [{"type": "builds", "id": build_id}]}
     status, body = signing.api(
@@ -170,8 +178,23 @@ def assign_build(token, group_id, build_id):
         return "added"
     if status == 409:
         return "already"
+    if status == 422 and group_refuses_assignment(body):
+        return "refused"
     parsed(status, body, "assign build")
     return "added"
+
+
+def create_internal_group(token, app_id, name):
+    payload = {
+        "data": {
+            "type": "betaGroups",
+            "attributes": {"name": name, "isInternalGroup": True},
+            "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
+        }
+    }
+    status, body = signing.api(token, "POST", "/v1/betaGroups", payload)
+    data = parsed(status, body, "create internal group")
+    return data["data"]
 
 
 def tester_count(token, group_id):
@@ -275,24 +298,52 @@ def membership_before_change(token, groups, build_id):
     return names
 
 
-def ensure_group_membership(token, groups, build_id, changes):
-    for group in groups:
+def note_change(changes, line):
+    if line not in changes:
+        changes.append(line)
+        show(line)
+
+
+def ensure_group_membership(token, app_id, groups, build_id, changes):
+    refused = []
+    placed = False
+    for group in list(groups):
         name = (group.get("attributes") or {}).get("name") or "internal"
         contained = group_contains_build(token, group["id"], build_id)
         if contained is True:
-            line = f"build already in internal group {name}"
-            if line not in changes:
-                changes.append(line)
-                show(line)
+            note_change(changes, f"build already in internal group {name}")
+            placed = True
             continue
         result = assign_build(token, group["id"], build_id)
+        if result == "refused":
+            refused.append(name)
+            note_change(changes, f"internal group {name} does not accept build assignment")
+            continue
         if result == "already":
-            line = f"build already in internal group {name}"
+            note_change(changes, f"build already in internal group {name}")
         else:
-            line = f"added build to internal group {name}"
-        if line not in changes:
-            changes.append(line)
-            show(line)
+            note_change(changes, f"added build to internal group {name}")
+        placed = True
+    if placed or not refused:
+        return groups
+    name = "Pilgrim Atlas"
+    target = next(
+        (group for group in groups if (group.get("attributes") or {}).get("name") == name),
+        None,
+    )
+    if target is None:
+        target = create_internal_group(token, app_id, name)
+        groups.append(target)
+        note_change(changes, f"created internal group {name}")
+    result = assign_build(token, target["id"], build_id)
+    if result == "refused":
+        sys.stderr.write(f"Internal group {name} also rejected the build.\n")
+        raise SystemExit(1)
+    if result == "already":
+        note_change(changes, f"build already in internal group {name}")
+    else:
+        note_change(changes, f"added build to internal group {name}")
+    return groups
 
 
 def release(version, wait_seconds, require_ready):
@@ -334,7 +385,7 @@ def release(version, wait_seconds, require_ready):
                 changes.append("set usesNonExemptEncryption=false")
                 show("set usesNonExemptEncryption=false")
         groups, _created = ensure_internal_group(token, app_id)
-        ensure_group_membership(token, groups, build_id, changes)
+        groups = ensure_group_membership(token, app_id, groups, build_id, changes)
         for group in groups:
             name = (group.get("attributes") or {}).get("name") or "internal"
             linked = link_internal_testers(token, group["id"])

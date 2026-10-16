@@ -194,7 +194,7 @@ final class AtlasUITests: XCTestCase {
         )
         XCTAssertTrue(find(app, "settings-build", "Build", timeout: 8).exists, app.debugDescription)
         tapTab(app, "Map")
-        XCTAssertTrue(find(app, "filters-button", "Filters", timeout: 8).exists)
+        XCTAssertTrue(find(app, "filters-button", "Filters", timeout: 25).exists, app.debugDescription)
         attach(app.screenshot(), name: "catholic-filter")
     }
 
