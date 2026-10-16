@@ -53,6 +53,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var showFilters = false
     var searchQuery = ""
     var onboardingPage = 0
+    var onlyRole: String?
     let launch: DebugLaunch
     /// True when this launch must not touch location services.
     let debugPlaza: Bool
@@ -75,7 +76,8 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
         if parsed.suppressesLocation {
             summaryPinned = true
-            let origin = parsed.outsideCoverage ? DebugLaunch.outsideCoverageSample : DebugPin.plaza
+            let origin = parsed.center
+                ?? (parsed.outsideCoverage ? DebugLaunch.outsideCoverageSample : DebugPin.plaza)
             mapCenter = origin
             summaryPoint = origin
             cameraCenter = origin
@@ -88,6 +90,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         loadPack()
         filter = DebugLaunch.filter(from: parsed.filterTokens)
         focusFoodChip = parsed.focusFood
+        onlyRole = parsed.onlyRole
         if parsed.showTerrain { showTerrain = true }
         if parsed.showFilters || parsed.focusFood { showFilters = true }
         if let tab = parsed.tab, let parsedTab = AppTab(rawValue: tab) {

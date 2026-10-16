@@ -52,6 +52,7 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.showTerrain = model.showTerrain
         context.coordinator.searchReveal = model.searchReveal
         context.coordinator.filter = model.filter
+        context.coordinator.onlyRole = model.onlyRole
         context.coordinator.selectedID = model.selectedPlace?.id
         return map
     }
@@ -67,6 +68,7 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.showTerrain = model.showTerrain
         context.coordinator.searchReveal = model.searchReveal
         context.coordinator.filter = model.filter
+        context.coordinator.onlyRole = model.onlyRole
         context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
@@ -119,8 +121,10 @@ struct AtlasMapView: UIViewRepresentable {
                 parcels: model.showParcels,
                 terrain: model.showTerrain,
                 reveal: model.searchReveal,
-                filter: model.filter
+                filter: model.filter,
+                onlyRole: model.onlyRole
             )
+            context.coordinator.publishPinCount(on: map)
     }
 
     private func applyChrome(on map: MLNMapView) {
@@ -146,6 +150,7 @@ struct AtlasMapView: UIViewRepresentable {
         var showTerrain = true
         var searchReveal = false
         var filter = AtlasFilter.empty
+        var onlyRole: String?
         var selectedID: Int?
         var onPackLayersMissing: ([String]) -> Void = { _ in }
 
@@ -177,6 +182,21 @@ struct AtlasMapView: UIViewRepresentable {
         func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
             let center = mapView.centerCoordinate
             onCamera(LonLat(lon: center.longitude, lat: center.latitude))
+            publishPinCount(on: mapView)
+        }
+
+        @MainActor
+        func publishPinCount(on map: MLNMapView) {
+            let visible = PackStyleDocument.placeLayerIDs.filter { identifier in
+                PackStyleDocument.showsPlaceLayer(identifier, filter: filter, onlyRole: onlyRole)
+            }
+            let features = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: Set(visible),
+                predicate: nil
+            )
+            map.accessibilityIdentifier = "place-pin-count"
+            map.accessibilityLabel = "\(features.count)"
         }
 
         @MainActor
@@ -194,8 +214,10 @@ struct AtlasMapView: UIViewRepresentable {
                 parcels: showParcels,
                 terrain: showTerrain,
                 reveal: searchReveal,
-                filter: filter
+                filter: filter,
+                onlyRole: onlyRole
             )
+            publishPinCount(on: mapView)
         }
     }
 }
@@ -252,7 +274,8 @@ enum PackStyle {
         parcels: Bool,
         terrain: Bool,
         reveal: Bool,
-        filter: AtlasFilter
+        filter: AtlasFilter,
+        onlyRole: String?
     ) {
         guard let style = map.style else { return }
         for layer in style.layers {
@@ -272,7 +295,7 @@ enum PackStyle {
             } else if identifier == "parcels" {
                 layer.isVisible = parcels
             } else if PackStyleDocument.placeLayerIDs.contains(identifier) {
-                let shown = reveal || PackStyleDocument.showsPlaceLayer(identifier, filter: filter)
+                let shown = reveal || PackStyleDocument.showsPlaceLayer(identifier, filter: filter, onlyRole: onlyRole)
                 layer.isVisible = places && shown
                 if let symbol = layer as? MLNSymbolStyleLayer {
                     let iconOpacity = reveal ? 1.0 : PackStyleDocument.placeOpacity(filter: filter)

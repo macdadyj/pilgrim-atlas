@@ -28,6 +28,9 @@ package struct DebugLaunch: Equatable, Sendable {
     package var showOnboarding: Bool
     /// `map`, `search`, or `settings`.
     package var tab: String?
+    /// One landmark role, such as `catholic` or `chapel`.
+    package var onlyRole: String?
+    package var center: LonLat?
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -47,7 +50,9 @@ package struct DebugLaunch: Equatable, Sendable {
         showSettings: false,
         showFilters: false,
         showOnboarding: false,
-        tab: nil
+        tab: nil,
+        onlyRole: nil,
+        center: nil
     )
 
     /// North of the pack, same longitude as the plaza, for screenshots without GPS.
@@ -75,6 +80,36 @@ package struct DebugLaunch: Equatable, Sendable {
             || showFilters
             || showOnboarding
             || tab != nil
+            || onlyRole != nil
+            || center != nil
+    }
+
+    /// A real packed place for each pin role, used to open that layer on a pin.
+    package static func roleSample(_ role: String) -> LonLat? {
+        switch role {
+        case "catholic":
+            return LonLat(lon: -105.93624, lat: 35.686504)
+        case "chapel":
+            return LonLat(lon: -105.937454, lat: 35.685617)
+        case "worship":
+            return LonLat(lon: -106.681415, lat: 35.036992)
+        case "shrine":
+            return LonLat(lon: -105.940548, lat: 35.683078)
+        case "viewpoint":
+            return LonLat(lon: -106.233148, lat: 35.872877)
+        case "museum":
+            return LonLat(lon: -105.889458, lat: 36.685019)
+        case "parking":
+            return LonLat(lon: -106.661153, lat: 35.205222)
+        case "water":
+            return LonLat(lon: -106.62973, lat: 35.849528)
+        case "trailhead":
+            return LonLat(lon: -106.872348, lat: 36.402862)
+        case "landmark":
+            return LonLat(lon: -105.938556, lat: 35.689653)
+        default:
+            return nil
+        }
     }
 
     /// Map screenshots skip the first-launch gate for this process only.
@@ -187,6 +222,17 @@ extension DebugLaunch {
                 launch.showFilters = true
             } else if argument == "--debug-onboarding" {
                 launch.showOnboarding = true
+            } else if let value = taking("--debug-layer", argument, arguments, index) {
+                launch.onlyRole = value.value
+                if launch.center == nil {
+                    launch.center = roleSample(value.value)
+                }
+                index = value.next
+                continue
+            } else if let value = taking("--debug-center", argument, arguments, index) {
+                launch.center = coordinate(value.value)
+                index = value.next
+                continue
             } else if let value = taking("--debug-tab", argument, arguments, index) {
                 let tab = value.value
                 if tab == "map" || tab == "search" || tab == "settings" {

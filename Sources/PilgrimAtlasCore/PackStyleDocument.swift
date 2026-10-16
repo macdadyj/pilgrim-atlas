@@ -150,8 +150,11 @@ package enum PackStyleDocument {
 
     /// Trails-only fades every pin. Place chips hide the roles they do not include.
     /// Open now cannot drop a pin here: visitor hours are not stored on the tile.
-    package static func showsPlaceLayer(_ identifier: String, filter: AtlasFilter) -> Bool {
+    package static func showsPlaceLayer(_ identifier: String, filter: AtlasFilter, onlyRole: String? = nil) -> Bool {
         guard placeLayerIDs.contains(identifier) else { return false }
+        if let onlyRole {
+            return identifier == "places-\(onlyRole)"
+        }
         if !filter.restrictsPlaces { return true }
         if !filter.catholic && !filter.churches { return true }
         switch identifier {
@@ -494,7 +497,8 @@ package enum PackStyleDocument {
                     "properties": [
                         "name": place.name,
                         "label": PlaceText.pinLabel(place.name),
-                        "catholic": place.catholic ? 1 : 0,
+                        "role": MapFilter.pinRole(for: place).rawValue,
+                        "catholic": place.catholic ? "yes" : "no",
                         "category": place.category,
                     ],
                 ]
@@ -503,42 +507,32 @@ package enum PackStyleDocument {
     }
 
     private static func placeLayers(geoJSON: Bool) -> [[String: Any]] {
-        let chapel = ["chapel", "cathedral", "basilica", "santuario"]
-        let shrine = ["shrine", "statue"]
-        let viewpoint = ["viewpoint", "overlook", "scenic"]
-        let museum = ["museum"]
-        let parking = ["parking"]
-        let water = ["spring", "cistern", "trough"]
-        let trailhead = ["trailhead"]
-        let special = chapel + shrine + viewpoint + museum + parking + water + trailhead
-        return [
-            symbol("places-worship", "worship", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 0]], overlap: false, sort: 6, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-shrine", "shrine", filter: named(shrine), overlap: false, sort: 5, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-viewpoint", "viewpoint", filter: named(viewpoint), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-museum", "museum", filter: named(museum), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-parking", "parking", filter: named(parking), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-water", "water", filter: named(water), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-trailhead", "trailhead", filter: named(trailhead), overlap: false, sort: 8, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-landmark", "landmark", filter: landmark(excluding: special), overlap: false, sort: 12, iconSize: 0.78, anchors: ["top", "bottom", "left", "right"], geoJSON: geoJSON),
-            symbol("places-chapel", "chapel", filter: named(chapel), overlap: false, sort: 2, iconSize: 0.92, anchors: ["bottom", "right", "left", "top"], geoJSON: geoJSON),
-            symbol("places-catholic", "catholic", filter: ["all", ["==", ["get", "category"], "worship"], ["==", ["get", "catholic"], 1]], overlap: true, sort: 1, iconSize: 1.0, anchors: ["top", "left", "right"], geoJSON: geoJSON, radialOffset: 2.4, textMaxWidth: 7),
+        let roles: [(String, String, Bool, Double, Double, [String], Double, Double)] = [
+            ("places-worship", "worship", false, 6, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-shrine", "shrine", false, 5, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-viewpoint", "viewpoint", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-museum", "museum", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-parking", "parking", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-water", "water", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-trailhead", "trailhead", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-landmark", "landmark", false, 12, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-chapel", "chapel", false, 2, 0.92, ["bottom", "right", "left", "top"], 1.7, 10),
+            ("places-catholic", "catholic", true, 1, 1.0, ["top", "left", "right"], 2.4, 7),
         ]
-    }
-
-    private static func named(_ tokens: [String]) -> [Any] {
-        ["all", ["==", ["get", "category"], "landmark"], anyName(tokens)]
-    }
-
-    private static func landmark(excluding tokens: [String]) -> [Any] {
-        ["all", ["==", ["get", "category"], "landmark"], ["!", anyName(tokens)]]
-    }
-
-    private static func anyName(_ tokens: [String]) -> [Any] {
-        var filter: [Any] = ["any"]
-        for token in tokens {
-            filter.append(["in", token, ["downcase", ["get", "name"]]])
+        return roles.map { identifier, role, overlap, sort, iconSize, anchors, radial, width in
+            symbol(
+                identifier,
+                role,
+                filter: ["==", ["get", "role"], role],
+                overlap: overlap,
+                sort: sort,
+                iconSize: iconSize,
+                anchors: anchors,
+                geoJSON: geoJSON,
+                radialOffset: radial,
+                textMaxWidth: width
+            )
         }
-        return filter
     }
 
     /// Hide “Untitled …” and “Unnamed …” so they do not cover a real name.

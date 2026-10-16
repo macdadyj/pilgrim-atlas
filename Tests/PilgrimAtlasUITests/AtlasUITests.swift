@@ -263,6 +263,48 @@ final class AtlasUITests: XCTestCase {
         attach(app.screenshot(), name: "welcome-again")
     }
 
+    func testCatholicSitesChipShowsRealPins() {
+        let app = launch("--debug-center=35.686504,-105.93624")
+        find(app, "filters-button", "Filters", timeout: 25).tap()
+        let row = app.buttons["filter-row-catholic"].exists ? app.buttons["filter-row-catholic"] : app.staticTexts["Catholic sites"]
+        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        row.tap()
+        tapDone(app, identifier: "filters-done", title: "Done")
+        let count = waitForPins(app, timeout: 25)
+        XCTAssertGreaterThan(count, 0, "Catholic sites showed \(count) pins")
+        saveLayerShot(app, "catholic-sites")
+    }
+
+    func testEachLandmarkLayerShowsARealPin() {
+        let layers: [(String, String, String)] = [
+            ("catholic", "35.686504", "-105.93624"),
+            ("chapel", "35.685617", "-105.937454"),
+            ("worship", "35.036992", "-106.681415"),
+            ("shrine", "35.683078", "-105.940548"),
+            ("viewpoint", "35.872877", "-106.233148"),
+            ("museum", "36.685019", "-105.889458"),
+            ("parking", "35.205222", "-106.661153"),
+            ("water", "35.849528", "-106.62973"),
+            ("trailhead", "36.402862", "-106.872348"),
+            ("landmark", "35.689653", "-105.938556"),
+        ]
+        for (role, lat, lon) in layers {
+            let app = launch("--debug-center=\(lat),\(lon)")
+            find(app, "layers-button", "More map options", timeout: 25).tap()
+            let toggle = app.descendants(matching: .any)["layer-only-\(role)"]
+            for _ in 0..<8 where !toggle.isHittable {
+                app.swipeUp()
+            }
+            XCTAssertTrue(toggle.waitForExistence(timeout: 8), role)
+            toggle.tap()
+            tapDone(app, identifier: "layers-done", title: "Done")
+            let count = waitForPins(app, timeout: 25)
+            XCTAssertGreaterThan(count, 0, "\(role) showed \(count) pins")
+            saveLayerShot(app, "layer-\(role)")
+            app.terminate()
+        }
+    }
+
     func testDisclaimerScreenshotPath() {
         let app = launch("--debug-disclaimer-details-open")
         XCTAssertTrue(find(app, "onboarding-understand", "I understand", timeout: 20).exists, app.debugDescription)
@@ -312,6 +354,29 @@ final class AtlasUITests: XCTestCase {
         if control.waitForExistence(timeout: 4) {
             control.tap()
         }
+    }
+
+    private func waitForPins(_ app: XCUIApplication, timeout: TimeInterval) -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        var count = 0
+        while Date() < deadline {
+            let element = app.descendants(matching: .any)["place-pin-count"]
+            if element.exists {
+                count = Int(element.label) ?? 0
+                if count > 0 { return count }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        return count
+    }
+
+    private func saveLayerShot(_ app: XCUIApplication, _ name: String) {
+        let shot = app.screenshot()
+        attach(shot, name: name)
+        guard let directory = ProcessInfo.processInfo.environment["PIN_SCREENSHOT_DIR"], !directory.isEmpty else { return }
+        let url = URL(fileURLWithPath: directory, isDirectory: true).appendingPathComponent("\(name).png")
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? shot.pngRepresentation.write(to: url)
     }
 
     private func attach(_ screenshot: XCUIScreenshot, name: String) {

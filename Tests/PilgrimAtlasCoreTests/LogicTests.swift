@@ -725,6 +725,53 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(conflict.note, PlaceText.hoursConflictNote)
     }
 
+    func testLandmarkLayersFilterOnRoleStrings() throws {
+        let basilica = samplePlace(
+            id: 1295,
+            name: "The Cathedral Basilica of Saint Francis of Assisi",
+            category: "worship",
+            catholic: true,
+            lat: 35.686504,
+            lon: -105.93624
+        )
+        let loretto = samplePlace(
+            id: 1296,
+            name: "Loretto Chapel",
+            category: "landmark",
+            catholic: false,
+            lat: 35.685617,
+            lon: -105.937454
+        )
+        XCTAssertEqual(MapFilter.pinRole(for: basilica), .catholic)
+        XCTAssertEqual(MapFilter.pinRole(for: loretto), .chapel)
+        let json = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: false,
+            places: [basilica, loretto]
+        )
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let sources = try XCTUnwrap(root["sources"] as? [String: Any])
+        let geo = try XCTUnwrap(sources["pack-places"] as? [String: Any])
+        let data = try XCTUnwrap(geo["data"] as? [String: Any])
+        let features = try XCTUnwrap(data["features"] as? [[String: Any]])
+        let roles = features.compactMap { ($0["properties"] as? [String: Any])?["role"] as? String }
+        XCTAssertEqual(Set(roles), ["catholic", "chapel"])
+        let layers = try XCTUnwrap(root["layers"] as? [[String: Any]])
+        for role in ["catholic", "chapel", "worship", "shrine", "viewpoint", "museum", "parking", "water", "trailhead", "landmark"] {
+            let layer = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-\(role)" })
+            let filter = try XCTUnwrap(layer["filter"] as? [Any])
+            XCTAssertEqual(filter.first as? String, "==")
+            XCTAssertEqual(filter.last as? String, role)
+        }
+        let parsed = DebugLaunch.parse(["/PilgrimAtlas", "--debug-layer=catholic"])
+        XCTAssertEqual(parsed.onlyRole, "catholic")
+        XCTAssertEqual(parsed.center?.lat ?? 0, 35.686504, accuracy: 0.000001)
+        XCTAssertTrue(parsed.suppressesLocation)
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-catholic", filter: .empty, onlyRole: "catholic"))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-landmark", filter: .empty, onlyRole: "catholic"))
+    }
+
     private func packedSkylineGeometry() -> GeoJSONGeometry? {
         #if SWIFT_PACKAGE
         let bundle = Bundle.module

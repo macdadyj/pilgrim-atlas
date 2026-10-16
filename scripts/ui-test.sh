@@ -23,6 +23,8 @@ print(chosen)
 PY
 )"
 echo "UI tests on ${UDID}"
+export PIN_SCREENSHOT_DIR="${ROOT}/build/layer-screenshots"
+mkdir -p "${PIN_SCREENSHOT_DIR}"
 xcodebuild test \
   -project PilgrimAtlas.xcodeproj \
   -scheme PilgrimAtlasUI \
