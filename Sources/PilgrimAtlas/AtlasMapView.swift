@@ -135,6 +135,7 @@ struct AtlasMapView: UIViewRepresentable {
         )
         context.coordinator.publishPinCount(on: map)
         context.coordinator.publishBasemap(on: map)
+        PackStyle.syncSelectedPin(on: map, places: model.places, selectedID: model.selectedPlace?.id)
     }
 
     private func applyChrome(on map: MLNMapView) {
@@ -380,6 +381,11 @@ enum PackStyle {
     static func installMarkers(on style: MLNStyle) {
         for role in PinRole.allCases {
             style.setImage(PinArt.image(for: role), forName: role.rawValue)
+            style.setImage(PinArt.image(for: role, selected: true), forName: role.rawValue + "-selected")
+        }
+        for mark in ChurchMark.allCases {
+            style.setImage(PinArt.image(mark: mark, selected: false), forName: mark.imageName)
+            style.setImage(PinArt.image(mark: mark, selected: true), forName: mark.selectedImageName)
         }
     }
 
@@ -398,14 +404,30 @@ enum PackStyle {
     }
 
     @MainActor
+    static func syncSelectedPin(on map: MLNMapView, places: [PlaceRecord], selectedID: Int?) {
+        guard let source = map.style?.source(withIdentifier: "places-selected") as? MLNShapeSource else { return }
+        guard let selectedID, let place = places.first(where: { $0.id == selectedID }) else {
+            source.shape = MLNShapeCollectionFeature(shapes: [])
+            return
+        }
+        let feature = MLNPointFeature()
+        feature.coordinate = CLLocationCoordinate2D(latitude: place.lat, longitude: place.lon)
+        let mark = ChurchMark.mark(for: place)
+        feature.attributes = ["pin": mark?.selectedImageName ?? (MapFilter.pinRole(for: place).rawValue + "-selected")]
+        source.shape = MLNShapeCollectionFeature(shapes: [feature])
+    }
+
+    @MainActor
     private static func pointCollection(_ places: [PlaceRecord]) -> MLNShape {
         let features: [MLNPointFeature] = places.map { place in
             let feature = MLNPointFeature()
             feature.coordinate = CLLocationCoordinate2D(latitude: place.lat, longitude: place.lon)
+            feature.identifier = NSNumber(value: place.id)
             feature.attributes = [
                 "name": place.name,
                 "label": PlaceText.pinLabel(place.name),
                 "role": MapFilter.pinRole(for: place).rawValue,
+                "pin": ChurchMark.pinName(for: place),
                 "category": place.category,
             ]
             return feature
@@ -448,7 +470,7 @@ enum PackStyle {
                 layer.isVisible = places && shown
                 if let symbol = layer as? MLNSymbolStyleLayer {
                     let roleName = String(identifier.dropFirst("places-".count))
-                    symbol.iconImageName = NSExpression(forConstantValue: roleName)
+                    symbol.iconImageName = NSExpression(forKeyPath: "pin")
                     let isolate = onlyRole != nil || filter.catholic || filter.churches
                     let overlap = isolate || (PinRole(rawValue: roleName)?.allowsOverlap ?? false)
                     symbol.iconAllowsOverlap = NSExpression(forConstantValue: NSNumber(value: overlap))
@@ -462,6 +484,11 @@ enum PackStyle {
                         ? NSExpression(forConstantValue: NSNumber(value: textOpacity))
                         : nil
                 }
+            } else if let roleName = PackStyleDocument.clusterRole(identifier) {
+                let shown = reveal || PackStyleDocument.showsPlaceLayer("places-\(roleName)", filter: filter, onlyRole: onlyRole)
+                layer.isVisible = places && shown
+            } else if identifier == "places-selected" {
+                layer.isVisible = places
             }
         }
     }

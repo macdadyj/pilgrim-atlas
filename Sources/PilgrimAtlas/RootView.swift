@@ -16,7 +16,9 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if model.acceptedDisclaimer {
+            if model.launch.showPins {
+                PinGalleryView()
+            } else if model.acceptedDisclaimer {
                 tabs
             } else {
                 OnboardingView(startPage: model.onboardingPage, detailsOpen: model.disclaimerDetailsOpen)

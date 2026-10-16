@@ -23,5 +23,5 @@
   "trail_untagged": "Access is not tagged. A missing access tag is not permission to enter or to leave the trail.",
   "not_a_survey": "Boundaries are not a survey. GPS error can put this dot on the wrong side of a fence.",
   "trespass": "This app does not grant access. Private land, Pueblo and other tribal land, leased or closed trust land, and posted trails are not opened by a polygon. If the dataset is silent, the answer is unknown.",
-  "mass_footnote": "Mass and confession times appear only when an OpenStreetMap tag has them. The value is shown raw. This app does not scrape parish sites."
+  "mass_footnote": "Liturgy times come from the parish website or bulletin, or a hand-checked reading of them, with the date that reading was verified. Call the parish to confirm. This app does not use MassTimes.org or Discover Mass."
 }

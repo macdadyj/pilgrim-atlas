@@ -12,22 +12,25 @@ struct DetailSheet: View {
         let facts = AtlasQuery.facts(for: place)
         let hours = MapFilter.hoursReading(place.openingHours)
         let lines = MapFilter.hourLines(place.openingHours)
+        let liturgy = ChurchMark.showsLiturgy(place) ? LiturgyLookup.card(for: place) : nil
         NavigationStack {
             List {
                 Section {
                     HStack(alignment: .top, spacing: 12) {
-                        IconTile(systemName: PlaceText.rowSymbol(for: place))
+                        placeBadge
                         VStack(alignment: .leading, spacing: 6) {
                             Text(place.name)
                                 .font(.title2.weight(.semibold))
                                 .foregroundStyle(.primary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            let mark = Theme.hoursMark(hours)
-                            StatusMark(kind: mark.0, title: mark.1)
-                            if case .none = hours {
-                                Text(MapFilter.hoursMissing)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                            if liturgy == nil {
+                                let mark = Theme.hoursMark(hours)
+                                StatusMark(kind: mark.0, title: mark.1)
+                                if case .none = hours {
+                                    Text(MapFilter.hoursMissing)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
@@ -40,7 +43,10 @@ struct DetailSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if !lines.isEmpty || facts.contains(where: { ["Service times", "Mass times", "Confession times"].contains($0.label) }) {
+                if let liturgy {
+                    liturgySection(liturgy)
+                }
+                if !lines.isEmpty || (liturgy == nil && facts.contains(where: { ["Service times", "Mass times", "Confession times"].contains($0.label) })) {
                     Section {
                         ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                             Text(line)
@@ -107,7 +113,10 @@ struct DetailSheet: View {
                         SectionTitle(text: "Details")
                     }
                 }
-                let links = facts.filter { ["Website", "Wikipedia", "Wikidata", "Photo"].contains($0.label) }
+                let links = facts.filter { fact in
+                    if fact.label == "Website", liturgy?.website.isEmpty == false { return false }
+                    return ["Website", "Wikipedia", "Wikidata", "Photo"].contains(fact.label)
+                }
                 if !links.isEmpty {
                     Section {
                         ForEach(links) { fact in
@@ -145,6 +154,116 @@ struct DetailSheet: View {
             }
         }
         .accessibilityIdentifier("place-sheet")
+    }
+
+    @ViewBuilder
+    private var placeBadge: some View {
+        if let mark = ChurchMark.mark(for: place) {
+            Image(uiImage: PinArt.image(mark: mark, selected: true))
+                .resizable()
+                .frame(width: 54, height: 54)
+                .accessibilityHidden(true)
+        } else {
+            IconTile(systemName: PlaceText.rowSymbol(for: place))
+        }
+    }
+
+    @ViewBuilder
+    private func liturgySection(_ card: LiturgyCard) -> some View {
+        Section {
+            Text(card.verifiedLine)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("liturgy-verified")
+            if !card.note.isEmpty {
+                Text(card.note)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("liturgy-confirm")
+            }
+            if card.phone.isEmpty {
+                Text("Office phone is not in the directory yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("liturgy-phone-missing")
+            } else {
+                Text(card.phone)
+                    .font(.body.monospacedDigit())
+                    .foregroundStyle(.primary)
+                    .accessibilityIdentifier("liturgy-phone")
+                if let url = phoneURL(card.phone) {
+                    Link("Call parish", destination: url)
+                        .accessibilityIdentifier("liturgy-call")
+                }
+            }
+            if let url = webURL(card.website) {
+                Link("Open website", destination: url)
+                    .accessibilityIdentifier("liturgy-website")
+            } else {
+                Text("Parish website is not in the directory yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("liturgy-website-missing")
+            }
+            if !card.directory.isEmpty {
+                Text(card.directory)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("liturgy-directory")
+            }
+            if card.found {
+                ForEach(Array(card.lines.enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .accessibilityIdentifier("liturgy-line")
+                }
+                if !card.confession.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Confession")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(card.confession)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityIdentifier("liturgy-confession")
+                }
+            } else {
+                Text(card.emptyTitle)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .accessibilityIdentifier("liturgy-empty")
+                Text(card.emptyDetail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            SectionTitle(text: liturgyHeading)
+        }
+    }
+
+    private var liturgyHeading: String {
+        switch ChurchMark.mark(for: place) {
+        case .byzantine, .orthodox:
+            return "Liturgy"
+        case .latin, .chapel, .shrine:
+            return "Mass"
+        case nil:
+            return "Services"
+        }
+    }
+
+    private func phoneURL(_ raw: String) -> URL? {
+        let digits = raw.filter(\.isNumber)
+        guard digits.count >= 10 else { return nil }
+        return URL(string: "tel:\(digits)")
+    }
+
+    private func webURL(_ raw: String) -> URL? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
     }
 
     private func labeledRow(_ title: String, _ value: String) -> some View {
