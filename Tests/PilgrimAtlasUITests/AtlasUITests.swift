@@ -388,7 +388,7 @@ final class AtlasUITests: XCTestCase {
                 bitsPerComponent: 8,
                 bytesPerRow: bytesPerRow,
                 space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue
             ) else { return false }
             context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
             return true
