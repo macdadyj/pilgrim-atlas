@@ -772,6 +772,21 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(parsed.onlyRole, "catholic")
         XCTAssertEqual(parsed.center?.lat ?? 0, 35.686504, accuracy: 0.000001)
         XCTAssertTrue(parsed.suppressesLocation)
+        let plaza = LonLat(lon: -105.9378, lat: 35.6870)
+        let cluster = [
+            samplePlace(id: 1, name: "Cathedral", category: "worship", catholic: true, lat: 35.6865, lon: -105.9362),
+            samplePlace(id: 2, name: "Guadalupe", category: "worship", catholic: true, lat: 35.6880, lon: -105.9440),
+            samplePlace(id: 3, name: "Cristo Rey", category: "worship", catholic: true, lat: 35.6720, lon: -105.9300),
+            samplePlace(id: 4, name: "Saint Anne", category: "worship", catholic: true, lat: 35.6700, lon: -105.9500),
+            samplePlace(id: 5, name: "San Isidro", category: "worship", catholic: true, lat: 35.6575, lon: -106.0117),
+            samplePlace(id: 6, name: "Far Church", category: "worship", catholic: true, lat: 36.40, lon: -105.57),
+        ]
+        let catholicPlaces = cluster.filter { MapFilter.pinRole(for: $0) == .catholic }
+        let framed = LayerFrame.nearest(catholicPlaces, around: plaza)
+        XCTAssertEqual(framed.map(\.id), [1, 2, 3, 4, 5])
+        XCTAssertFalse(framed.contains { $0.id == 6 })
+        let lone = LayerFrame.nearest([cluster[0]], around: plaza)
+        XCTAssertEqual(lone.map(\.id), [1])
         XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-catholic", filter: .empty, onlyRole: "catholic"))
         XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-landmark", filter: .empty, onlyRole: "catholic"))
     }

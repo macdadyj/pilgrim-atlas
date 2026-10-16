@@ -63,6 +63,11 @@ struct FilterSheet: View {
         if control.enabled {
             Button {
                 model.filter.toggle(control.id)
+                if control.id == "catholic", model.filter.catholic {
+                    model.frameRole("catholic")
+                } else if control.id == "churches", model.filter.churches {
+                    model.frameChurches()
+                }
                 Haptics.selection()
             } label: {
                 HStack(spacing: 12) {

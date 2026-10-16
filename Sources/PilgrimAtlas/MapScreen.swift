@@ -615,7 +615,9 @@ struct LayersSheet: View {
                     }
                     ForEach(PinRole.allCases, id: \.rawValue) { role in
                         Button {
-                            model.onlyRole = model.onlyRole == role.rawValue ? nil : role.rawValue
+                            let next = model.onlyRole == role.rawValue ? nil : role.rawValue
+                            model.onlyRole = next
+                            if let next { model.frameRole(next) }
                         } label: {
                             HStack(spacing: 12) {
                                 Image(uiImage: PinArt.image(for: role))

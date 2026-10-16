@@ -102,7 +102,43 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             selectedTab = .search
         }
         applyDebugLaunch()
+        revealActivePlaceLayer()
         refreshSummary()
+    }
+
+    /// When a landmark layer is turned on, fit the real places of that role around the camera.
+    func revealActivePlaceLayer() {
+        if let onlyRole {
+            frame(places: places.filter { MapFilter.pinRole(for: $0).rawValue == onlyRole })
+            return
+        }
+        if filter.catholic {
+            frame(places: places.filter { MapFilter.pinRole(for: $0) == .catholic })
+            return
+        }
+        if filter.churches {
+            frameChurches()
+        }
+    }
+
+    func frameRole(_ roleName: String) {
+        frame(places: places.filter { MapFilter.pinRole(for: $0).rawValue == roleName })
+    }
+
+    func frameChurches() {
+        frame(places: places.filter { place in
+            let role = MapFilter.pinRole(for: place)
+            return role == .chapel || role == .worship || role == .shrine
+        })
+    }
+
+    private func frame(places matching: [PlaceRecord]) {
+        let shown = LayerFrame.nearest(matching, around: mapCenter)
+        guard shown.count >= 2, let box = LayerFrame.box(for: shown) else { return }
+        fitCamera(CameraFit(minLon: box.minLon, minLat: box.minLat, maxLon: box.maxLon, maxLat: box.maxLat))
+        let mid = LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
+        summaryPoint = mid
+        summaryPinned = true
     }
 
     var layerBadge: Int {

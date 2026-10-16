@@ -272,7 +272,7 @@ final class AtlasUITests: XCTestCase {
         tapDone(app, identifier: "filters-done", title: "Done")
         let count = waitForPins(app, timeout: 30)
         saveLayerShot(app, "catholic-sites")
-        XCTAssertGreaterThan(count, 0, "Catholic sites showed \(count) pins")
+        XCTAssertGreaterThanOrEqual(count, 4, "Catholic sites showed \(count) pins in view")
     }
 
     func testEachLandmarkLayerShowsARealPin() {
@@ -300,7 +300,8 @@ final class AtlasUITests: XCTestCase {
             tapDone(app, identifier: "layers-done", title: "Done")
             let count = waitForPins(app, timeout: 30)
             saveLayerShot(app, "layer-\(role)")
-            XCTAssertGreaterThan(count, 0, "\(role) showed \(count) pins")
+            let minimum = ["catholic": 4, "worship": 3, "chapel": 2, "landmark": 4][role] ?? 1
+            XCTAssertGreaterThanOrEqual(count, minimum, "\(role) showed \(count) pins in view")
             app.terminate()
         }
     }
