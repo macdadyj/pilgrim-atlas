@@ -47,7 +47,7 @@ struct SettingsView: View {
                             }
                         }
                     )) {
-                        settingsRow("globe", "Online OpenFreeMap tiles", "Off until you accept that the tile host sees this phone's IP address.")
+                        settingsRow("globe", "Online OpenFreeMap tiles", "Streets, water, parks, and labels. The tile host sees this phone's IP address.")
                     }
                     .accessibilityIdentifier("toggle-online-tiles")
                     Toggle(isOn: $model.filter.hidePlacesWithoutHours) {

@@ -264,6 +264,31 @@ final class AtlasUITests: XCTestCase {
         attach(app.screenshot(), name: "welcome-again")
     }
 
+    func testLaunchMapShowsStreetsAndLabels() {
+        let app = launch("--debug-santa-fe-plaza")
+        let deadline = Date().addingTimeInterval(35)
+        var streets = 0
+        var labels = 0
+        var roadMarks = 0
+        var labelMarks = 0
+        while Date() < deadline {
+            streets = waitForCount(app, "basemap-streets", minimum: 1, timeout: 0.4)
+            labels = waitForCount(app, "basemap-labels", minimum: 1, timeout: 0.2)
+            if let image = UIImage(data: app.screenshot().pngRepresentation) {
+                roadMarks = mapMarkCount(image, kind: .road)
+                labelMarks = mapMarkCount(image, kind: .label)
+            }
+            if (streets > 0 || roadMarks >= 3) && (labels > 0 || labelMarks >= 2) {
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        }
+        saveLayerShot(app, "launch-streets")
+        XCTAssertTrue(streets > 0 || roadMarks >= 3, "Launch map showed \(streets) street features and \(roadMarks) road marks")
+        XCTAssertTrue(labels > 0 || labelMarks >= 2, "Launch map showed \(labels) label features and \(labelMarks) label marks")
+        XCTAssertFalse(app.staticTexts["Private on the surface map"].exists)
+    }
+
     func testCatholicSitesChipShowsRealPins() {
         let app = launch("--debug-center=35.686504,-105.93624")
         find(app, "filters-button", "Filters", timeout: 25).tap()
@@ -360,6 +385,20 @@ final class AtlasUITests: XCTestCase {
 
     /// MapLibre's feature query stays at 0 even when the pins are on screen.
     /// Count the pin-colored blobs in the map band of a real screenshot.
+    private func waitForCount(_ app: XCUIApplication, _ identifier: String, minimum: Int, timeout: TimeInterval) -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        var count = 0
+        while Date() < deadline {
+            let element = app.descendants(matching: .any)[identifier]
+            if element.exists {
+                count = Int(element.label) ?? 0
+                if count >= minimum { return count }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        return count
+    }
+
     private func waitForPins(_ app: XCUIApplication, role: String, minimum: Int, timeout: TimeInterval) -> Int {
         let deadline = Date().addingTimeInterval(timeout)
         var count = 0
@@ -371,6 +410,83 @@ final class AtlasUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.7))
         }
         return count
+    }
+
+    private func mapMarkCount(_ image: UIImage, kind: MapMark) -> Int {
+        guard let cgImage = image.cgImage else { return 0 }
+        let width = cgImage.width
+        let height = cgImage.height
+        guard width > 0, height > 0 else { return 0 }
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        let drew = pixels.withUnsafeMutableBytes { raw -> Bool in
+            guard let context = CGContext(
+                data: raw.baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drew else { return 0 }
+        let cell = kind == .label ? 28 : 36
+        let minimumCells = kind == .label ? 2 : 4
+        let yStart = height * 20 / 100
+        let yEnd = height * 58 / 100
+        var cells = Set<Cell>()
+        var y = yStart
+        while y < yEnd {
+            var x = 0
+            while x < width {
+                let offset = y * bytesPerRow + x * 4
+                let red = Int(pixels[offset])
+                let green = Int(pixels[offset + 1])
+                let blue = Int(pixels[offset + 2])
+                let hit: Bool
+                switch kind {
+                case .road:
+                    hit = abs(red - 0x6E) <= 18 && abs(green - 0x62) <= 18 && abs(blue - 0x54) <= 18 && red > green && green > blue
+                case .label:
+                    hit = red < 48 && green < 48 && blue < 42 && abs(red - green) < 14 && abs(green - blue) < 14
+                }
+                if hit {
+                    cells.insert(Cell(x: x / cell, y: y / cell))
+                }
+                x += 3
+            }
+            y += 3
+        }
+        return clusterCount(cells, minimumCells: minimumCells)
+    }
+
+    private func clusterCount(_ cells: Set<Cell>, minimumCells: Int) -> Int {
+        var unseen = cells
+        var marks = 0
+        while let start = unseen.first {
+            var queue = [start]
+            unseen.remove(start)
+            var size = 0
+            var index = 0
+            while index < queue.count {
+                let current = queue[index]
+                index += 1
+                size += 1
+                for dy in -1...1 {
+                    for dx in -1...1 {
+                        let next = Cell(x: current.x + dx, y: current.y + dy)
+                        if unseen.remove(next) != nil {
+                            queue.append(next)
+                        }
+                    }
+                }
+            }
+            if size >= minimumCells { marks += 1 }
+        }
+        return marks
     }
 
     private func renderedPinCount(_ image: UIImage, role: String) -> Int {
@@ -490,6 +606,11 @@ final class AtlasUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+}
+
+private enum MapMark {
+    case road
+    case label
 }
 
 private struct Cell: Hashable {

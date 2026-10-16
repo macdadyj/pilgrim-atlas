@@ -34,14 +34,17 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var showTrails = true
     var showPlaces = true
     var showParcels = false
-    var onlineTiles = false
-    var showTerrain = true
+    /// Streets, water, parks, and labels. On from the first frame.
+    var onlineTiles = true
+    var showTerrain = false
+    /// Neighborhood zoom. Close enough for street names, not a blurry overzoom of the hillshade.
+    static let launchZoom = 14.0
     var searchReveal = false
     var filter = AtlasFilter.empty
     var focusFoodChip = false
     var pendingOnlineConfirm = false
     var cameraToken = 0
-    var cameraZoom = 16.0
+    var cameraZoom = launchZoom
     var fitBounds: CameraFit?
     var fitToken = 0
     var locationDenied = false
@@ -144,9 +147,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var layerBadge: Int {
         var count = 0
         if showParcels { count += 1 }
-        if onlineTiles { count += 1 }
+        if !onlineTiles { count += 1 }
         if filter.hidePlacesWithoutHours { count += 1 }
-        if !showTerrain { count += 1 }
+        if showTerrain { count += 1 }
         return count
     }
 
@@ -263,7 +266,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         guard let locator else {
             summaryPoint = DebugPin.plaza
             summaryPinned = true
-            focusCamera(on: DebugPin.plaza, zoom: 16)
+            focusCamera(on: DebugPin.plaza, zoom: Self.launchZoom)
             refreshSummary()
             return
         }
@@ -277,7 +280,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         if let userCoordinate {
             summaryPoint = userCoordinate
             summaryPinned = false
-            focusCamera(on: userCoordinate, zoom: 16)
+            focusCamera(on: userCoordinate, zoom: Self.launchZoom)
             refreshSummary()
         }
         locator.requestWhenInUseAuthorization()
@@ -361,7 +364,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             self.userCoordinate = coordinate
             if !self.didCenterOnUser && !self.summaryPinned {
                 self.summaryPoint = coordinate
-                self.focusCamera(on: coordinate, zoom: 16)
+                self.focusCamera(on: coordinate, zoom: Self.launchZoom)
                 self.didCenterOnUser = true
             }
             if !self.summaryPinned {
@@ -392,7 +395,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private func holdOnPlaza() {
         summaryPoint = DebugPin.plaza
         summaryPinned = true
-        focusCamera(on: DebugPin.plaza, zoom: 16)
+        focusCamera(on: DebugPin.plaza, zoom: Self.launchZoom)
         refreshSummary()
     }
 
