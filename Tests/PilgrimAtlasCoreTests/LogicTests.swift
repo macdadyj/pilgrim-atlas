@@ -383,6 +383,13 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(gateWins.skipsDisclaimer)
         XCTAssertTrue(gateWins.suppressesLocation)
 
+        let albuquerque = DebugLaunch.parse(["/PilgrimAtlas", "--debug-location=35.1086,-106.5700"])
+        XCTAssertEqual(albuquerque.simulatedUser?.lat ?? 0, DebugLaunch.northeastAlbuquerque.lat, accuracy: 0.0001)
+        XCTAssertEqual(albuquerque.simulatedUser?.lon ?? 0, DebugLaunch.northeastAlbuquerque.lon, accuracy: 0.0001)
+        XCTAssertEqual(albuquerque.center?.lat ?? 0, 35.1086, accuracy: 0.0001)
+        XCTAssertTrue(albuquerque.suppressesLocation)
+        XCTAssertTrue(PackCoverage.contains(DebugLaunch.northeastAlbuquerque))
+
         let terrain = DebugLaunch.parse(["/PilgrimAtlas", "--debug-terrain"])
         XCTAssertTrue(terrain.showTerrain)
         XCTAssertTrue(terrain.showLayers)

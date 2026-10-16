@@ -33,7 +33,8 @@ struct AtlasMapView: UIViewRepresentable {
         let displayScale = map.traitCollection.displayScale
         map.contentScaleFactor = displayScale > 1 ? displayScale : 2
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
-        map.showsUserLocation = !model.debugPlaza
+        map.showsUserLocation = !model.debugPlaza && model.launch.simulatedUser == nil
+        context.coordinator.syncSimulatedUser(on: map, at: model.launch.simulatedUser)
         map.setCenter(
             CLLocationCoordinate2D(latitude: model.mapCenter.lat, longitude: model.mapCenter.lon),
             zoomLevel: model.cameraZoom,
@@ -76,7 +77,8 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.onlyRole = model.onlyRole
         context.coordinator.selectedID = model.selectedPlace?.id
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
-        map.showsUserLocation = !model.debugPlaza
+        map.showsUserLocation = !model.debugPlaza && model.launch.simulatedUser == nil
+        context.coordinator.syncSimulatedUser(on: map, at: model.launch.simulatedUser)
         applyChrome(on: map)
         if context.coordinator.lastOnline != model.onlineTiles {
             context.coordinator.lastOnline = model.onlineTiles
@@ -162,6 +164,7 @@ struct AtlasMapView: UIViewRepresentable {
         var selectedID: Int?
         var onPackLayersMissing: ([String]) -> Void = { _ in }
         var lastPlaceIDs: [Int]?
+        private var userAnnotation: MLNPointAnnotation?
         private var lastPinCountTime = Date.distantPast
         private var streetReadout: UILabel?
         private var labelReadout: UILabel?
@@ -188,6 +191,27 @@ struct AtlasMapView: UIViewRepresentable {
             }
             let ordered = hits.sorted { $0.0 < $1.0 }.map(\.1)
             onSelect(LonLat(lon: coordinate.longitude, lat: coordinate.latitude), ordered)
+        }
+
+        @MainActor
+        func syncSimulatedUser(on map: MLNMapView, at point: LonLat?) {
+            guard let point else {
+                if let userAnnotation {
+                    map.removeAnnotation(userAnnotation)
+                    self.userAnnotation = nil
+                }
+                return
+            }
+            let coordinate = CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon)
+            if let userAnnotation {
+                userAnnotation.coordinate = coordinate
+                return
+            }
+            let pin = MLNPointAnnotation()
+            pin.coordinate = coordinate
+            pin.title = "Simulated location"
+            userAnnotation = pin
+            map.addAnnotation(pin)
         }
 
         @MainActor

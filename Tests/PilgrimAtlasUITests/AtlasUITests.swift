@@ -265,7 +265,12 @@ final class AtlasUITests: XCTestCase {
     }
 
     func testLaunchMapShowsStreetsAndLabels() {
-        let app = launch("--debug-santa-fe-plaza")
+        assertStreetLaunch("--debug-santa-fe-plaza", shot: "launch-streets")
+        assertStreetLaunch("--debug-location=35.1086,-106.5700", shot: "launch-albuquerque")
+    }
+
+    private func assertStreetLaunch(_ argument: String, shot: String) {
+        let app = launch(argument)
         let deadline = Date().addingTimeInterval(35)
         var streets = 0
         var labels = 0
@@ -283,10 +288,11 @@ final class AtlasUITests: XCTestCase {
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.8))
         }
-        saveLayerShot(app, "launch-streets")
-        XCTAssertTrue(streets > 0 || roadMarks >= 3, "Launch map showed \(streets) street features and \(roadMarks) road marks")
-        XCTAssertTrue(labels > 0 || labelMarks >= 2, "Launch map showed \(labels) label features and \(labelMarks) label marks")
+        saveLayerShot(app, shot)
+        XCTAssertTrue(streets > 0 || roadMarks >= 3, "\(shot) showed \(streets) street features and \(roadMarks) road marks")
+        XCTAssertTrue(labels > 0 || labelMarks >= 2, "\(shot) showed \(labels) label features and \(labelMarks) label marks")
         XCTAssertFalse(app.staticTexts["Private on the surface map"].exists)
+        app.terminate()
     }
 
     func testCatholicSitesChipShowsRealPins() {

@@ -79,11 +79,15 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
         if parsed.suppressesLocation {
             summaryPinned = true
-            let origin = parsed.center
+            let origin = parsed.simulatedUser
+                ?? parsed.center
                 ?? (parsed.outsideCoverage ? DebugLaunch.outsideCoverageSample : DebugPin.plaza)
             mapCenter = origin
             summaryPoint = origin
             cameraCenter = origin
+            if parsed.simulatedUser != nil {
+                userCoordinate = origin
+            }
         } else {
             let manager = CLLocationManager()
             manager.delegate = self
