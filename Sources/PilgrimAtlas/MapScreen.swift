@@ -609,15 +609,28 @@ struct LayersSheet: View {
                     SectionTitle(text: "Terrain legend")
                 }
                 Section {
+                    if model.onlyRole != nil {
+                        Button("All landmark layers") { model.onlyRole = nil }
+                            .accessibilityIdentifier("layer-only-all")
+                    }
                     ForEach(PinRole.allCases, id: \.rawValue) { role in
-                        HStack(spacing: 12) {
-                            Image(uiImage: PinArt.image(for: role))
-                                .resizable()
-                                .frame(width: 44, height: 44)
-                            Text(role.legend)
-                                .foregroundStyle(.primary)
+                        Button {
+                            let next = model.onlyRole == role.rawValue ? nil : role.rawValue
+                            model.onlyRole = next
+                            if let next { model.frameRole(next) }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(uiImage: PinArt.image(for: role))
+                                    .resizable()
+                                    .frame(width: 44, height: 44)
+                                Text(role.legend)
+                                    .foregroundStyle(.primary)
+                                Spacer(minLength: 8)
+                                Image(systemName: model.onlyRole == role.rawValue ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(model.onlyRole == role.rawValue ? Theme.control : Color.secondary)
+                            }
                         }
-                        .accessibilityIdentifier("legend-\(role.rawValue)")
+                        .accessibilityIdentifier("layer-only-\(role.rawValue)")
                     }
                 } header: {
                     SectionTitle(text: "Marker legend")

@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 final class AtlasUITests: XCTestCase {
@@ -263,6 +264,49 @@ final class AtlasUITests: XCTestCase {
         attach(app.screenshot(), name: "welcome-again")
     }
 
+    func testCatholicSitesChipShowsRealPins() {
+        let app = launch("--debug-center=35.686504,-105.93624")
+        find(app, "filters-button", "Filters", timeout: 25).tap()
+        let row = app.buttons["filter-row-catholic"].exists ? app.buttons["filter-row-catholic"] : app.staticTexts["Catholic sites"]
+        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        row.tap()
+        tapDone(app, identifier: "filters-done", title: "Done")
+        let count = waitForPins(app, role: "catholic", minimum: 4, timeout: 30)
+        saveLayerShot(app, "catholic-sites")
+        XCTAssertGreaterThanOrEqual(count, 4, "Catholic sites showed \(count) pins in view")
+    }
+
+    func testEachLandmarkLayerShowsARealPin() {
+        let layers: [(String, String, String)] = [
+            ("catholic", "35.686504", "-105.93624"),
+            ("chapel", "35.685617", "-105.937454"),
+            ("worship", "35.036992", "-106.681415"),
+            ("shrine", "35.683078", "-105.940548"),
+            ("viewpoint", "35.872877", "-106.233148"),
+            ("museum", "36.685019", "-105.889458"),
+            ("parking", "35.205222", "-106.661153"),
+            ("water", "35.849528", "-106.62973"),
+            ("trailhead", "36.402862", "-106.872348"),
+            ("landmark", "35.689653", "-105.938556"),
+        ]
+        for (role, lat, lon) in layers {
+            let app = launch("--debug-center=\(lat),\(lon)")
+            find(app, "layers-button", "More map options", timeout: 25).tap()
+            let toggle = app.descendants(matching: .any)["layer-only-\(role)"]
+            for _ in 0..<16 where !toggle.isHittable {
+                app.swipeUp()
+            }
+            XCTAssertTrue(toggle.waitForExistence(timeout: 8), role)
+            toggle.tap()
+            tapDone(app, identifier: "layers-done", title: "Done")
+            let minimum = ["catholic": 4, "worship": 3, "chapel": 2, "landmark": 4][role] ?? 1
+            let count = waitForPins(app, role: role, minimum: minimum, timeout: 30)
+            saveLayerShot(app, "layer-\(role)")
+            XCTAssertGreaterThanOrEqual(count, minimum, "\(role) showed \(count) pins in view")
+            app.terminate()
+        }
+    }
+
     func testDisclaimerScreenshotPath() {
         let app = launch("--debug-disclaimer-details-open")
         XCTAssertTrue(find(app, "onboarding-understand", "I understand", timeout: 20).exists, app.debugDescription)
@@ -314,12 +358,143 @@ final class AtlasUITests: XCTestCase {
         }
     }
 
+    /// MapLibre's feature query stays at 0 even when the pins are on screen.
+    /// Count the pin-colored blobs in the map band of a real screenshot.
+    private func waitForPins(_ app: XCUIApplication, role: String, minimum: Int, timeout: TimeInterval) -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        var count = 0
+        while Date() < deadline {
+            if let image = UIImage(data: app.screenshot().pngRepresentation) {
+                count = renderedPinCount(image, role: role)
+            }
+            if count >= minimum { return count }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.7))
+        }
+        return count
+    }
+
+    private func renderedPinCount(_ image: UIImage, role: String) -> Int {
+        guard let cgImage = image.cgImage else { return 0 }
+        let width = cgImage.width
+        let height = cgImage.height
+        guard width > 0, height > 0 else { return 0 }
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        let drew = pixels.withUnsafeMutableBytes { raw -> Bool in
+            guard let context = CGContext(
+                data: raw.baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drew else { return 0 }
+        let cell = 40
+        let yStart = height * 18 / 100
+        let yEnd = height * 68 / 100
+        var cells = Set<Cell>()
+        var y = yStart
+        while y < yEnd {
+            var x = 0
+            while x < width {
+                let offset = y * bytesPerRow + x * 4
+                let red = Int(pixels[offset])
+                let green = Int(pixels[offset + 1])
+                let blue = Int(pixels[offset + 2])
+                if isPinPixel(role: role, red: red, green: green, blue: blue) {
+                    cells.insert(Cell(x: x / cell, y: y / cell))
+                }
+                x += 2
+            }
+            y += 2
+        }
+        var unseen = cells
+        var pins = 0
+        let minimumCells = role == "chapel" ? 4 : 8
+        while let start = unseen.first {
+            var queue = [start]
+            unseen.remove(start)
+            var size = 0
+            var index = 0
+            while index < queue.count {
+                let current = queue[index]
+                index += 1
+                size += 1
+                for dy in -1...1 {
+                    for dx in -1...1 {
+                        let next = Cell(x: current.x + dx, y: current.y + dy)
+                        if unseen.remove(next) != nil {
+                            queue.append(next)
+                        }
+                    }
+                }
+            }
+            if size >= minimumCells { pins += 1 }
+        }
+        return pins
+    }
+
+    private func isPinPixel(role: String, red: Int, green: Int, blue: Int) -> Bool {
+        switch role {
+        case "catholic", "chapel":
+            return abs(red - 0x8C) <= 18 && abs(green - 0x2F) <= 18 && abs(blue - 0x39) <= 18
+                && red > green + 25 && red > blue + 15
+        case "worship":
+            return abs(red - 0x2F) <= 20 && abs(green - 0x5F) <= 22 && abs(blue - 0x8A) <= 22
+                && blue > red + 30 && blue > green + 10
+        case "water":
+            return abs(red - 0x2F) <= 20 && abs(green - 0x6F) <= 20 && abs(blue - 0x8A) <= 20
+                && blue > red + 30 && blue > green + 8
+        case "landmark":
+            return abs(red - 0xC4) <= 22 && abs(green - 0x62) <= 22 && abs(blue - 0x2D) <= 22
+                && red > 160 && red > green + 40 && green > blue
+        case "shrine":
+            return abs(red - 0x6E) <= 18 && abs(green - 0x5A) <= 18 && abs(blue - 0x7D) <= 18
+                && blue > green && red > green
+        case "viewpoint", "trailhead":
+            let targetGreen = role == "viewpoint" ? 0x6B : 0x6B
+            let targetRed = role == "viewpoint" ? 0x3E : 0x2F
+            let targetBlue = role == "viewpoint" ? 0x48 : 0x4A
+            return abs(red - targetRed) <= 20 && abs(green - targetGreen) <= 20 && abs(blue - targetBlue) <= 20
+                && green > red + 12 && green > blue
+        case "museum":
+            return abs(red - 0x6B) <= 16 && abs(green - 0x4F) <= 16 && abs(blue - 0x3A) <= 16
+                && red > green + 10 && green > blue + 8
+        case "parking":
+            return abs(red - 0x1C) <= 16 && abs(green - 0x3A) <= 16 && abs(blue - 0x5A) <= 16
+                && blue > red + 30 && blue > green + 10
+        default:
+            return false
+        }
+    }
+
+    private func saveLayerShot(_ app: XCUIApplication, _ name: String) {
+        let shot = app.screenshot()
+        attach(shot, name: name)
+        let override = ProcessInfo.processInfo.environment["PIN_SCREENSHOT_DIR"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_PIN_SCREENSHOT_DIR"]
+        let directory = (override?.isEmpty == false) ? override! : "/tmp/layer-screenshots"
+        let url = URL(fileURLWithPath: directory, isDirectory: true).appendingPathComponent("\(name).png")
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? shot.pngRepresentation.write(to: url)
+    }
+
     private func attach(_ screenshot: XCUIScreenshot, name: String) {
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+}
+
+private struct Cell: Hashable {
+    var x: Int
+    var y: Int
 }
 
 private extension XCUIElement {

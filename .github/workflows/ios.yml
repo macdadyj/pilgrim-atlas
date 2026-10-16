@@ -89,6 +89,14 @@ jobs:
       - name: Phone UI tests
         run: scripts/ui-test.sh
 
+      - name: Upload landmark layer screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landmark-layer-screenshots
+          path: build/layer-screenshots
+          if-no-files-found: warn
+
       - name: Upload UI test results
         if: always()
         uses: actions/upload-artifact@v4
