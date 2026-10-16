@@ -1,0 +1,28 @@
+name: Release uploaded build
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_build:
+        description: TestFlight build number already uploaded
+        required: true
+        type: string
+
+concurrency:
+  group: release-uploaded-${{ inputs.release_build }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Put the uploaded build in the internal group
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          BUILD_NUMBER: ${{ inputs.release_build }}
+        run: python3 scripts/asc_testflight.py release --build "$BUILD_NUMBER" --wait-seconds 1500 --require-ready

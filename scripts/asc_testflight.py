@@ -350,7 +350,9 @@ def release(version, wait_seconds, require_ready):
     token = signing.jwt_from_env()
     app_id = find_app(token)
     found = None
-    deadline = time.time() + min(180, wait_seconds)
+    # The build often stays invisible in the API for several minutes after the
+    # upload succeeds. The old 3-minute cap gave up on build 22.
+    deadline = time.time() + wait_seconds
     while found is None and time.time() < deadline:
         found = find_build(token, app_id, version)
         if found is None:
@@ -368,6 +370,7 @@ def release(version, wait_seconds, require_ready):
     if created:
         show("created internal group Internal")
 
+    # Processing gets its own window, even if the build took a while to appear.
     end = time.time() + wait_seconds
     changes = []
     while True:
