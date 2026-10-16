@@ -33,6 +33,8 @@ package struct DebugLaunch: Equatable, Sendable {
     package var center: LonLat?
     /// A stand-in GPS fix, such as a ZIP centroid, with no location prompt.
     package var simulatedUser: LonLat?
+    /// Draws every church pin, including the selected state, for a screenshot.
+    package var showPins: Bool
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -55,7 +57,8 @@ package struct DebugLaunch: Equatable, Sendable {
         tab: nil,
         onlyRole: nil,
         center: nil,
-        simulatedUser: nil
+        simulatedUser: nil,
+        showPins: false
     )
 
     /// Northeast Albuquerque in ZIP 87110, near Louisiana Boulevard and Menaul.
@@ -89,6 +92,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || onlyRole != nil
             || center != nil
             || simulatedUser != nil
+            || showPins
     }
 
     /// A real packed place for each pin role, used to open that layer on a pin.
@@ -200,6 +204,8 @@ extension DebugLaunch {
             let argument = arguments[index]
             if argument == "--debug-santa-fe-plaza" {
                 launch.pinPlaza = true
+            } else if argument == "--debug-pins" {
+                launch.showPins = true
             } else if let value = taking("--debug-open-place", argument, arguments, index) {
                 launch.openPlace = value.value
                 index = value.next

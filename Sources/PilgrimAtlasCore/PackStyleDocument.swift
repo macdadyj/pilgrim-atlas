@@ -5,6 +5,7 @@ import Foundation
 /// zoom 14 tiles hold places (and Albuquerque parcels) only.
 package enum PackStyleDocument {
     package static let landOpacity = 0.48
+    package static let clusteredRoles: Set<String> = ["catholic", "chapel", "worship", "shrine"]
     package static let streetLayerIDs = [
         "ofm-water",
         "ofm-parks",
@@ -284,11 +285,21 @@ package enum PackStyleDocument {
         if let drawnPlaces {
             let grouped = placesGroupedByRole(drawnPlaces)
             for role in PinRole.allCases {
-                sources[placeSourceID(role.rawValue)] = [
+                var source: [String: Any] = [
                     "type": "geojson",
                     "data": placeFeatureCollection(grouped[role.rawValue] ?? []),
                 ]
+                if clusteredRoles.contains(role.rawValue) {
+                    source["cluster"] = true
+                    source["clusterRadius"] = 48
+                    source["clusterMaxZoom"] = 13
+                }
+                sources[placeSourceID(role.rawValue)] = source
             }
+            sources["places-selected"] = [
+                "type": "geojson",
+                "data": ["type": "FeatureCollection", "features": []],
+            ]
         }
         if online {
             sources["openmaptiles"] = [
@@ -469,7 +480,16 @@ package enum PackStyleDocument {
         if online {
             layers.append(contentsOf: streetLabelLayers())
         }
+        if places != nil {
+            for role in clusteredRoles {
+                layers.append(clusterCircle(role))
+                layers.append(clusterCount(role))
+            }
+        }
         layers.append(contentsOf: placeLayers(geoJSON: places != nil))
+        if places != nil {
+            layers.append(selectedPinLayer())
+        }
         return [
             "version": 8,
             "name": "Pilgrim Atlas",
@@ -572,10 +592,12 @@ package enum PackStyleDocument {
                         "type": "Point",
                         "coordinates": [place.lon, place.lat],
                     ],
+                    "id": place.id,
                     "properties": [
                         "name": place.name,
                         "label": PlaceText.pinLabel(place.name),
                         "role": MapFilter.pinRole(for: place).rawValue,
+                        "pin": ChurchMark.pinName(for: place),
                         "catholic": place.catholic ? "yes" : "no",
                         "category": place.category,
                     ],
@@ -649,7 +671,7 @@ package enum PackStyleDocument {
             "type": "symbol",
             "source": geoJSON ? placeSourceID(icon) : "pack",
             "layout": [
-                "icon-image": icon,
+                "icon-image": ["coalesce", ["get", "pin"], icon],
                 "icon-size": iconSize,
                 "icon-allow-overlap": overlap,
                 "icon-ignore-placement": false,
@@ -673,12 +695,69 @@ package enum PackStyleDocument {
                 "text-halo-width": 2.0,
             ],
         ]
-        // GeoJSON layers omit the filter: each source is already one role.
-        // The old filter compared catholic as a number and searched names, and matched no features.
-        if !geoJSON {
+        if geoJSON, clusteredRoles.contains(icon) {
+            layer["filter"] = ["!", ["has", "point_count"]]
+        } else if !geoJSON {
             layer["source-layer"] = "places"
             layer["filter"] = filter
         }
         return layer
+    }
+
+    /// `cluster-catholic` and `cluster-catholic-count` both belong to the catholic pins.
+    package static func clusterRole(_ identifier: String) -> String? {
+        guard identifier.hasPrefix("cluster-") else { return nil }
+        var name = String(identifier.dropFirst("cluster-".count))
+        if name.hasSuffix("-count") {
+            name.removeLast("-count".count)
+        }
+        guard clusteredRoles.contains(name) else { return nil }
+        return name
+    }
+
+    private static func clusterCircle(_ role: String) -> [String: Any] {
+        [
+            "id": "cluster-\(role)",
+            "type": "circle",
+            "source": placeSourceID(role),
+            "filter": ["has", "point_count"],
+            "paint": [
+                "circle-color": "#6E1E2A",
+                "circle-radius": ["step", ["get", "point_count"], 16, 8, 20, 20, 26],
+                "circle-stroke-width": 3,
+                "circle-stroke-color": "#C6A15B",
+            ],
+        ]
+    }
+
+    private static func clusterCount(_ role: String) -> [String: Any] {
+        [
+            "id": "cluster-\(role)-count",
+            "type": "symbol",
+            "source": placeSourceID(role),
+            "filter": ["has", "point_count"],
+            "layout": [
+                "text-field": ["get", "point_count_abbreviated"],
+                "text-font": ["NotoSansRegular"],
+                "text-size": 12,
+            ],
+            "paint": [
+                "text-color": "#F4EFE4",
+            ],
+        ]
+    }
+
+    private static func selectedPinLayer() -> [String: Any] {
+        [
+            "id": "places-selected",
+            "type": "symbol",
+            "source": "places-selected",
+            "layout": [
+                "icon-image": ["get", "pin"],
+                "icon-size": 1.05,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+            ],
+        ]
     }
 }

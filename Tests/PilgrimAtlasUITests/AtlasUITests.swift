@@ -145,6 +145,49 @@ final class AtlasUITests: XCTestCase {
         }
     }
 
+    func testChurchPinsAndPerpetualHelpLiturgy() {
+        let pins = launch("--debug-pins")
+        XCTAssertTrue(pins.descendants(matching: .any)["pin-gallery"].waitForExistence(timeout: 20))
+        for name in [
+            "pin-latin",
+            "pin-byzantine",
+            "pin-orthodox",
+            "pin-chapel",
+            "pin-shrine",
+            "pin-latin-selected",
+            "pin-byzantine-selected",
+        ] {
+            XCTAssertTrue(pins.descendants(matching: .any)[name].waitForExistence(timeout: 4), name)
+        }
+        saveLayerShot(pins, "church-pins")
+        pins.terminate()
+
+        let app = launch(
+            "--debug-open-place=Our Lady of Perpetual Help",
+            "--debug-location=35.096452,-106.582347"
+        )
+        XCTAssertTrue(
+            app.otherElements["place-sheet"].waitForExistence(timeout: 25)
+                || app.navigationBars.element.waitForExistence(timeout: 12)
+        )
+        let phone = app.staticTexts["505-256-1539"]
+        var swipes = 0
+        while !phone.exists && swipes < 4 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(phone.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Last verified 16 Oct 2026"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Call to confirm")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Divine Liturgy")).firstMatch.exists)
+        XCTAssertTrue(app.links["Call parish"].exists || app.buttons["Call parish"].exists)
+        XCTAssertTrue(app.links["Open website"].exists || app.buttons["Open website"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Unknown"].exists)
+        XCTAssertFalse(app.staticTexts["No visitor hours in the pack."].exists)
+        saveLayerShot(app, "olph-liturgy")
+    }
+
     func testPlaceSheet() {
         let app = launch("--debug-santa-fe-plaza", "--debug-open-place=Loretto Chapel")
         XCTAssertTrue(
@@ -537,7 +580,8 @@ final class AtlasUITests: XCTestCase {
 
     private func isPinPixel(role: String, red: Int, green: Int, blue: Int) -> Bool {
         switch role {
-        case "catholic", "chapel":
+        case "catholic", "chapel", "shrine":
+            // Chapel and shrine pins are burgundy teardrops, with a house or an arch on top.
             return abs(red - 0x8C) <= 18 && abs(green - 0x2F) <= 18 && abs(blue - 0x39) <= 18
                 && red > green + 25 && red > blue + 15
         case "worship":
@@ -549,9 +593,6 @@ final class AtlasUITests: XCTestCase {
         case "landmark":
             return abs(red - 0xC4) <= 22 && abs(green - 0x62) <= 22 && abs(blue - 0x2D) <= 22
                 && red > 160 && red > green + 40 && green > blue
-        case "shrine":
-            return abs(red - 0x6E) <= 18 && abs(green - 0x5A) <= 18 && abs(blue - 0x7D) <= 18
-                && blue > green && red > green
         case "viewpoint", "trailhead":
             let targetGreen = role == "viewpoint" ? 0x6B : 0x6B
             let targetRed = role == "viewpoint" ? 0x3E : 0x2F

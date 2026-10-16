@@ -782,8 +782,13 @@ final class LogicTests: XCTestCase {
         for role in ["catholic", "chapel", "worship", "shrine", "viewpoint", "museum", "parking", "water", "trailhead", "landmark"] {
             let layer = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-\(role)" })
             XCTAssertEqual(layer["source"] as? String, "pack-places-\(role)")
-            XCTAssertNil(layer["filter"])
             XCTAssertNil(layer["source-layer"])
+            if PackStyleDocument.clusteredRoles.contains(role) {
+                let layerFilter = try XCTUnwrap(layer["filter"] as? [Any])
+                XCTAssertEqual(layerFilter.first as? String, "!")
+            } else {
+                XCTAssertNil(layer["filter"])
+            }
         }
         let parsed = DebugLaunch.parse(["/PilgrimAtlas", "--debug-layer=catholic"])
         XCTAssertEqual(parsed.onlyRole, "catholic")
@@ -806,6 +811,215 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(lone.map(\.id), [1])
         XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-catholic", filter: .empty, onlyRole: "catholic"))
         XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-landmark", filter: .empty, onlyRole: "catholic"))
+    }
+
+    func testLiturgyComesFromTheParishAndSkipsUnlicensedFeeds() throws {
+        let olph = perpetualHelp()
+        let tears = samplePlace(
+            id: 1367,
+            name: "Memorial of Perpetual Tears",
+            category: "worship",
+            catholic: false,
+            lat: 35.2,
+            lon: -106.6,
+            address: "Albuquerque",
+            website: "http://www.dwimemorialofperpetualtears.org/"
+        )
+        let namesake = samplePlace(
+            id: 50,
+            name: "Our Lady of Perpetual Help",
+            category: "worship",
+            catholic: true,
+            lat: 35.6,
+            lon: -105.9,
+            address: "Santa Fe, NM",
+            denomination: "ruthenian_catholic"
+        )
+        XCTAssertEqual(ChurchMark.mark(for: olph), .byzantine)
+        XCTAssertEqual(ChurchMark.pinName(for: olph), "byzantine")
+        XCTAssertTrue(ChurchMark.showsLiturgy(olph))
+        XCTAssertEqual(ChurchMark.mark(for: samplePlace(
+            id: 1295,
+            name: "The Cathedral Basilica of Saint Francis of Assisi",
+            category: "worship",
+            catholic: true,
+            lat: 35.686504,
+            lon: -105.93624
+        )), .latin)
+        XCTAssertEqual(ChurchMark.mark(for: samplePlace(
+            id: 80,
+            name: "Holy Trinity Orthodox Church",
+            category: "worship",
+            catholic: false,
+            lat: 35.1,
+            lon: -106.6,
+            denomination: "eastern_orthodox"
+        )), .orthodox)
+        XCTAssertFalse(ChurchMark.showsLiturgy(samplePlace(
+            id: 81,
+            name: "Georgia O'Keeffe Museum",
+            category: "museum",
+            catholic: false,
+            lat: 35.6,
+            lon: -105.9
+        )))
+        XCTAssertNil(HandVerifiedLiturgy.listing(for: tears))
+        XCTAssertNil(ParishDirectories.contact(for: tears))
+        XCTAssertNil(HandVerifiedLiturgy.listing(for: namesake))
+
+        let card = LiturgyLookup.card(for: olph)
+        XCTAssertTrue(card.found)
+        XCTAssertEqual(card.phone, "505-256-1539")
+        XCTAssertEqual(card.website, "https://www.olphnm.org/")
+        XCTAssertEqual(card.verifiedLine, "Last verified 16 Oct 2026")
+        XCTAssertTrue(card.note.contains("Call to confirm"))
+        XCTAssertTrue(card.note.contains("vary"))
+        XCTAssertTrue(card.directory.contains("Eparchy of Phoenix"))
+        XCTAssertTrue(card.confession.contains("before and after any Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Fri 16 Oct, 6:00 PM Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Mon 12 Oct, 9:00 AM Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Thu 15 Oct, No Divine Liturgy. Parish and office closed."))
+        XCTAssertTrue(card.lines.contains("Sun 18 Oct, 10:00 AM Divine Liturgy"))
+        XCTAssertFalse(card.lines.contains { $0.contains("Diving") })
+
+        let basilica = samplePlace(
+            id: 1295,
+            name: "The Cathedral Basilica of Saint Francis of Assisi",
+            category: "worship",
+            catholic: true,
+            lat: 35.686504,
+            lon: -105.93624,
+            website: "https://www.cbsfa.org/"
+        )
+        let empty = LiturgyLookup.card(for: basilica)
+        XCTAssertFalse(empty.found)
+        XCTAssertEqual(empty.verifiedLine, "Last verified: not yet")
+        XCTAssertEqual(empty.website, "https://www.cbsfa.org/")
+        XCTAssertTrue(empty.phone.isEmpty)
+        XCTAssertEqual(empty.emptyTitle, LiturgyCard.emptyTitle)
+
+        let ids = LiturgyLookup.sources().map(\.id)
+        XCTAssertEqual(ids, [LiturgySourceID.handVerified, "cache", LiturgySourceID.parishWebsite])
+        XCTAssertEqual(LiturgySourceID.unusedSlots, [LiturgySourceID.massTimesSlot, LiturgySourceID.discoverMassSlot])
+        XCTAssertFalse(ids.contains(LiturgySourceID.massTimesSlot))
+        XCTAssertFalse(ids.contains(LiturgySourceID.discoverMassSlot))
+        let footnote = Copy.text("mass_footnote")
+        XCTAssertTrue(footnote.contains("bulletin"))
+        XCTAssertTrue(footnote.contains("does not use MassTimes.org or Discover Mass"))
+
+        let structured = """
+        <h2>Mass Schedule</h2>
+        <p>Sunday 8:00 AM Mass</p>
+        <script type="application/ld+json">
+        {"@graph":[
+          {"@type":"Church","name":"Example"},
+          {"@type":["Event"],"name":"Divine Liturgy","startDate":"2026-10-17T17:00:00-06:00"}
+        ]}
+        </script>
+        """
+        XCTAssertEqual(
+            SchemaEventParser.lines(from: structured),
+            ["Sat 17 Oct, 5:00 PM Divine Liturgy"]
+        )
+        XCTAssertEqual(ParishScheduleParser.lines(from: structured), ["Sat 17 Oct, 5:00 PM Divine Liturgy"])
+
+        let plain = """
+        <h2>Mass Schedule</h2>
+        <ul>
+        <li>Sunday 8:00 AM Mass</li>
+        <li>Sunday 10:30 AM Mass</li>
+        </ul>
+        <p>Confession is available on Saturday from 3:30 PM until 4:30 PM, or by appointment.</p>
+        <h2>Office Hours</h2>
+        <p>Monday 9:00 AM to 1:00 PM</p>
+        """
+        XCTAssertEqual(
+            ParishScheduleParser.lines(from: plain),
+            ["Sunday 8:00 AM Mass", "Sunday 10:30 AM Mass"]
+        )
+        XCTAssertTrue(ParishScheduleParser.confession(from: plain).contains("3:30 PM"))
+
+        let example = samplePlace(
+            id: 9,
+            name: "Saint Example",
+            category: "worship",
+            catholic: true,
+            lat: 35.1,
+            lon: -106.5,
+            website: "https://example.org/parish"
+        )
+        let cache = LiturgyCache(maxAge: 60)
+        let cached = LiturgyListing(
+            lines: ["cached line"],
+            confession: "",
+            verified: "2026-10-01",
+            sourceName: "cache",
+            sourceURL: "",
+            phone: "",
+            website: "",
+            directory: "",
+            confirm: "Call to confirm."
+        )
+        let saved = Date(timeIntervalSince1970: 1_000)
+        cache.save(cached, placeID: example.id, now: saved)
+        XCTAssertNil(cache.load(placeID: example.id, now: saved.addingTimeInterval(61)))
+        XCTAssertEqual(cache.load(placeID: example.id, now: saved.addingTimeInterval(30))?.lines, ["cached line"])
+
+        let fromPage = LiturgyLookup.card(
+            for: example,
+            sources: LiturgyLookup.sources(pages: [example.id: plain], verified: "2026-10-16", cache: cache)
+        )
+        XCTAssertEqual(fromPage.lines, ["Sunday 8:00 AM Mass", "Sunday 10:30 AM Mass"])
+        XCTAssertEqual(fromPage.verifiedLine, "Last verified 16 Oct 2026")
+        XCTAssertTrue(fromPage.confession.contains("3:30 PM"))
+        XCTAssertEqual(fromPage.website, "https://example.org/parish")
+
+        let fromCache = LiturgyLookup.card(
+            for: example,
+            sources: LiturgyLookup.sources(cache: cache)
+        )
+        XCTAssertEqual(fromCache.lines, ["cached line"])
+
+        let seeded = LiturgyLookup.card(
+            for: olph,
+            sources: LiturgyLookup.sources(
+                pages: [olph.id: plain],
+                verified: "2026-10-01",
+                cache: cache
+            )
+        )
+        XCTAssertTrue(seeded.lines.contains("Fri 16 Oct, 6:00 PM Divine Liturgy"))
+        XCTAssertFalse(seeded.lines.contains("Sunday 8:00 AM Mass"))
+
+        let style = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: false,
+            places: [olph]
+        )
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(style.utf8)) as? [String: Any])
+        let sources = try XCTUnwrap(root["sources"] as? [String: Any])
+        let geo = try XCTUnwrap(sources["pack-places-catholic"] as? [String: Any])
+        let clusterOn = (geo["cluster"] as? Bool) ?? ((geo["cluster"] as? NSNumber)?.boolValue ?? false)
+        let maxZoom = (geo["clusterMaxZoom"] as? Int) ?? (geo["clusterMaxZoom"] as? NSNumber)?.intValue
+        XCTAssertTrue(clusterOn)
+        XCTAssertEqual(maxZoom, 13)
+        let data = try XCTUnwrap(geo["data"] as? [String: Any])
+        let features = try XCTUnwrap(data["features"] as? [[String: Any]])
+        let pin = (features[0]["properties"] as? [String: Any])?["pin"] as? String
+        XCTAssertEqual(pin, "byzantine")
+        let layers = try XCTUnwrap(root["layers"] as? [[String: Any]])
+        let catholic = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-catholic" })
+        let layout = try XCTUnwrap(catholic["layout"] as? [String: Any])
+        let icon = try XCTUnwrap(layout["icon-image"] as? [Any])
+        XCTAssertEqual(icon.first as? String, "coalesce")
+        XCTAssertNotNil(layers.first { ($0["id"] as? String) == "places-selected" })
+        XCTAssertEqual(PackStyleDocument.clusterRole("cluster-catholic"), "catholic")
+        XCTAssertEqual(PackStyleDocument.clusterRole("cluster-worship-count"), "worship")
+        XCTAssertNil(PackStyleDocument.clusterRole("places-catholic"))
+        let pins = DebugLaunch.parse(["/PilgrimAtlas", "--debug-pins"])
+        XCTAssertTrue(pins.showPins)
+        XCTAssertTrue(pins.suppressesLocation)
     }
 
     private func packedSkylineGeometry() -> GeoJSONGeometry? {
@@ -905,14 +1119,15 @@ final class LogicTests: XCTestCase {
         wikipedia: String = "",
         wikidata: String = "",
         image: String = "",
-        sourceDate: String = "2026-10-02"
+        sourceDate: String = "2026-10-02",
+        denomination: String? = nil
     ) -> PlaceRecord {
         PlaceRecord(
             id: id,
             name: name,
             category: category,
             catholic: catholic,
-            denomination: catholic ? "roman_catholic" : "",
+            denomination: denomination ?? (catholic ? "roman_catholic" : ""),
             lat: lat,
             lon: lon,
             description: "",
@@ -930,6 +1145,20 @@ final class LogicTests: XCTestCase {
             image: image,
             source: "OpenStreetMap",
             sourceDate: sourceDate
+        )
+    }
+
+    private func perpetualHelp() -> PlaceRecord {
+        samplePlace(
+            id: 334,
+            name: "Our Lady of Perpetual Help",
+            category: "worship",
+            catholic: true,
+            lat: 35.096452,
+            lon: -106.582347,
+            address: "1837 Alvarado Drive Northeast, Albuquerque, NM, 87110",
+            website: "https://www.olphnm.org/",
+            denomination: "ruthenian_catholic"
         )
     }
 }
