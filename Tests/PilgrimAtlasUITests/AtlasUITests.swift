@@ -178,8 +178,8 @@ final class AtlasUITests: XCTestCase {
         }
         XCTAssertTrue(phone.waitForExistence(timeout: 6))
         XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Call to confirm")).firstMatch.exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Divine Liturgy")).firstMatch.exists)
+        revealText(app, "Call to confirm")
+        revealText(app, "Divine Liturgy")
         XCTAssertTrue(app.links["Call parish"].exists || app.buttons["Call parish"].exists)
         XCTAssertTrue(app.links["Open website"].exists || app.buttons["Open website"].exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
@@ -385,6 +385,16 @@ final class AtlasUITests: XCTestCase {
         let app = launch("--debug-disclaimer-details-open")
         XCTAssertTrue(find(app, "onboarding-understand", "I understand", timeout: 20).exists, app.debugDescription)
         attach(app.screenshot(), name: "disclaimer-details")
+    }
+
+    private func revealText(_ app: XCUIApplication, _ label: String) {
+        let element = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", label)).firstMatch
+        var swipes = 0
+        while !element.exists && swipes < 6 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(element.waitForExistence(timeout: 4), label)
     }
 
     private func find(_ app: XCUIApplication, _ identifier: String, _ label: String, timeout: TimeInterval = 4) -> XCUIElement {

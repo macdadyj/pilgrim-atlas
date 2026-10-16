@@ -175,6 +175,12 @@ struct DetailSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("liturgy-verified")
+            if !card.note.isEmpty {
+                Text(card.note)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("liturgy-confirm")
+            }
             if card.phone.isEmpty {
                 Text("Office phone is not in the directory yet.")
                     .font(.subheadline)
@@ -222,12 +228,6 @@ struct DetailSheet: View {
                             .foregroundStyle(.primary)
                     }
                     .accessibilityIdentifier("liturgy-confession")
-                }
-                if !card.note.isEmpty {
-                    Text(card.note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("liturgy-confirm")
                 }
             } else {
                 Text(card.emptyTitle)

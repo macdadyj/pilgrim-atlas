@@ -901,7 +901,7 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(empty.emptyTitle, LiturgyCard.emptyTitle)
 
         let ids = LiturgyLookup.sources().map(\.id)
-        XCTAssertEqual(ids, [LiturgySourceID.handVerified, "cache", LiturgySourceID.parishWebsite])
+        XCTAssertEqual(ids, [LiturgySourceID.handVerified, LiturgySourceID.parishWebsite, "cache"])
         XCTAssertEqual(LiturgySourceID.unusedSlots, [LiturgySourceID.massTimesSlot, LiturgySourceID.discoverMassSlot])
         XCTAssertFalse(ids.contains(LiturgySourceID.massTimesSlot))
         XCTAssertFalse(ids.contains(LiturgySourceID.discoverMassSlot))
@@ -976,9 +976,11 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(fromPage.confession.contains("3:30 PM"))
         XCTAssertEqual(fromPage.website, "https://example.org/parish")
 
+        let fresh = LiturgyCache(maxAge: 60 * 60)
+        fresh.save(cached, placeID: example.id)
         let fromCache = LiturgyLookup.card(
             for: example,
-            sources: LiturgyLookup.sources(cache: cache)
+            sources: LiturgyLookup.sources(cache: fresh)
         )
         XCTAssertEqual(fromCache.lines, ["cached line"])
 
@@ -1017,7 +1019,8 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(icon.first as? String, "coalesce")
         XCTAssertNotNil(layers.first { ($0["id"] as? String) == "places-selected" })
         XCTAssertEqual(PackStyleDocument.clusterRole("cluster-catholic"), "catholic")
-        XCTAssertEqual(PackStyleDocument.clusterRole("cluster-worship-count"), "worship")
+        XCTAssertEqual(PackStyleDocument.clusterRole("cluster-shrine-count"), "shrine")
+        XCTAssertNil(PackStyleDocument.clusterRole("cluster-worship-count"))
         XCTAssertNil(PackStyleDocument.clusterRole("places-catholic"))
         let pins = DebugLaunch.parse(["/PilgrimAtlas", "--debug-pins"])
         XCTAssertTrue(pins.showPins)

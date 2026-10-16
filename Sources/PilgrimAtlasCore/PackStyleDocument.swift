@@ -5,7 +5,9 @@ import Foundation
 /// zoom 14 tiles hold places (and Albuquerque parcels) only.
 package enum PackStyleDocument {
     package static let landOpacity = 0.48
-    package static let clusteredRoles: Set<String> = ["catholic", "chapel", "worship", "shrine"]
+    /// Church pins cluster when the map is zoomed out. Other worship stays
+    /// unclustered so a neighborhood frame still draws each pin.
+    package static let clusteredRoles: Set<String> = ["catholic", "chapel", "shrine"]
     package static let streetLayerIDs = [
         "ofm-water",
         "ofm-parks",
