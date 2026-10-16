@@ -1,0 +1,9 @@
+{
+  "cameraZoom": 16,
+  "landMaxZoom": 14,
+  "trailMaxZoom": 12,
+  "placeMaxZoom": 14,
+  "hillshadeMaxZoom": 12,
+  "terrainMaxZoom": 12,
+  "minFillOpacity": 0.45
+}

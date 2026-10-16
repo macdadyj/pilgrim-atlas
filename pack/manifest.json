@@ -1,0 +1,16 @@
+{
+  "sqlite_bytes": 3137536,
+  "pmtiles_bytes": 5642923,
+  "name": "Northern New Mexico",
+  "bbox": "-107.3,34.8,-104.7,37.05",
+  "built": "2026-10-03",
+  "osm_date": "2026-10-02T20:21:34Z",
+  "place_count": "1848",
+  "trail_count": "357",
+  "land_count": "6493",
+  "parcel_count": "202958",
+  "cabq_disclaimer": "This site provides applications using data that has been modified for use from its original source, www.cabq.gov, the official website of the City of Albuquerque. The City of Albuquerque makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one\u2019s own risk.",
+  "slo_disclaimer": "These data are produced and maintained by the New Mexico State Land Office and are provided as is. The New Mexico State Land Office assumes no responsibility or liability for, or in connection with, the accuracy, reliability, or use of the information provided herein. Moreover, these data do not constitute an official record of title. Matters concerning land title should be directed to the Records Division of the New Mexico State Land Office.",
+  "attribution": "\u00a9 OpenStreetMap contributors",
+  "skipped": "Santa Fe County and City of Santa Fe parcels are link-out only. PAD-US easements are not shipped. Subsurface-only trust land is not shown as walkable surface."
+}
