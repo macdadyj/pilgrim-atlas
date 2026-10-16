@@ -91,7 +91,9 @@ final class AtlasUITests: XCTestCase {
         tapDone(app, identifier: "layers-done", title: "Done")
 
         find(app, "location-button", "Location").tapIfExists()
-        find(app, "search-pill", "Search").tap()
+        let searchTab = app.tabBars.buttons["Search"]
+        XCTAssertTrue(searchTab.waitForExistence(timeout: 8))
+        searchTab.tap()
         XCTAssertTrue(
             app.otherElements["search-screen"].waitForExistence(timeout: 8)
                 || app.navigationBars.element.waitForExistence(timeout: 8)
