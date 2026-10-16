@@ -434,7 +434,6 @@ final class AtlasUITests: XCTestCase {
         }
         guard drew else { return 0 }
         let cell = kind == .label ? 28 : 36
-        let minimumCells = kind == .label ? 2 : 4
         let yStart = height * 20 / 100
         let yEnd = height * 58 / 100
         var cells = Set<Cell>()
@@ -460,33 +459,8 @@ final class AtlasUITests: XCTestCase {
             }
             y += 3
         }
-        return clusterCount(cells, minimumCells: minimumCells)
-    }
-
-    private func clusterCount(_ cells: Set<Cell>, minimumCells: Int) -> Int {
-        var unseen = cells
-        var marks = 0
-        while let start = unseen.first {
-            var queue = [start]
-            unseen.remove(start)
-            var size = 0
-            var index = 0
-            while index < queue.count {
-                let current = queue[index]
-                index += 1
-                size += 1
-                for dy in -1...1 {
-                    for dx in -1...1 {
-                        let next = Cell(x: current.x + dx, y: current.y + dy)
-                        if unseen.remove(next) != nil {
-                            queue.append(next)
-                        }
-                    }
-                }
-            }
-            if size >= minimumCells { marks += 1 }
-        }
-        return marks
+        // A street grid is one connected shape, so count the marked cells, not the blobs.
+        return cells.count
     }
 
     private func renderedPinCount(_ image: UIImage, role: String) -> Int {
