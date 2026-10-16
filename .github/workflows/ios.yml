@@ -31,8 +31,9 @@ jobs:
 
       - name: Pack and copy tests
         run: |
-          python3 -m pip install --user pytest shapely numpy pmtiles mapbox-vector-tile
-          PYTHONPATH=pipeline python3 -m pytest pipeline/tests/test_rules.py pipeline/tests/test_built_pack.py -q
+          python3 -m venv .venv
+          .venv/bin/pip install pytest shapely numpy pmtiles mapbox-vector-tile
+          PYTHONPATH=pipeline .venv/bin/pytest pipeline/tests/test_rules.py pipeline/tests/test_built_pack.py -q
 
       - name: Archive script self-test
         run: scripts/archive-upload.sh --self-test
@@ -121,8 +122,9 @@ jobs:
 
       - name: Pack and copy tests
         run: |
-          python3 -m pip install --user pytest shapely numpy pmtiles mapbox-vector-tile
-          PYTHONPATH=pipeline python3 -m pytest pipeline/tests/test_rules.py pipeline/tests/test_built_pack.py -q
+          python3 -m venv .venv
+          .venv/bin/pip install pytest shapely numpy pmtiles mapbox-vector-tile
+          PYTHONPATH=pipeline .venv/bin/pytest pipeline/tests/test_rules.py pipeline/tests/test_built_pack.py -q
 
       - name: Archive script self-test
         run: scripts/archive-upload.sh --self-test

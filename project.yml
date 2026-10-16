@@ -27,6 +27,9 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
     "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
+    # Same package name as Package.swift, so `package` types stay visible to
+    # @Observable in this Xcode module. Without it they compile as fileprivate.
+    OTHER_SWIFT_FLAGS: "$(inherited) -package-name PilgrimAtlas"
 
 targets:
   PilgrimAtlas:

@@ -15,7 +15,7 @@ struct CameraFit: Equatable {
 
 @MainActor
 @Observable
-final class AtlasModel: NSObject, CLLocationManagerDelegate {
+package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var places: [PlaceRecord] = []
     var trails: [TrailRecord] = []
     var lands: [LandHit] = []
@@ -25,10 +25,10 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var acceptedDisclaimer = UserDefaults.standard.bool(forKey: "pilgrim.disclaimer.accepted")
     var userCoordinate: LonLat?
     var mapCenter = DebugPin.plaza
-    var summaryPoint = DebugPin.plaza
-    var cameraCenter = DebugPin.plaza
-    var selectedPlace: PlaceRecord?
-    var selectedTrail: TrailRecord?
+    package var summaryPoint = DebugPin.plaza
+    package var cameraCenter = DebugPin.plaza
+    package var selectedPlace: PlaceRecord?
+    package var selectedTrail: TrailRecord?
     var summary: NearbySummary?
     var showLand = true
     var showTrails = true
@@ -48,7 +48,7 @@ final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var summaryPinned = false
     var disclaimerDetailsOpen = false
     var debugPickerPlaces: [PlaceRecord] = []
-    var debugTapPoint: LonLat?
+    package var debugTapPoint: LonLat?
     var selectedTab: AppTab = .map
     var showFilters = false
     var searchQuery = ""
