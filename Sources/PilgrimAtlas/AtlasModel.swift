@@ -314,7 +314,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         Geometry.haversineMeters(cameraCenter, summaryPoint) > 40
     }
 
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    nonisolated package func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         let coordinate = LonLat(lon: location.coordinate.longitude, lat: location.coordinate.latitude)
         Task { @MainActor in
@@ -332,7 +332,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    nonisolated package func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
         Task { @MainActor in
             guard !self.debugPlaza else {
