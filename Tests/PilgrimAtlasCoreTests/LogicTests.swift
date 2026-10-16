@@ -691,8 +691,8 @@ final class LogicTests: XCTestCase {
             ]
         )
         XCTAssertTrue(labeled.contains("\"label\":\"Cathedral Basilica\""))
-        let style = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(labeled.utf8)) as? [String: Any])
-        let layers = try XCTUnwrap(style["layers"] as? [[String: Any]])
+        let decoded = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(labeled.utf8)) as? [String: Any])
+        let layers = try XCTUnwrap(decoded["layers"] as? [[String: Any]])
         let catholic = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-catholic" })
         let layout = try XCTUnwrap(catholic["layout"] as? [String: Any])
         let offset = try XCTUnwrap(layout["text-radial-offset"] as? Double)

@@ -56,6 +56,7 @@ struct OnboardingView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+                .frame(maxHeight: .infinity)
                 .onChange(of: page) { _, _ in Haptics.selection() }
 
                 VStack(spacing: 12) {

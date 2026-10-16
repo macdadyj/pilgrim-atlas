@@ -201,15 +201,14 @@ private struct MapChrome: View {
                 .padding(.top, 8)
                 .padding(.bottom, obstruction + AtlasMapView.ornamentGap + AtlasMapView.ornamentBand)
                 .zIndex(1)
-
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    NearbyPanel(
-                        expanded: $cardExpanded,
-                        statusLine: statusLine,
-                        height: cardHeight
-                    )
-                }
+            }
+            .overlay(alignment: .bottom) {
+                NearbyPanel(
+                    expanded: $cardExpanded,
+                    statusLine: statusLine,
+                    height: cardHeight
+                )
+                .frame(height: cardHeight)
             }
         }
         .onAppear {

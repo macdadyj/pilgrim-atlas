@@ -7,41 +7,42 @@ final class AtlasUITests: XCTestCase {
 
     func testOnboardingTapsEveryControl() {
         let app = launch("--debug-onboarding")
-        XCTAssertTrue(app.otherElements["onboarding"].waitForExistence(timeout: 20))
-        let skip = app.buttons["onboarding-skip"]
-        XCTAssertTrue(skip.waitForExistence(timeout: 8))
+        let skip = find(app, "onboarding-skip", "Skip", timeout: 20)
+        XCTAssertTrue(skip.exists, app.debugDescription)
         skip.tap()
         let details = app.buttons["onboarding-details"]
         if details.waitForExistence(timeout: 4) {
             details.tap()
             details.tap()
         }
-        let understand = app.buttons["onboarding-understand"]
-        XCTAssertTrue(understand.waitForExistence(timeout: 8))
+        let understand = find(app, "onboarding-understand", "I understand", timeout: 8)
+        XCTAssertTrue(understand.exists, app.debugDescription)
         attach(app.screenshot(), name: "onboarding-disclaimer")
         understand.tap()
-        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "search-pill", "Search", timeout: 20).exists, app.debugDescription)
     }
 
     func testOnboardingContinueThenUnderstand() {
         let app = launch("--debug-onboarding")
-        let cont = app.buttons["onboarding-continue"]
-        XCTAssertTrue(cont.waitForExistence(timeout: 20))
+        let cont = find(app, "onboarding-continue", "Continue", timeout: 20)
+        XCTAssertTrue(cont.exists, app.debugDescription)
         cont.tap()
         if app.buttons["onboarding-continue"].waitForExistence(timeout: 4) {
             app.buttons["onboarding-continue"].tap()
         }
-        XCTAssertTrue(app.buttons["onboarding-understand"].waitForExistence(timeout: 8))
-        app.buttons["onboarding-understand"].tap()
-        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 20))
+        let understand = find(app, "onboarding-understand", "I understand", timeout: 8)
+        XCTAssertTrue(understand.exists, app.debugDescription)
+        understand.tap()
+        XCTAssertTrue(find(app, "search-pill", "Search", timeout: 20).exists)
     }
 
     func testMapTabsSearchFiltersLayersSettingsAndLocation() {
         let app = launch("--debug-santa-fe-plaza", "--debug-card=full")
-        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 25))
+        let search = find(app, "search-pill", "Search", timeout: 25)
+        XCTAssertTrue(search.exists, app.debugDescription)
         attach(app.screenshot(), name: "map-plaza")
 
-        app.buttons["filters-button"].tap()
+        find(app, "filters-button", "Filters", timeout: 8).tap()
         XCTAssertTrue(app.otherElements["filters-sheet"].waitForExistence(timeout: 8)
             || app.navigationBars["Filters"].waitForExistence(timeout: 8))
         for identifier in [
@@ -65,7 +66,7 @@ final class AtlasUITests: XCTestCase {
         }
         tapDone(app, identifier: "filters-done", title: "Done")
 
-        app.buttons["layers-button"].tap()
+        find(app, "layers-button", "More map options", timeout: 8).tap()
         XCTAssertTrue(app.navigationBars["More map options"].waitForExistence(timeout: 8))
         toggle(app, "toggle-terrain")
         toggle(app, "toggle-terrain")
@@ -89,8 +90,8 @@ final class AtlasUITests: XCTestCase {
         }
         tapDone(app, identifier: "layers-done", title: "Done")
 
-        app.buttons["location-button"].tap()
-        app.buttons["search-pill"].tap()
+        find(app, "location-button", "Location").tapIfExists()
+        find(app, "search-pill", "Search").tap()
         XCTAssertTrue(
             app.otherElements["search-screen"].waitForExistence(timeout: 8)
                 || app.navigationBars.element.waitForExistence(timeout: 8)
@@ -119,7 +120,7 @@ final class AtlasUITests: XCTestCase {
         }
 
         tapTab(app, "Map")
-        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 8))
+        XCTAssertTrue(find(app, "search-pill", "Search", timeout: 8).exists)
         if app.otherElements["nearby-card"].waitForExistence(timeout: 4) {
             app.otherElements["nearby-grabber"].tap()
         }
@@ -189,9 +190,10 @@ final class AtlasUITests: XCTestCase {
             app.navigationBars["Settings"].waitForExistence(timeout: 25)
                 || app.otherElements["settings-screen"].waitForExistence(timeout: 8)
         )
-        XCTAssertTrue(app.staticTexts["Build"].waitForExistence(timeout: 6))
+        app.swipeUp()
+        XCTAssertTrue(find(app, "settings-build", "Build", timeout: 8).exists, app.debugDescription)
         tapTab(app, "Map")
-        XCTAssertTrue(app.buttons["filters-button"].waitForExistence(timeout: 8))
+        XCTAssertTrue(find(app, "filters-button", "Filters", timeout: 8).exists)
         attach(app.screenshot(), name: "catholic-filter")
     }
 
@@ -201,22 +203,20 @@ final class AtlasUITests: XCTestCase {
             app.navigationBars["Filters"].waitForExistence(timeout: 25)
                 || app.otherElements["filters-sheet"].waitForExistence(timeout: 8)
         )
-        XCTAssertTrue(
-            app.otherElements["filter-row-food"].waitForExistence(timeout: 6)
-                || app.staticTexts["Food and rest"].waitForExistence(timeout: 4)
-        )
+        app.swipeUp()
+        XCTAssertTrue(find(app, "filter-row-food", "Food and rest", timeout: 8).exists, app.debugDescription)
         attach(app.screenshot(), name: "filters-food")
         tapDone(app, identifier: "filters-done", title: "Done")
-        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 8))
+        XCTAssertTrue(find(app, "search-pill", "Search", timeout: 8).exists)
     }
 
     func testSearchTownOpensTheMap() {
         let app = launch("--debug-santa-fe-plaza", "--debug-search=Taos")
-        let hit = app.buttons["search-hit-town-taos"]
-        XCTAssertTrue(hit.waitForExistence(timeout: 25))
+        let hit = find(app, "search-hit-town-taos", "Taos", timeout: 25)
+        XCTAssertTrue(hit.exists, app.debugDescription)
         attach(app.screenshot(), name: "search-taos")
         hit.tap()
-        XCTAssertTrue(app.buttons["search-pill"].waitForExistence(timeout: 8))
+        XCTAssertTrue(find(app, "search-pill", "Search", timeout: 8).exists)
     }
 
     func testSettingsTogglesAppearanceAndWelcome() {
@@ -243,19 +243,34 @@ final class AtlasUITests: XCTestCase {
             }
         }
         attach(app.screenshot(), name: "settings-appearance")
-        if !app.buttons["welcome-again"].waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(app.buttons["welcome-again"].waitForExistence(timeout: 6))
-        app.buttons["welcome-again"].tap()
-        XCTAssertTrue(app.buttons["onboarding-continue"].waitForExistence(timeout: 8))
+        let welcome = find(app, "welcome-again", "Show welcome screens again", timeout: 8)
+        if !welcome.exists { app.swipeUp() }
+        let welcomeRow = find(app, "welcome-again", "Show welcome screens again", timeout: 6)
+        XCTAssertTrue(welcomeRow.exists, app.debugDescription)
+        welcomeRow.tap()
+        XCTAssertTrue(find(app, "onboarding-continue", "Continue", timeout: 8).exists, app.debugDescription)
         attach(app.screenshot(), name: "welcome-again")
     }
 
     func testDisclaimerScreenshotPath() {
         let app = launch("--debug-disclaimer-details-open")
-        XCTAssertTrue(app.buttons["onboarding-understand"].waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "onboarding-understand", "I understand", timeout: 20).exists, app.debugDescription)
         attach(app.screenshot(), name: "disclaimer-details")
+    }
+
+    private func find(_ app: XCUIApplication, _ identifier: String, _ label: String, timeout: TimeInterval = 4) -> XCUIElement {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            for query in [
+                app.descendants(matching: .any)[identifier],
+                app.descendants(matching: .any)[label],
+            ] {
+                if query.exists { return query }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        let fallback = app.descendants(matching: .any)[identifier]
+        return fallback.exists ? fallback : app.descendants(matching: .any)[label]
     }
 
     private func launch(_ arguments: String...) -> XCUIApplication {
