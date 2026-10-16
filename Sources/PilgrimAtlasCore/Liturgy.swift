@@ -117,69 +117,18 @@ package enum ParishDirectories {
         ),
     ]
 
-    /// Latin parishes. Add entries from the Archdiocese of Santa Fe directory.
-    /// This list stays empty until those contacts are copied from the directory itself.
+    /// Extra Latin rows can be added here. Albuquerque's hand-checked parishes are
+    /// matched in `AlbuquerqueParishes`, which also checks the location.
     package static let archdioceseOfSantaFe: [ParishContact] = []
 
     package static func contact(for place: PlaceRecord) -> ParishContact? {
-        let folded = AtlasQuery.fold(place.name)
-        for contact in eparchyOfPhoenix + archdioceseOfSantaFe {
-            let needle = AtlasQuery.fold(contact.name)
-            guard !needle.isEmpty, folded.contains(needle) else { continue }
-            if needle.contains("perpetual help") {
-                guard isOurLadyOfPerpetualHelp(place) else { continue }
-            }
-            return contact
-        }
-        return nil
-    }
-
-    /// Albuquerque's Byzantine parish, not Memorial of Perpetual Tears.
-    package static func isOurLadyOfPerpetualHelp(_ place: PlaceRecord) -> Bool {
-        let folded = AtlasQuery.fold(place.name)
-        guard folded.contains("perpetual help"), !folded.contains("tears") else { return false }
-        let address = AtlasQuery.fold(place.address)
-        return address.contains("87110")
-            || address.contains("alvarado")
-            || place.website.contains("olphnm.org")
+        AlbuquerqueParishes.contact(for: place)
     }
 }
 
 package enum HandVerifiedLiturgy {
-    /// Week published on https://www.olphnm.org/ and read on 2026-10-16.
-    /// The page writes "Diving Liturgy" and "Great Vesper"; those are stored as the liturgical names.
-    /// This is one week, not a standing schedule.
-    package static let ourLadyOfPerpetualHelp = LiturgyListing(
-        lines: [
-            "Sat 10 Oct, 4:00 PM Great Vespers",
-            "Sat 10 Oct, 5:00 PM Divine Liturgy",
-            "Sun 11 Oct, 8:30 AM Rosary",
-            "Sun 11 Oct, 9:00 AM Matins and confessions",
-            "Sun 11 Oct, 10:00 AM Divine Liturgy",
-            "Mon 12 Oct, 9:00 AM Divine Liturgy",
-            "Tue 13 Oct, 9:00 AM Moleben for the Sick",
-            "Wed 14 Oct, 6:00 PM Vespers",
-            "Thu 15 Oct, No Divine Liturgy. Parish and office closed.",
-            "Fri 16 Oct, 6:00 PM Divine Liturgy",
-            "Sat 17 Oct, 4:00 PM Great Vespers",
-            "Sat 17 Oct, 5:00 PM Divine Liturgy",
-            "Sun 18 Oct, 8:30 AM Rosary",
-            "Sun 18 Oct, 9:00 AM Matins and confessions",
-            "Sun 18 Oct, 10:00 AM Divine Liturgy",
-        ],
-        confession: "Confession is available before and after any Divine Liturgy, or by appointment during office hours.",
-        verified: "2026-10-16",
-        sourceName: "Parish website",
-        sourceURL: ParishDirectories.olphWebsite,
-        phone: ParishDirectories.olphPhone,
-        website: ParishDirectories.olphWebsite,
-        directory: ParishDirectories.eparchyName,
-        confirm: "Call to confirm. Liturgy times vary."
-    )
-
     package static func listing(for place: PlaceRecord) -> LiturgyListing? {
-        guard ParishDirectories.isOurLadyOfPerpetualHelp(place) else { return nil }
-        return ourLadyOfPerpetualHelp
+        AlbuquerqueParishes.listing(for: place)
     }
 }
 

@@ -871,15 +871,17 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(card.found)
         XCTAssertEqual(card.phone, "505-256-1539")
         XCTAssertEqual(card.website, "https://www.olphnm.org/")
-        XCTAssertEqual(card.verifiedLine, "Last verified 16 Oct 2026")
+        XCTAssertEqual(card.verifiedLine, "Last verified 15 Oct 2026")
         XCTAssertTrue(card.note.contains("Call to confirm"))
         XCTAssertTrue(card.note.contains("vary"))
         XCTAssertTrue(card.directory.contains("Eparchy of Phoenix"))
-        XCTAssertTrue(card.confession.contains("before and after any Divine Liturgy"))
-        XCTAssertTrue(card.lines.contains("Fri 16 Oct, 6:00 PM Divine Liturgy"))
-        XCTAssertTrue(card.lines.contains("Mon 12 Oct, 9:00 AM Divine Liturgy"))
-        XCTAssertTrue(card.lines.contains("Thu 15 Oct, No Divine Liturgy. Parish and office closed."))
-        XCTAssertTrue(card.lines.contains("Sun 18 Oct, 10:00 AM Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Sun 8:30 AM Rosary"))
+        XCTAssertTrue(card.lines.contains("Sun 9:00 AM Matins"))
+        XCTAssertTrue(card.lines.contains("Sun 10:00 AM Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Mon 9:00 AM Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Fri 6:00 PM Divine Liturgy"))
+        XCTAssertTrue(card.lines.contains("Sat 4:00 PM Great Vespers"))
+        XCTAssertTrue(card.lines.contains("Sat 5:00 PM Divine Liturgy"))
         XCTAssertFalse(card.lines.contains { $0.contains("Diving") })
 
         let basilica = samplePlace(
@@ -988,7 +990,7 @@ final class LogicTests: XCTestCase {
                 cache: cache
             )
         )
-        XCTAssertTrue(seeded.lines.contains("Fri 16 Oct, 6:00 PM Divine Liturgy"))
+        XCTAssertTrue(seeded.lines.contains("Fri 6:00 PM Divine Liturgy"))
         XCTAssertFalse(seeded.lines.contains("Sunday 8:00 AM Mass"))
 
         let style = PackStyleDocument.json(
@@ -1020,6 +1022,118 @@ final class LogicTests: XCTestCase {
         let pins = DebugLaunch.parse(["/PilgrimAtlas", "--debug-pins"])
         XCTAssertTrue(pins.showPins)
         XCTAssertTrue(pins.suppressesLocation)
+    }
+
+    func testAlbuquerqueSeedStaysOnThePackedParish() {
+        XCTAssertEqual(AlbuquerqueParishes.all.count, 33)
+        let queen = samplePlace(
+            id: 1277,
+            name: "Queen of Heaven Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.112393,
+            lon: -106.584821,
+            address: "5300 Claremont Avenue Northeast, Albuquerque, NM, 87110"
+        )
+        let queenCard = LiturgyLookup.card(for: queen)
+        XCTAssertTrue(queenCard.found)
+        XCTAssertEqual(queenCard.phone, "505-881-1772")
+        XCTAssertEqual(queenCard.website, "https://qofhabq.com/")
+        XCTAssertEqual(queenCard.verifiedLine, "Last verified 15 Oct 2026")
+        XCTAssertTrue(queenCard.directory.contains("Archdiocese of Santa Fe"))
+        XCTAssertTrue(queenCard.lines.contains("Sun 7:30 AM Mass"))
+        XCTAssertTrue(queenCard.lines.contains("Sat 4:30 PM Vigil"))
+        XCTAssertTrue(queenCard.lines.contains("Tue 7:30 AM Mass, only when Chesterton Academy is in session"))
+
+        let chimayo = samplePlace(
+            id: 39,
+            name: "Holy Family Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.98983,
+            lon: -105.932427,
+            address: "#10 Route 76, Chimayo, NM, 87522"
+        )
+        XCTAssertNil(HandVerifiedLiturgy.listing(for: chimayo))
+
+        let rioRancho = samplePlace(
+            id: 1580,
+            name: "Saint Thomas Aquinas Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.232721,
+            lon: -106.661767,
+            address: "1502 Sara Road Southeast, Rio Rancho, NM, 87124"
+        )
+        XCTAssertNil(HandVerifiedLiturgy.listing(for: rioRancho))
+
+        let newman = samplePlace(
+            id: 1572,
+            name: "Saint Thomas Aquinas University Parish",
+            category: "worship",
+            catholic: true,
+            lat: 35.087149,
+            lon: -106.623074
+        )
+        let newmanCard = LiturgyLookup.card(for: newman)
+        XCTAssertEqual(newmanCard.phone, "505-247-1094")
+        XCTAssertTrue(newmanCard.lines.contains("Sun 5:00 PM Mass, Student Mass; schedule may shift during university breaks"))
+
+        let province = samplePlace(
+            id: 922,
+            name: "Our Lady of Guadalupe Fransiscan Province",
+            category: "worship",
+            catholic: true,
+            lat: 35.061061,
+            lon: -106.717643
+        )
+        XCTAssertNil(HandVerifiedLiturgy.listing(for: province))
+
+        let guadalupe = samplePlace(
+            id: 1280,
+            name: "Our Lady of Guadalupe Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.132775,
+            lon: -106.665829
+        )
+        XCTAssertEqual(LiturgyLookup.card(for: guadalupe).phone, "505-345-4596")
+
+        let edwin = samplePlace(
+            id: 499,
+            name: "Saint Edwin Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.031311,
+            lon: -106.69052
+        )
+        let edwinCard = LiturgyLookup.card(for: edwin)
+        XCTAssertTrue(edwinCard.lines.allSatisfy { $0.contains("Archdiocese directory only") })
+        XCTAssertTrue(edwinCard.note.contains("does not post a schedule"))
+        XCTAssertEqual(edwinCard.phone, "505-877-2967")
+
+        let assumption = samplePlace(
+            id: 1303,
+            name: "Our Lady of the Assumption Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.086732,
+            lon: -106.557555
+        )
+        let assumptionCard = LiturgyLookup.card(for: assumption)
+        XCTAssertTrue(assumptionCard.lines.contains("Sun 7:30 AM Mass"))
+        XCTAssertTrue(assumptionCard.lines.contains("Mon 8:30 AM Mass, Archdiocese directory only"))
+
+        let jemez = samplePlace(
+            id: 1471,
+            name: "Our Lady of the Assumption Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: 35.768,
+            lon: -106.692459
+        )
+        XCTAssertNil(HandVerifiedLiturgy.listing(for: jemez))
+        XCTAssertFalse(AlbuquerqueParishes.all.contains { $0.name.contains("Queen of Peace") || $0.name.contains("Pius") })
     }
 
     private func packedSkylineGeometry() -> GeoJSONGeometry? {

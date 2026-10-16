@@ -177,7 +177,7 @@ final class AtlasUITests: XCTestCase {
             swipes += 1
         }
         XCTAssertTrue(phone.waitForExistence(timeout: 6))
-        XCTAssertTrue(app.staticTexts["Last verified 16 Oct 2026"].exists)
+        XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Call to confirm")).firstMatch.exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Divine Liturgy")).firstMatch.exists)
         XCTAssertTrue(app.links["Call parish"].exists || app.buttons["Call parish"].exists)
