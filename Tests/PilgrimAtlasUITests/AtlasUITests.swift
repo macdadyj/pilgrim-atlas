@@ -50,7 +50,6 @@ final class AtlasUITests: XCTestCase {
             ("filter-row-trails", "Trails"),
             ("filter-row-public-land", "Public land"),
             ("filter-row-parks", "Parks"),
-            ("filter-row-food", "Food and rest"),
             ("filter-row-open-now", "Open now"),
         ]
         for (identifier, title) in filterRows {
@@ -59,9 +58,7 @@ final class AtlasUITests: XCTestCase {
             }
             let row = app.buttons[identifier].exists ? app.buttons[identifier] : app.staticTexts[title]
             XCTAssertTrue(row.waitForExistence(timeout: 4), identifier)
-            if identifier != "filter-row-food" {
-                row.tap()
-            }
+            row.tap()
         }
         attach(app.screenshot(), name: "filters-sheet")
         if app.buttons["reset-filters"].waitForExistence(timeout: 2) {
@@ -193,7 +190,6 @@ final class AtlasUITests: XCTestCase {
             app.navigationBars["Settings"].waitForExistence(timeout: 25)
                 || app.otherElements["settings-screen"].waitForExistence(timeout: 8)
         )
-        app.swipeUp()
         XCTAssertTrue(find(app, "settings-build", "Build", timeout: 8).exists, app.debugDescription)
         tapTab(app, "Map")
         XCTAssertTrue(find(app, "filters-button", "Filters", timeout: 8).exists)

@@ -13,6 +13,22 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
+                    LabeledContent("Version") {
+                        Text(AppInfo.line)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .accessibilityIdentifier("settings-version")
+                    }
+                    LabeledContent("Build") {
+                        Text(AppInfo.build)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .accessibilityIdentifier("settings-build")
+                    }
+                } header: {
+                    SectionTitle(text: "This build")
+                }
+                Section {
                     Toggle(isOn: $model.showTerrain) {
                         settingsRow("mountain.2.fill", "Terrain", "Hillshade and 100 ft contours stored on this phone.")
                     }
@@ -81,18 +97,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Version") {
-                        Text(AppInfo.line)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .accessibilityIdentifier("settings-version")
-                    }
-                    LabeledContent("Build") {
-                        Text(AppInfo.build)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .accessibilityIdentifier("settings-build")
-                    }
                     if let osm = model.meta["osm_date"], !osm.isEmpty {
                         LabeledContent("OpenStreetMap extract") {
                             Text(osm)
@@ -122,7 +126,7 @@ struct SettingsView: View {
                             .monospacedDigit()
                     }
                 } header: {
-                    SectionTitle(text: "This build")
+                    SectionTitle(text: "Pack")
                 } footer: {
                     Text("Pilgrim Atlas is free and open source. The Swift code is MIT. The pack is other people's data and is not MIT.")
                 }
