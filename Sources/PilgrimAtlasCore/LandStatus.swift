@@ -128,12 +128,15 @@ package enum LandStatus {
         return (winner, sentence(winner))
     }
 
+    /// Shown only in the expanded land note. It is not the launch sheet.
+    package static let unnamedPrivateHeadline = "Private on the surface map"
+
     /// Short card title. Unknown stays the full unknown sentence. Unnamed private land does not pretend to be a landmark.
     package static func headline(_ hit: LandHit?) -> String {
         guard let hit else { return Copy.text("unknown") }
         let name = hit.name.trimmingCharacters(in: .whitespacesAndNewlines)
         if hit.kind == .privateMapped, name.isEmpty {
-            return "Private on the surface map"
+            return unnamedPrivateHeadline
         }
         if !name.isEmpty { return name }
         let manager = hit.manager.trimmingCharacters(in: .whitespacesAndNewlines)

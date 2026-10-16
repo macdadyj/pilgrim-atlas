@@ -5,6 +5,14 @@ import Foundation
 /// zoom 14 tiles hold places (and Albuquerque parcels) only.
 package enum PackStyleDocument {
     package static let landOpacity = 0.48
+    package static let streetLayerIDs = [
+        "ofm-water",
+        "ofm-parks",
+        "ofm-roads-casing",
+        "ofm-roads",
+        "ofm-place-labels",
+        "ofm-road-labels",
+    ]
     package static let placeLayerIDs = [
         "places-landmark",
         "places-viewpoint",
@@ -301,7 +309,7 @@ package enum PackStyleDocument {
                 "type": "raster",
                 "source": "hillshade",
                 "paint": [
-                    "raster-opacity": 1,
+                    "raster-opacity": 0.35,
                     "raster-fade-duration": 0,
                     "raster-contrast": 0.45,
                     "raster-brightness-min": 0.08,
@@ -337,6 +345,9 @@ package enum PackStyleDocument {
         ]
         for (identifier, kind, color) in lands {
             layers.append(landLayer(identifier, kind, color))
+        }
+        if online {
+            layers.append(contentsOf: parkLayers())
         }
         layers.append([
             "id": "land-private-line",
@@ -455,28 +466,10 @@ package enum PackStyleDocument {
             "layout": ["visibility": "none"],
             "paint": ["line-color": "#5C5346", "line-width": 0.8],
         ])
-        layers.append(contentsOf: placeLayers(geoJSON: places != nil))
         if online {
-            layers.append([
-                "id": "ofm-road-labels",
-                "type": "symbol",
-                "source": "openmaptiles",
-                "source-layer": "transportation_name",
-                "minzoom": 14,
-                "layout": [
-                    "text-field": ["get", "name"],
-                    "text-font": ["NotoSansRegular"],
-                    "text-size": 11,
-                    "symbol-placement": "line",
-                    "text-optional": true,
-                ],
-                "paint": [
-                    "text-color": "#2A241C",
-                    "text-halo-color": "#FBF7F0",
-                    "text-halo-width": 1.2,
-                ],
-            ])
+            layers.append(contentsOf: streetLabelLayers())
         }
+        layers.append(contentsOf: placeLayers(geoJSON: places != nil))
         return [
             "version": 8,
             "name": "Pilgrim Atlas",
@@ -494,6 +487,63 @@ package enum PackStyleDocument {
             "type": "geojson",
             "data": ["type": "FeatureCollection", "features": []],
             "maxzoom": maxZoom,
+        ]
+    }
+
+    private static func parkLayers() -> [[String: Any]] {
+        [
+            [
+                "id": "ofm-parks",
+                "type": "fill",
+                "source": "openmaptiles",
+                "source-layer": "landuse",
+                "filter": ["in", ["get", "class"], ["literal", ["park", "grass", "wood", "cemetery"]]],
+                "paint": ["fill-color": "#C9D7B8", "fill-opacity": 0.9],
+            ],
+        ]
+    }
+
+    private static func streetLabelLayers() -> [[String: Any]] {
+        [
+            [
+                "id": "ofm-place-labels",
+                "type": "symbol",
+                "source": "openmaptiles",
+                "source-layer": "place",
+                "minzoom": 8,
+                "filter": ["in", ["get", "class"], ["literal", ["city", "town", "village", "suburb", "neighbourhood"]]],
+                "layout": [
+                    "text-field": ["get", "name"],
+                    "text-font": ["NotoSansRegular"],
+                    "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 14, 16],
+                    "text-optional": true,
+                    "text-padding": 6,
+                ],
+                "paint": [
+                    "text-color": "#1C1915",
+                    "text-halo-color": "#FBF7F0",
+                    "text-halo-width": 1.6,
+                ],
+            ],
+            [
+                "id": "ofm-road-labels",
+                "type": "symbol",
+                "source": "openmaptiles",
+                "source-layer": "transportation_name",
+                "minzoom": 12,
+                "layout": [
+                    "text-field": ["get", "name"],
+                    "text-font": ["NotoSansRegular"],
+                    "text-size": 12,
+                    "symbol-placement": "line",
+                    "text-optional": true,
+                ],
+                "paint": [
+                    "text-color": "#2A241C",
+                    "text-halo-color": "#FBF7F0",
+                    "text-halo-width": 1.4,
+                ],
+            ],
         ]
     }
 

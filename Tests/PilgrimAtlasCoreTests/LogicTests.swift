@@ -636,6 +636,16 @@ final class LogicTests: XCTestCase {
         ])
         XCTAssertFalse(Geometry.isBranchedNetwork(chain))
         XCTAssertTrue(Geometry.lengthSentence(chain).contains("km"))
+        let streets = PackStyleDocument.json(
+            packURL: "pmtiles://file:///tmp/northern-new-mexico.pmtiles",
+            glyphsURL: "file:///tmp/glyphs/{fontstack}/{range}.pbf",
+            online: true
+        )
+        for identifier in PackStyleDocument.streetLayerIDs {
+            XCTAssertTrue(streets.contains("\"id\":\"\(identifier)\""), identifier)
+        }
+        XCTAssertTrue(streets.contains("\"source-layer\":\"place\""))
+        XCTAssertTrue(streets.contains("park"))
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-catholic", filter: AtlasFilter(catholic: true)), true)
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(catholic: true)), false)
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-chapel", filter: AtlasFilter(churches: true)), true)

@@ -30,6 +30,8 @@ struct AtlasMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MLNMapView {
         let map = MLNMapView(frame: .zero, styleURL: PackStyle.fileURL(online: model.onlineTiles, places: model.places))
         map.delegate = context.coordinator
+        let displayScale = map.traitCollection.displayScale
+        map.contentScaleFactor = displayScale > 1 ? displayScale : 2
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza
         map.setCenter(
@@ -54,10 +56,13 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.filter = model.filter
         context.coordinator.onlyRole = model.onlyRole
         context.coordinator.selectedID = model.selectedPlace?.id
+        context.coordinator.installBasemapReadout(on: map)
         return map
     }
 
     func updateUIView(_ map: MLNMapView, context: Context) {
+        let displayScale = map.traitCollection.displayScale
+        map.contentScaleFactor = displayScale > 1 ? displayScale : 2
         context.coordinator.onSelect = onSelect
         context.coordinator.onCamera = { model.noteCamera($0) }
         context.coordinator.places = places
@@ -127,6 +132,7 @@ struct AtlasMapView: UIViewRepresentable {
             onlyRole: model.onlyRole
         )
         context.coordinator.publishPinCount(on: map)
+        context.coordinator.publishBasemap(on: map)
     }
 
     private func applyChrome(on map: MLNMapView) {
@@ -157,6 +163,8 @@ struct AtlasMapView: UIViewRepresentable {
         var onPackLayersMissing: ([String]) -> Void = { _ in }
         var lastPlaceIDs: [Int]?
         private var lastPinCountTime = Date.distantPast
+        private var streetReadout: UILabel?
+        private var labelReadout: UILabel?
 
         init(onSelect: @escaping (LonLat, [PlaceRecord]) -> Void) {
             self.onSelect = onSelect
@@ -205,6 +213,51 @@ struct AtlasMapView: UIViewRepresentable {
             guard fullyRendered || now.timeIntervalSince(lastPinCountTime) > 0.25 else { return }
             lastPinCountTime = now
             publishPinCount(on: mapView)
+            publishBasemap(on: mapView)
+        }
+
+        @MainActor
+        func installBasemapReadout(on map: MLNMapView) {
+            if streetReadout == nil {
+                streetReadout = basemapReadout("basemap-streets")
+                labelReadout = basemapReadout("basemap-labels")
+            }
+            if let streetReadout, streetReadout.superview !== map {
+                map.addSubview(streetReadout)
+            }
+            if let labelReadout, labelReadout.superview !== map {
+                map.addSubview(labelReadout)
+            }
+        }
+
+        private func basemapReadout(_ identifier: String) -> UILabel {
+            let label = UILabel(frame: CGRect(x: 0, y: 0, width: 2, height: 2))
+            label.isAccessibilityElement = true
+            label.accessibilityIdentifier = identifier
+            label.accessibilityLabel = "0"
+            label.text = "0"
+            label.textColor = .clear
+            label.isUserInteractionEnabled = false
+            return label
+        }
+
+        @MainActor
+        func publishBasemap(on map: MLNMapView) {
+            installBasemapReadout(on: map)
+            let streets = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: ["ofm-roads", "ofm-roads-casing"],
+                predicate: nil
+            ).count
+            let labels = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: ["ofm-road-labels", "ofm-place-labels"],
+                predicate: nil
+            ).count
+            streetReadout?.accessibilityLabel = "\(streets)"
+            streetReadout?.text = "\(streets)"
+            labelReadout?.accessibilityLabel = "\(labels)"
+            labelReadout?.text = "\(labels)"
         }
 
         @MainActor
@@ -258,6 +311,7 @@ struct AtlasMapView: UIViewRepresentable {
                 onlyRole: onlyRole
             )
             publishPinCount(on: mapView)
+            publishBasemap(on: mapView)
         }
     }
 }

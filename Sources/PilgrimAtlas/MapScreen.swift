@@ -56,8 +56,9 @@ private struct MapChrome: View {
     var body: some View {
         @Bindable var model = model
         GeometryReader { geo in
-            let cardHeight = NearbyPanel.height(expanded: cardExpanded, in: geo)
-            let obstruction = cardHeight + 8
+            let showCard = showsNearbyCard
+            let cardHeight = showCard ? NearbyPanel.height(expanded: cardExpanded, in: geo) : 0
+            let obstruction = showCard ? cardHeight + 8 : 16
             ZStack(alignment: .top) {
                 AtlasMapView(
                     topInset: model.filter.anyChip ? 140 : 88,
@@ -203,12 +204,14 @@ private struct MapChrome: View {
                 .zIndex(1)
             }
             .overlay(alignment: .bottom) {
-                NearbyPanel(
-                    expanded: $cardExpanded,
-                    statusLine: statusLine,
-                    height: cardHeight
-                )
-                .frame(height: cardHeight)
+                if showCard {
+                    NearbyPanel(
+                        expanded: $cardExpanded,
+                        statusLine: statusLine,
+                        height: cardHeight
+                    )
+                    .frame(height: cardHeight)
+                }
             }
         }
         .onAppear {
@@ -284,6 +287,12 @@ private struct MapChrome: View {
             get: { sheetsReady ? tapMenu : nil },
             set: { tapMenu = $0 }
         )
+    }
+
+    /// Unnamed private land is not a launch sheet. A named place or a real land name still opens the card.
+    private var showsNearbyCard: Bool {
+        guard let headline = model.summary?.headline else { return false }
+        return headline != LandStatus.unnamedPrivateHeadline
     }
 
     private var statusLine: String {
