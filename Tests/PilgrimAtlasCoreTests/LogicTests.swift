@@ -527,7 +527,7 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(sentence.contains("network of ways"))
     }
 
-    func testFiltersHoursAndLandChips() {
+    func testFiltersHoursAndLandChips() throws {
         var filter = AtlasFilter.empty
         let loretto = samplePlace(id: 1296, name: "Loretto Chapel", category: "landmark", catholic: false, lat: 35.685617, lon: -105.937454)
         let basilica = samplePlace(id: 1295, name: "The Cathedral Basilica of Saint Francis of Assisi", category: "worship", catholic: true, lat: 35.686504, lon: -105.93624)
@@ -691,7 +691,13 @@ final class LogicTests: XCTestCase {
             ]
         )
         XCTAssertTrue(labeled.contains("\"label\":\"Cathedral Basilica\""))
-        XCTAssertTrue(labeled.contains("\"text-radial-offset\":2.4"))
+        let style = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(labeled.utf8)) as? [String: Any])
+        let layers = try XCTUnwrap(style["layers"] as? [[String: Any]])
+        let catholic = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-catholic" })
+        let layout = try XCTUnwrap(catholic["layout"] as? [String: Any])
+        let offset = try XCTUnwrap(layout["text-radial-offset"] as? Double)
+        XCTAssertEqual(offset, 2.4, accuracy: 0.0001)
+        XCTAssertEqual(layout["text-variable-anchor"] as? [String], ["top", "left", "right"])
         XCTAssertFalse(labeled.contains("\"text-variable-anchor\":[\"top\",\"left\",\"right\",\"bottom\"]"))
         XCTAssertTrue(PackCoverage.contains(DebugPin.plaza))
         let north = LonLat(lon: -105.94, lat: 39.74)

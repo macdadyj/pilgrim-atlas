@@ -9,15 +9,14 @@ import UIKit
 
 struct AtlasMapView: UIViewRepresentable {
     @Environment(AtlasModel.self) private var model
+    /// Search row, optional active-filter icons, and one full pin.
+    var topInset: CGFloat = 132
     var places: [PlaceRecord]
     /// Sheet height from the bottom of the screen. The logo and info button sit one gap above it.
     var bottomObstruction: CGFloat
     /// Home-indicator inset. The full-bleed map does not keep it, and MapLibre still subtracts it.
     var bottomSafeArea: CGFloat
     var onSelect: (LonLat, [PlaceRecord]) -> Void
-
-    /// Search row, optional active-filter icons, and one full pin.
-    var topInset: CGFloat = 132
     /// Logo and info button, just above the card. The caption and location control sit above this band.
     static let ornamentGap: CGFloat = 16
     /// Tall enough for the info button. The wordmark is shorter.
