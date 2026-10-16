@@ -384,9 +384,6 @@ enum PackStyle {
                         ? NSExpression(forConstantValue: NSNumber(value: textOpacity))
                         : nil
                 }
-                if let vector = layer as? MLNVectorStyleLayer {
-                    vector.predicate = nil
-                }
             }
         }
     }
@@ -440,14 +437,23 @@ enum PackStyle {
         return "pmtiles://file://\(pmtiles.path)"
     }
 
+    /// MapLibre will not draw a pin until this font file loads. A flattened
+    /// copy of `0-255.pbf` at the bundle root is not a font stack.
     private static func glyphsTemplate() -> String {
-        if let file = PackResources.url(
-            forResource: "0-255",
-            withExtension: "pbf",
-            subdirectory: "Resources/glyphs/NotoSansRegular"
-        ) {
-            let folder = file.deletingLastPathComponent().deletingLastPathComponent()
-            return folder.absoluteString + "/{fontstack}/{range}.pbf"
+        let candidates = [
+            "glyphs/NotoSansRegular",
+            "Resources/glyphs/NotoSansRegular",
+        ]
+        for subdirectory in candidates {
+            guard let file = PackResources.url(
+                forResource: "0-255",
+                withExtension: "pbf",
+                subdirectory: subdirectory
+            ) else { continue }
+            let fontFolder = file.deletingLastPathComponent()
+            guard fontFolder.lastPathComponent == "NotoSansRegular" else { continue }
+            let glyphs = fontFolder.deletingLastPathComponent()
+            return glyphs.absoluteString + "/{fontstack}/{range}.pbf"
         }
         return "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf"
     }

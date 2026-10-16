@@ -45,6 +45,12 @@ targets:
           - "*.txt"
       - path: Sources/PilgrimAtlas/Resources
         buildPhase: resources
+        excludes:
+          - glyphs
+          - glyphs/**
+      - path: Sources/PilgrimAtlas/Resources/glyphs
+        buildPhase: resources
+        type: folder
       - path: Sources/PilgrimAtlasCore/sentences.json
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/render-contract.json
