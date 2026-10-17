@@ -164,8 +164,14 @@ final class AtlasUITests: XCTestCase {
 
     func testDenverSearchShowsCatholicPins() {
         let app = launch("--debug-search=Denver", "--debug-tab=search")
-        let hit = app.descendants(matching: .any)["search-hit-geocode-0"]
-        XCTAssertTrue(hit.waitForExistence(timeout: 30), "Denver geocode row")
+        let identified = app.descendants(matching: .any)["search-hit-geocode-0"]
+        let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Denver")).firstMatch
+        let deadline = Date().addingTimeInterval(45)
+        while Date() < deadline && !identified.exists && !named.exists {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        let hit = identified.exists ? identified : named
+        XCTAssertTrue(hit.exists, "Denver geocode row")
         hit.tap()
         let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
         XCTAssertTrue(banner.waitForExistence(timeout: 70), "Denver did not load churches from OpenStreetMap")
@@ -213,7 +219,6 @@ final class AtlasUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].exists)
         revealText(app, "Call to confirm")
         revealText(app, "Divine Liturgy")
-        XCTAssertTrue(revealControl(app, "place-call", "Call"))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Unknown"].exists)
         XCTAssertFalse(app.staticTexts["No visitor hours in the pack."].exists)

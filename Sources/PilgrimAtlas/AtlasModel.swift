@@ -423,7 +423,12 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         geocodeTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard !Task.isCancelled, let self else { return }
-            let hits = await CitySearch.search(trimmed)
+            var hits = await CitySearch.search(trimmed)
+            if hits.isEmpty {
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                guard !Task.isCancelled else { return }
+                hits = await CitySearch.search(trimmed)
+            }
             guard !Task.isCancelled else { return }
             self.geocodeHits = hits
             self.geocodeLoading = false
