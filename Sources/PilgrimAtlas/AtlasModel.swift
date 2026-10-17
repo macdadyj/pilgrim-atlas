@@ -19,6 +19,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var places: [PlaceRecord] = []
     private var packPlaces: [PlaceRecord] = []
     private var remotePlaces: [PlaceRecord] = []
+    var remotePlaceCount = 0
     var geocodeHits: [SearchHit] = []
     var geocodeLoading = false
     private var churchTask: Task<Void, Never>?
@@ -392,6 +393,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private func absorbRemote(_ fetched: [PlaceRecord]) {
         guard !fetched.isEmpty else { return }
         remotePlaces = PlaceMerge.combine(pack: remotePlaces, remote: fetched)
+        remotePlaceCount = remotePlaces.count
         places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
     }
 

@@ -127,6 +127,11 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(OverpassQuery.allows(south: 39.7, west: -105, north: 39.8, east: -104.9, zoom: 8))
         XCTAssertTrue(OverpassQuery.allows(south: 39.72, west: -105.0, north: 39.78, east: -104.94, zoom: 12))
         XCTAssertTrue(OverpassQuery.statement(south: 39.7, west: -105, north: 39.8, east: -104.9).contains("religion\"=\"christian\""))
+        let body = try XCTUnwrap(OverpassQuery.formBody(for: "nwr[\"religion\"=\"christian\"]"))
+        let encoded = try XCTUnwrap(String(data: body, encoding: .utf8))
+        XCTAssertTrue(encoded.hasPrefix("data="))
+        XCTAssertTrue(encoded.contains("%3D") || encoded.contains("%3d"))
+        XCTAssertFalse(encoded.dropFirst(5).contains("="))
     }
 
     func testLandStatusWordingDoesNotGrantEntry() {

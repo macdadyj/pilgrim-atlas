@@ -18,6 +18,13 @@ package enum OverpassQuery {
     }
 
     /// Christian worship, plus Catholic, Orthodox, and SSPX tags when religion is missing.
+    /// Form body for a POST. `=` inside the query must be percent-encoded or the server cuts the statement off.
+    package static func formBody(for statement: String) -> Data? {
+        var components = URLComponents()
+        components.queryItems = [URLQueryItem(name: "data", value: statement)]
+        return components.percentEncodedQuery?.data(using: .utf8)
+    }
+
     package static func statement(south: Double, west: Double, north: Double, east: Double) -> String {
         let box = "\(south),\(west),\(north),\(east)"
         return """

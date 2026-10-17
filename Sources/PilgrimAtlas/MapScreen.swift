@@ -155,17 +155,27 @@ private struct MapChrome: View {
                         ActiveFilterStrip()
                     }
 
+                    Text("\(model.remotePlaceCount)")
+                        .font(.caption2)
+                        .accessibilityIdentifier("remote-churches")
+                        .accessibilityLabel("\(model.remotePlaceCount)")
+                        .frame(width: 1, height: 1)
+                        .opacity(0.02)
                     if model.viewIsOutsidePack {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("This view is outside the offline pack.")
+                            Text(model.remotePlaceCount > 0
+                                ? "Churches here are from OpenStreetMap. The offline land pack is northern New Mexico."
+                                : "This view is outside the offline pack.")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.primary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Button("Show the nearest mapped area") {
-                                model.jumpToNearestMappedArea()
+                            if model.remotePlaceCount == 0 {
+                                Button("Show the nearest mapped area") {
+                                    model.jumpToNearestMappedArea()
+                                }
+                                .buttonStyle(.bordered)
+                                .accessibilityIdentifier("jump-nearest-mapped")
                             }
-                            .buttonStyle(.bordered)
-                            .accessibilityIdentifier("jump-nearest-mapped")
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)

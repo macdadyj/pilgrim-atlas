@@ -150,8 +150,10 @@ final class AtlasUITests: XCTestCase {
         let hit = app.descendants(matching: .any)["search-hit-geocode-0"]
         XCTAssertTrue(hit.waitForExistence(timeout: 30), "Denver geocode row")
         hit.tap()
-        let count = waitForPins(app, role: "catholic", minimum: 1, timeout: 45)
+        let loaded = waitForCount(app, "remote-churches", minimum: 1, timeout: 50)
+        let count = waitForPins(app, role: "catholic", minimum: 1, timeout: 20)
         saveLayerShot(app, "denver-churches")
+        XCTAssertGreaterThanOrEqual(loaded, 1, "Denver loaded \(loaded) churches from OpenStreetMap")
         XCTAssertGreaterThanOrEqual(count, 1, "Denver showed \(count) Catholic pins")
         XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
         XCTAssertFalse(app.staticTexts["Hindu Temple"].exists)
