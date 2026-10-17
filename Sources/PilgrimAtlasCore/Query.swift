@@ -23,6 +23,7 @@ package struct PlaceRecord: Equatable, Sendable, Identifiable {
     package var image: String
     package var source: String
     package var sourceDate: String
+    package var phone: String
 
     package init(
         id: Int,
@@ -46,7 +47,8 @@ package struct PlaceRecord: Equatable, Sendable, Identifiable {
         wikidata: String,
         image: String,
         source: String,
-        sourceDate: String
+        sourceDate: String,
+        phone: String = ""
     ) {
         self.id = id
         self.name = name
@@ -70,6 +72,7 @@ package struct PlaceRecord: Equatable, Sendable, Identifiable {
         self.image = image
         self.source = source
         self.sourceDate = sourceDate
+        self.phone = phone
     }
 
     package var coordinate: LonLat { LonLat(lon: lon, lat: lat) }

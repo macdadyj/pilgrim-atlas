@@ -12,8 +12,10 @@ enum PinArt {
 
     static func image(for role: PinRole, selected: Bool = false) -> UIImage {
         switch role {
-        case .catholic:
+        case .catholic, .sspx:
             return image(mark: .latin, selected: selected)
+        case .orthodox:
+            return image(mark: .orthodox, selected: selected)
         case .chapel:
             return image(mark: .chapel, selected: selected)
         case .shrine:
@@ -114,7 +116,7 @@ enum PinArt {
 
     private static func shape(_ role: PinRole, in bounds: CGRect) -> UIBezierPath {
         switch role {
-        case .catholic, .chapel:
+        case .catholic, .chapel, .orthodox, .sspx:
             return mapPin(in: bounds)
         case .shrine:
             return diamond(in: bounds.insetBy(dx: 6, dy: 4))
@@ -137,7 +139,8 @@ enum PinArt {
 
     private static func fill(_ role: PinRole) -> UIColor {
         switch role {
-        case .catholic: return color(0x8C, 0x2F, 0x39)
+        case .catholic, .sspx: return color(0x8C, 0x2F, 0x39)
+        case .orthodox: return color(0x1E, 0x2A, 0x4A)
         case .chapel: return color(0xF4, 0xEF, 0xE4)
         case .worship: return color(0x2F, 0x5F, 0x8A)
         case .shrine: return color(0x6E, 0x5A, 0x7D)
@@ -153,7 +156,7 @@ enum PinArt {
     private static func stroke(_ role: PinRole) -> UIColor {
         switch role {
         case .chapel: return color(0x8C, 0x2F, 0x39)
-        case .catholic, .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark:
+        case .catholic, .orthodox, .sspx, .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark:
             return color(0x1C, 0x19, 0x15)
         }
     }
@@ -162,8 +165,11 @@ enum PinArt {
         let name: String
         let glyph: UIColor
         switch role {
-        case .catholic:
+        case .catholic, .sspx:
             name = "cross.fill"
+            glyph = color(0xF4, 0xEF, 0xE4)
+        case .orthodox:
+            name = "building.columns.fill"
             glyph = color(0xF4, 0xEF, 0xE4)
         case .chapel:
             name = "cross.fill"

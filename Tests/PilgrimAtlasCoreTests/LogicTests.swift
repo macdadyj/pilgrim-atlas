@@ -49,6 +49,86 @@ final class LogicTests: XCTestCase {
         )
     }
 
+    func testFaithKeepsCatholicOrthodoxAndSSPXAndDropsOtherReligions() throws {
+        let mosque = samplePlace(id: 1203, name: "Khadeeja Mosque", category: "worship", catholic: false, lat: 35.1, lon: -106.6)
+        let hindu = samplePlace(id: 1328, name: "Hindu Temple Society of New Mexico", category: "worship", catholic: false, lat: 35.1, lon: -106.55)
+        let buddhist = samplePlace(id: 1281, name: "Buddhist Center of New Mexico", category: "worship", catholic: false, lat: 35.1, lon: -106.5)
+        let sikh = samplePlace(id: 333, name: "Albuquerque Sikh Gurudwara", category: "worship", catholic: false, lat: 35.09, lon: -106.58)
+        let baptist = samplePlace(id: 9, name: "Bethel Church", category: "worship", catholic: false, lat: 35.04, lon: -106.68, denomination: "baptist")
+        let unknown = samplePlace(id: 8, name: "Unnamed place of worship", category: "worship", catholic: false, lat: 35.04, lon: -106.67)
+        let orthodox = samplePlace(id: 1413, name: "Holy Trinity Orthodox Church", category: "worship", catholic: false, lat: 35.1, lon: -106.6, denomination: "greek_orthodox")
+        let sspx = samplePlace(id: 50, name: "Queen of Angels Chapel", category: "worship", catholic: false, lat: 39.7, lon: -104.9, denomination: "fsspx")
+        let pius = samplePlace(id: 51, name: "Saint Pius X Catholic Church", category: "worship", catholic: true, lat: 33.5, lon: -112.1, denomination: "roman_catholic")
+        let loretto = samplePlace(id: 1296, name: "Loretto Chapel", category: "landmark", catholic: false, lat: 35.68, lon: -105.93)
+        let eastern = samplePlace(id: 52, name: "Saint John of the Desert", category: "worship", catholic: true, lat: 33.5, lon: -112.0, denomination: "catholic")
+        for place in [mosque, hindu, buddhist, sikh] {
+            XCTAssertEqual(Faith.kind(for: place), .nonChristian, place.name)
+            XCTAssertFalse(MapFilter.includeOnMap(place, filter: .empty), place.name)
+            XCTAssertFalse(MapFilter.includeInLists(place, filter: .empty), place.name)
+        }
+        XCTAssertEqual(Faith.kind(for: orthodox), .orthodox)
+        XCTAssertEqual(MapFilter.pinRole(for: orthodox), .orthodox)
+        XCTAssertTrue(MapFilter.includeOnMap(orthodox, filter: .empty))
+        XCTAssertEqual(Faith.kind(for: sspx), .sspx)
+        XCTAssertEqual(MapFilter.pinRole(for: sspx), .sspx)
+        XCTAssertTrue(MapFilter.includeOnMap(sspx, filter: .empty))
+        XCTAssertEqual(Faith.kind(for: pius), .catholic)
+        XCTAssertEqual(MapFilter.pinRole(for: pius), .catholic)
+        XCTAssertEqual(Faith.kind(for: loretto), .catholic)
+        XCTAssertEqual(MapFilter.pinRole(for: loretto), .chapel)
+        XCTAssertEqual(Faith.kind(for: eastern), .catholic)
+        XCTAssertEqual(Faith.kind(for: baptist), .otherChristian)
+        XCTAssertEqual(Faith.kind(for: unknown), .unknownWorship)
+        XCTAssertFalse(MapFilter.includeInLists(baptist, filter: .empty))
+        XCTAssertFalse(MapFilter.includeInLists(unknown, filter: .empty))
+        XCTAssertTrue(MapFilter.includeOnMap(baptist, filter: .empty))
+        var shown = AtlasFilter.empty
+        shown.showOtherWorship = true
+        XCTAssertTrue(MapFilter.includeInLists(baptist, filter: shown))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-worship", filter: .empty))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-orthodox", filter: .empty))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-sspx", filter: .empty))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-catholic", filter: .empty))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-worship", filter: .empty, onlyRole: "worship"))
+
+        let live = """
+        {"elements":[
+          {"type":"node","id":101,"lat":39.7405,"lon":-104.981,"tags":{"name":"Cathedral of the Immaculate Conception","amenity":"place_of_worship","religion":"christian","denomination":"roman_catholic","phone":"303-831-7010","website":"https://www.denvercathedral.org/"}},
+          {"type":"node","id":102,"lat":39.739,"lon":-104.99,"tags":{"name":"Ukrainian Orthodox Church","amenity":"place_of_worship","religion":"christian"}},
+          {"type":"node","id":103,"lat":33.45,"lon":-112.07,"tags":{"name":"Immaculate Heart of Mary Catholic Parish","denomination":"roman_catholic","religion":"christian"}},
+          {"type":"way","id":104,"center":{"lat":41.898,"lon":12.48},"tags":{"name":"Basilica di Santa Maria sopra Minerva","denomination":"roman_catholic","religion":"christian"}},
+          {"type":"node","id":105,"lat":41.899,"lon":12.476,"tags":{"name":"San Salvatore alle Coppelle","denomination":"greek_catholic","religion":"christian"}},
+          {"type":"node","id":106,"lat":39.75,"lon":-104.98,"tags":{"name":"Sainte-Jeanne-d'Arc","denomination":"fsspx","religion":"christian","amenity":"place_of_worship"}},
+          {"type":"node","id":107,"lat":39.73,"lon":-104.97,"tags":{"name":"Masjid","religion":"muslim","amenity":"place_of_worship"}},
+          {"type":"node","id":108,"lat":33.48,"lon":-112.05,"tags":{"name":"Saint Pius X Catholic Church","denomination":"roman_catholic","religion":"christian"}}
+        ]}
+        """.data(using: .utf8)!
+        let parsed = OverpassQuery.places(from: live, fetchedOn: "2026-10-16")
+        let names = parsed.map(\.name)
+        XCTAssertTrue(names.contains("Cathedral of the Immaculate Conception"))
+        XCTAssertTrue(names.contains("Ukrainian Orthodox Church"))
+        XCTAssertTrue(names.contains("Immaculate Heart of Mary Catholic Parish"))
+        XCTAssertTrue(names.contains("Basilica di Santa Maria sopra Minerva"))
+        XCTAssertTrue(names.contains("San Salvatore alle Coppelle"))
+        XCTAssertTrue(names.contains("Sainte-Jeanne-d'Arc"))
+        XCTAssertTrue(names.contains("Saint Pius X Catholic Church"))
+        XCTAssertFalse(names.contains("Masjid"))
+        let cathedral = try XCTUnwrap(parsed.first { $0.name.contains("Immaculate Conception") })
+        XCTAssertEqual(cathedral.phone, "303-831-7010")
+        XCTAssertEqual(Faith.kind(for: try XCTUnwrap(parsed.first { $0.name.contains("Ukrainian") })), .orthodox)
+        XCTAssertEqual(Faith.kind(for: try XCTUnwrap(parsed.first { $0.name.contains("Jeanne") })), .sspx)
+        XCTAssertEqual(Faith.kind(for: try XCTUnwrap(parsed.first { $0.name.contains("Pius") })), .catholic)
+        XCTAssertEqual(Faith.kind(for: try XCTUnwrap(parsed.first { $0.name.contains("Salvatore") })), .catholic)
+        let remoteCard = LiturgyLookup.card(for: cathedral)
+        XCTAssertEqual(remoteCard.phone, "303-831-7010")
+        XCTAssertEqual(remoteCard.website, "https://www.denvercathedral.org/")
+        XCTAssertFalse(remoteCard.found)
+        XCTAssertFalse(OverpassQuery.allows(south: 39, west: -106, north: 41, east: -104, zoom: 12))
+        XCTAssertFalse(OverpassQuery.allows(south: 39.7, west: -105, north: 39.8, east: -104.9, zoom: 8))
+        XCTAssertTrue(OverpassQuery.allows(south: 39.72, west: -105.0, north: 39.78, east: -104.94, zoom: 12))
+        XCTAssertTrue(OverpassQuery.statement(south: 39.7, west: -105, north: 39.8, east: -104.9).contains("religion\"=\"christian\""))
+    }
+
     func testLandStatusWordingDoesNotGrantEntry() {
         XCTAssertTrue(Copy.text("blm").hasPrefix("Bureau of Land Management surface."))
         XCTAssertEqual(

@@ -17,6 +17,12 @@ struct CameraFit: Equatable {
 @Observable
 package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var places: [PlaceRecord] = []
+    private var packPlaces: [PlaceRecord] = []
+    private var remotePlaces: [PlaceRecord] = []
+    var geocodeHits: [SearchHit] = []
+    var geocodeLoading = false
+    private var churchTask: Task<Void, Never>?
+    private var geocodeTask: Task<Void, Never>?
     var trails: [TrailRecord] = []
     var lands: [LandHit] = []
     var links: [LinkRecord] = []
@@ -205,6 +211,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
 
     /// Recenters on the nearest hit so a chip plus a common word does not fit the whole region.
     func revealSearch(_ query: String) {
+        scheduleGeocode(query)
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             searchReveal = false
@@ -356,6 +363,57 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         cameraCenter = coordinate
     }
 
+    /// Loads churches for the area on screen. The offline pack stays underneath.
+    func noteViewport(southWest: LonLat, northEast: LonLat, zoom: Double) {
+        cameraCenter = LonLat(
+            lon: (southWest.lon + northEast.lon) / 2,
+            lat: (southWest.lat + northEast.lat) / 2
+        )
+        churchTask?.cancel()
+        let south = southWest.lat
+        let west = southWest.lon
+        let north = northEast.lat
+        let east = northEast.lon
+        churchTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled, let self else { return }
+            let fetched = await OverpassLoader.shared.places(
+                south: south,
+                west: west,
+                north: north,
+                east: east,
+                zoom: zoom
+            )
+            guard !Task.isCancelled else { return }
+            self.absorbRemote(fetched)
+        }
+    }
+
+    private func absorbRemote(_ fetched: [PlaceRecord]) {
+        guard !fetched.isEmpty else { return }
+        remotePlaces = PlaceMerge.combine(pack: remotePlaces, remote: fetched)
+        places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
+    }
+
+    private func scheduleGeocode(_ query: String) {
+        geocodeTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            geocodeHits = []
+            geocodeLoading = false
+            return
+        }
+        geocodeLoading = true
+        geocodeTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled, let self else { return }
+            let hits = await CitySearch.search(trimmed)
+            guard !Task.isCancelled else { return }
+            self.geocodeHits = hits
+            self.geocodeLoading = false
+        }
+    }
+
     var cameraMovedFromSummary: Bool {
         Geometry.haversineMeters(cameraCenter, summaryPoint) > 40
     }
@@ -476,6 +534,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         do {
             let snapshot = try PackDatabase.load()
             meta = snapshot.meta
+            packPlaces = snapshot.places
             places = snapshot.places
             trails = snapshot.trails
             lands = snapshot.lands

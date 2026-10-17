@@ -145,6 +145,18 @@ final class AtlasUITests: XCTestCase {
         }
     }
 
+    func testDenverSearchShowsCatholicPins() {
+        let app = launch("--debug-search=Denver", "--debug-tab=search")
+        let hit = app.descendants(matching: .any)["search-hit-geocode-0"]
+        XCTAssertTrue(hit.waitForExistence(timeout: 30), "Denver geocode row")
+        hit.tap()
+        let count = waitForPins(app, role: "catholic", minimum: 1, timeout: 45)
+        saveLayerShot(app, "denver-churches")
+        XCTAssertGreaterThanOrEqual(count, 1, "Denver showed \(count) Catholic pins")
+        XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
+        XCTAssertFalse(app.staticTexts["Hindu Temple"].exists)
+    }
+
     func testChurchPinsAndPerpetualHelpLiturgy() {
         let pins = launch("--debug-pins")
         XCTAssertTrue(pins.descendants(matching: .any)["pin-gallery"].waitForExistence(timeout: 20))
