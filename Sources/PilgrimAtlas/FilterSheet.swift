@@ -35,7 +35,7 @@ struct FilterSheet: View {
                 } header: {
                     SectionTitle(text: "Show on the map")
                 } footer: {
-                    Text("No filter means the full map. Place filters intersect. Trails leave the map when another filter is on and Trails is off.")
+                    Text("Catholic, Orthodox, and SSPX start on. Turn one off to hide it. Non-Christian sites are not on this map. The other filters narrow what remains.")
                 }
             }
             .listStyle(.insetGrouped)

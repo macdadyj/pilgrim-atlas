@@ -20,6 +20,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Pilgrim Atlas shows your position on this phone so you can see the land around you. Your location stays on the device and is not uploaded.</string>
 	<key>UILaunchScreen</key>

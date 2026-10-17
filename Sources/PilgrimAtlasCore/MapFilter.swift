@@ -12,6 +12,12 @@ package struct AtlasFilter: Equatable, Sendable {
     package var hidePlacesWithoutHours = false
     /// Protestant and unnamed worship stay off until this is on. Non-Christian sites never draw.
     package var showOtherWorship = false
+    /// Latin and Byzantine Catholic places. On until turned off.
+    package var showCatholic = true
+    /// Eastern Orthodox churches. On until turned off.
+    package var showOrthodox = true
+    /// Chapels of the Society of St. Pius X. On until turned off.
+    package var showSSPX = true
 
     package static let empty = AtlasFilter()
 
@@ -310,9 +316,15 @@ package enum MapFilter {
         switch Faith.kind(for: place) {
         case .nonChristian:
             return .hide
+        case .catholic:
+            if !filter.showCatholic { return .hide }
+        case .orthodox:
+            if !filter.showOrthodox { return .hide }
+        case .sspx:
+            if !filter.showSSPX { return .hide }
         case .otherChristian, .unknownWorship:
             if !filter.showOtherWorship { return .hide }
-        case .catholic, .orthodox, .sspx, .secular:
+        case .secular:
             break
         }
         if filter.churches && isUnnamedWorship(place) { return .hide }
@@ -487,6 +499,9 @@ package struct FilterControl: Equatable, Sendable, Identifiable {
     package var enabled: Bool
 
     package static let all: [FilterControl] = [
+        FilterControl(id: "show-catholic", title: "Catholic churches", systemImage: "cross.fill", subtitle: "Latin and Byzantine Catholic churches, chapels, shrines, and monasteries", enabled: true),
+        FilterControl(id: "orthodox", title: "Orthodox churches", systemImage: "building.columns", subtitle: "Eastern Orthodox churches", enabled: true),
+        FilterControl(id: "sspx", title: "SSPX chapels", systemImage: "cross.fill", subtitle: "Chapels of the Society of St. Pius X", enabled: true),
         FilterControl(id: "catholic", title: "Catholic sites", systemImage: "cross.fill", subtitle: "Tagged Roman Catholic worship", enabled: true),
         FilterControl(id: "churches", title: "Churches and shrines", systemImage: "building.columns", subtitle: "Chapels, churches, and shrines", enabled: true),
         FilterControl(id: "trails", title: "Trails", systemImage: "figure.hiking", subtitle: "Hiking routes in the pack", enabled: true),
@@ -500,6 +515,9 @@ package struct FilterControl: Equatable, Sendable, Identifiable {
 extension AtlasFilter {
     package func isOn(_ id: String) -> Bool {
         switch id {
+        case "show-catholic": return showCatholic
+        case "orthodox": return showOrthodox
+        case "sspx": return showSSPX
         case "catholic": return catholic
         case "churches": return churches
         case "trails": return trails
@@ -512,6 +530,9 @@ extension AtlasFilter {
 
     package mutating func toggle(_ id: String) {
         switch id {
+        case "show-catholic": showCatholic.toggle()
+        case "orthodox": showOrthodox.toggle()
+        case "sspx": showSSPX.toggle()
         case "catholic": catholic.toggle()
         case "churches": churches.toggle()
         case "trails": trails.toggle()

@@ -43,6 +43,7 @@ struct DetailSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                visitBlock
                 if let liturgy {
                     liturgySection(liturgy)
                 }
@@ -181,29 +182,11 @@ struct DetailSheet: View {
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("liturgy-confirm")
             }
-            if card.phone.isEmpty {
-                Text("Office phone is not in the directory yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("liturgy-phone-missing")
-            } else {
+            if !card.phone.isEmpty {
                 Text(card.phone)
                     .font(.body.monospacedDigit())
                     .foregroundStyle(.primary)
                     .accessibilityIdentifier("liturgy-phone")
-                if let url = phoneURL(card.phone) {
-                    Link("Call parish", destination: url)
-                        .accessibilityIdentifier("liturgy-call")
-                }
-            }
-            if let url = webURL(card.website) {
-                Link("Open website", destination: url)
-                    .accessibilityIdentifier("liturgy-website")
-            } else {
-                Text("Parish website is not in the directory yet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("liturgy-website-missing")
             }
             if !card.directory.isEmpty {
                 Text(card.directory)
@@ -254,16 +237,17 @@ struct DetailSheet: View {
         }
     }
 
-    private func phoneURL(_ raw: String) -> URL? {
-        let digits = raw.filter(\.isNumber)
-        guard digits.count >= 10 else { return nil }
-        return URL(string: "tel:\(digits)")
-    }
-
-    private func webURL(_ raw: String) -> URL? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return URL(string: trimmed)
+    @ViewBuilder
+    private var visitBlock: some View {
+        let liturgy = ChurchMark.showsLiturgy(place) ? LiturgyLookup.card(for: place) : nil
+        VisitBlock(
+            candidates: [liturgy?.website ?? "", place.website],
+            wikidata: place.wikidata,
+            phone: liturgy?.phone ?? place.phone,
+            name: place.name,
+            coordinate: place.coordinate,
+            walking: MapFilter.pinRole(for: place) == .trailhead
+        )
     }
 
     private func labeledRow(_ title: String, _ value: String) -> some View {
@@ -303,6 +287,17 @@ struct TrailSheet: View {
                     labeledTrailRow("Difficulty", "Not in the pack.")
                     labeledTrailRow("Access", AtlasQuery.trailSentence(trail.access))
                 }
+                if let point = trailPoint {
+                    VisitSection(
+                        website: nil,
+                        phone: "",
+                        name: trail.name.isEmpty ? "Hiking route" : trail.name,
+                        coordinate: point,
+                        walking: true,
+                        websiteIdentifier: "trail-website",
+                        directionsIdentifier: "trail-directions"
+                    )
+                }
                 Section {
                     Text(PlaceText.sourceLine(source: trail.source, sourceDate: trail.sourceDate))
                         .font(.body)
@@ -331,6 +326,11 @@ struct TrailSheet: View {
             }
         }
         .accessibilityIdentifier("trail-sheet")
+    }
+
+    private var trailPoint: LonLat? {
+        guard let box = trail.geometry.bbox else { return nil }
+        return LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
     }
 
     private func labeledTrailRow(_ title: String, _ value: String) -> some View {

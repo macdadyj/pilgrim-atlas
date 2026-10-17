@@ -145,6 +145,23 @@ final class AtlasUITests: XCTestCase {
         }
     }
 
+    func testFaithFiltersAndChurchCardLinks() {
+        let filters = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        XCTAssertTrue(filters.staticTexts["Orthodox churches"].waitForExistence(timeout: 20))
+        XCTAssertTrue(filters.staticTexts["SSPX chapels"].exists)
+        XCTAssertTrue(filters.staticTexts["Catholic churches"].exists)
+        saveLayerShot(filters, "faith-filters")
+        filters.terminate()
+
+        let app = launch(
+            "--debug-open-place=Our Lady of Perpetual Help",
+            "--debug-location=35.096452,-106.582347"
+        )
+        XCTAssertTrue(app.buttons["place-website"].waitForExistence(timeout: 25))
+        XCTAssertTrue(app.buttons["place-directions"].exists)
+        saveLayerShot(app, "place-website-directions")
+    }
+
     func testDenverSearchShowsCatholicPins() {
         let app = launch("--debug-search=Denver", "--debug-tab=search")
         let hit = app.descendants(matching: .any)["search-hit-geocode-0"]
@@ -194,8 +211,9 @@ final class AtlasUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].exists)
         revealText(app, "Call to confirm")
         revealText(app, "Divine Liturgy")
-        XCTAssertTrue(app.links["Call parish"].exists || app.buttons["Call parish"].exists)
-        XCTAssertTrue(app.links["Open website"].exists || app.buttons["Open website"].exists)
+        XCTAssertTrue(app.buttons["place-website"].exists || app.buttons["Website"].exists)
+        XCTAssertTrue(app.buttons["place-directions"].exists || app.buttons["Directions"].exists)
+        XCTAssertTrue(app.links["Call"].exists || app.buttons["Call"].exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Unknown"].exists)
         XCTAssertFalse(app.staticTexts["No visitor hours in the pack."].exists)
