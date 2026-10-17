@@ -29,7 +29,13 @@ package enum Catholic {
         let name = normalize(value)
         if name.isEmpty || name.contains("anglican") { return false }
         if names.contains(name) { return true }
-        return name.contains("byzantine") && name.contains("catholic")
+        if name.contains("byzantine") && name.contains("catholic") { return true }
+        let eastern = [
+            "melkite", "maronite", "chaldean", "syro_malabar", "syro_malankara",
+            "armenian_catholic", "ukrainian_catholic", "greek_catholic",
+            "geez_catholic", "ethiopian_catholic", "eritrean_catholic", "italo_albanian",
+        ]
+        return eastern.contains { name.contains($0) }
     }
 
     package static func classify(amenity: String?, tourism: String?, historic: String?, place: String?, denomination: String?) -> WorshipClass {

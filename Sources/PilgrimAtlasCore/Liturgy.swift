@@ -22,10 +22,11 @@ package enum ChurchMark: String, CaseIterable, Sendable {
         case .catholic:
             if isByzantine(denomination) { return .byzantine }
             return .latin
-        case .worship:
-            if denomination.contains("orthodox") { return .orthodox }
-            return nil
-        case .viewpoint, .museum, .parking, .water, .trailhead, .landmark:
+        case .orthodox:
+            return .orthodox
+        case .sspx:
+            return .latin
+        case .worship, .viewpoint, .museum, .parking, .water, .trailhead, .landmark:
             return nil
         }
     }
@@ -383,6 +384,14 @@ package struct CachedLiturgySource: LiturgySource {
     }
 }
 
+private func firstFilled(_ values: String?...) -> String {
+    for value in values {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty { return trimmed }
+    }
+    return ""
+}
+
 package enum LiturgyLookup {
     /// Hand-checked parish readings, then a parsed parish page, then the cache.
     /// MassTimes.org and Discover Mass stay in `LiturgySourceID.unusedSlots` and are not called.
@@ -402,8 +411,8 @@ package enum LiturgyLookup {
                 lines: listing.lines,
                 confession: listing.confession,
                 lastVerified: PlaceText.formatSourceDate(listing.verified),
-                phone: listing.phone.isEmpty ? (contact?.phone ?? "") : listing.phone,
-                website: listing.website.isEmpty ? (contact?.website ?? place.website) : listing.website,
+                phone: firstFilled(listing.phone, contact?.phone, place.phone),
+                website: firstFilled(listing.website, contact?.website, place.website),
                 directory: listing.directory.isEmpty ? (contact?.directory ?? "") : listing.directory,
                 note: listing.confirm,
                 found: true,
@@ -415,8 +424,8 @@ package enum LiturgyLookup {
             lines: [],
             confession: "",
             lastVerified: "",
-            phone: contact?.phone ?? "",
-            website: contact?.website ?? place.website,
+            phone: firstFilled(contact?.phone, place.phone),
+            website: firstFilled(contact?.website, place.website),
             directory: contact?.directory ?? "",
             note: "",
             found: false,

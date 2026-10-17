@@ -7,7 +7,7 @@ package enum PackStyleDocument {
     package static let landOpacity = 0.48
     /// Church pins cluster when the map is zoomed out. Other worship stays
     /// unclustered so a neighborhood frame still draws each pin.
-    package static let clusteredRoles: Set<String> = ["catholic", "chapel", "shrine"]
+    package static let clusteredRoles: Set<String> = ["catholic", "chapel", "shrine", "orthodox", "sspx"]
     package static let streetLayerIDs = [
         "ofm-water",
         "ofm-parks",
@@ -24,6 +24,8 @@ package enum PackStyleDocument {
         "places-water",
         "places-trailhead",
         "places-worship",
+        "places-orthodox",
+        "places-sspx",
         "places-shrine",
         "places-chapel",
         "places-catholic",
@@ -190,6 +192,9 @@ package enum PackStyleDocument {
         guard placeLayerIDs.contains(identifier) else { return false }
         if let onlyRole {
             return identifier == "places-\(onlyRole)"
+        }
+        if identifier == "places-worship" {
+            return filter.showOtherWorship
         }
         if !filter.restrictsPlaces { return true }
         if !filter.catholic && !filter.churches { return true }
@@ -611,6 +616,8 @@ package enum PackStyleDocument {
     private static func placeLayers(geoJSON: Bool) -> [[String: Any]] {
         let roles: [(String, String, Bool, Double, Double, [String], Double, Double)] = [
             ("places-worship", "worship", false, 6, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-orthodox", "orthodox", true, 3, 0.96, ["top", "left", "right"], 2.2, 8),
+            ("places-sspx", "sspx", true, 3, 0.96, ["top", "left", "right"], 2.2, 8),
             ("places-shrine", "shrine", false, 5, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
             ("places-viewpoint", "viewpoint", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
             ("places-museum", "museum", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),

@@ -62,7 +62,7 @@ private struct MapChrome: View {
             ZStack(alignment: .top) {
                 AtlasMapView(
                     topInset: model.filter.anyChip ? 140 : 88,
-                    places: AtlasQuery.mapPlaces(model.places.filter { MapFilter.includeInLists($0, filter: model.filter) }),
+                    places: AtlasQuery.mapPlaces(model.places.filter { MapFilter.includeOnMap($0, filter: model.filter) }),
                     bottomObstruction: obstruction,
                     bottomSafeArea: geo.safeAreaInsets.bottom
                 ) { coordinate, hits in
@@ -618,6 +618,11 @@ struct LayersSheet: View {
                     SectionTitle(text: "Terrain legend")
                 }
                 Section {
+                    Toggle("Other Christian worship", isOn: $model.filter.showOtherWorship)
+                        .accessibilityIdentifier("toggle-other-worship")
+                    Text("Catholic, Orthodox, and SSPX sites stay on. Mosques, temples, and other non-Christian sites are not on this map.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     if model.onlyRole != nil {
                         Button("All landmark layers") { model.onlyRole = nil }
                             .accessibilityIdentifier("layer-only-all")
@@ -700,13 +705,30 @@ struct SearchSheet: View {
 
     var body: some View {
         @Bindable var model = model
-        let hits = model.search(model.searchQuery)
-        NavigationStack {
-            List(hits) { hit in
-                searchRow(hit)
-            }
-            .listStyle(.insetGrouped)
-            .searchable(text: $model.searchQuery, prompt: "Search names on this phone")
+            let hits = model.search(model.searchQuery)
+            NavigationStack {
+                List {
+                    if !model.geocodeHits.isEmpty {
+                        Section {
+                            ForEach(model.geocodeHits) { hit in
+                                searchRow(hit)
+                            }
+                        } header: {
+                            Text("Cities and places")
+                        }
+                    }
+                    if !hits.isEmpty {
+                        Section {
+                            ForEach(hits) { hit in
+                                searchRow(hit)
+                            }
+                        } header: {
+                            Text("On this phone")
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .searchable(text: $model.searchQuery, prompt: "Search a city or a name")
             .navigationTitle(model.filter.searchTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -727,16 +749,19 @@ struct SearchSheet: View {
             .overlay {
                 if model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ContentUnavailableView(
-                        "Search names on this phone",
+                        "Search a city or a name",
                         systemImage: "magnifyingglass",
-                        description: Text("Names stay on this phone. Nothing is sent to a geocoder.")
+                        description: Text("A city search asks Apple for the place. Names already on this phone stay here.")
                     )
                     .accessibilityIdentifier("search-empty-prompt")
-                } else if hits.isEmpty {
+                } else if hits.isEmpty && model.geocodeHits.isEmpty && model.geocodeLoading {
+                    ProgressView("Looking up that place")
+                        .accessibilityIdentifier("search-geocode-loading")
+                } else if hits.isEmpty && model.geocodeHits.isEmpty {
                     ContentUnavailableView(
                         model.filter.emptySearchTitle,
                         systemImage: "magnifyingglass",
-                        description: Text("Try a chapel, a trail, a town, or a land name.")
+                        description: Text("Try a city, a chapel, a trail, or a land name.")
                     )
                     .accessibilityIdentifier("search-no-matches")
                 }
@@ -812,7 +837,8 @@ struct SearchSheet: View {
             if let lat = hit.lat, let lon = hit.lon {
                 let point = LonLat(lon: lon, lat: lat)
                 model.aim(at: point)
-                model.focusCamera(on: point, zoom: hit.kind == .town ? 13 : 11)
+                let zoom = hit.id.hasPrefix("geocode-") ? 14.0 : (hit.kind == .town ? 13.0 : 11.0)
+                model.focusCamera(on: point, zoom: zoom)
                 model.selectedTab = .map
             }
         case .note:

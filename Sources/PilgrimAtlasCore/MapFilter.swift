@@ -10,6 +10,8 @@ package struct AtlasFilter: Equatable, Sendable {
     package var parks = false
     package var openNow = false
     package var hidePlacesWithoutHours = false
+    /// Protestant and unnamed worship stay off until this is on. Non-Christian sites never draw.
+    package var showOtherWorship = false
 
     package static let empty = AtlasFilter()
 
@@ -58,6 +60,8 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
     case catholic
     case chapel
     case worship
+    case orthodox
+    case sspx
     case shrine
     case viewpoint
     case museum
@@ -71,6 +75,8 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         case .catholic: return "Catholic landmark"
         case .chapel: return "Chapel"
         case .worship: return "Other worship"
+        case .orthodox: return "Orthodox church"
+        case .sspx: return "SSPX chapel"
         case .shrine: return "Shrine or statue"
         case .viewpoint: return "Viewpoint"
         case .museum: return "Museum"
@@ -87,6 +93,8 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         case .catholic: return "cross.fill"
         case .chapel: return "cross"
         case .worship: return "building.columns"
+        case .orthodox: return "building.columns"
+        case .sspx: return "cross.fill"
         case .shrine: return "diamond.fill"
         case .viewpoint: return "eye.fill"
         case .museum: return "building.columns.fill"
@@ -102,6 +110,8 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         switch self {
         case .catholic: return 100
         case .chapel: return 90
+        case .orthodox: return 95
+        case .sspx: return 94
         case .worship: return 60
         case .shrine: return 50
         case .viewpoint, .museum, .parking, .water, .trailhead: return 40
@@ -111,7 +121,7 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
 
     package var allowsOverlap: Bool {
         switch self {
-        case .catholic, .chapel: return true
+        case .catholic, .chapel, .orthodox, .sspx: return true
         case .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark: return false
         }
     }
@@ -174,7 +184,20 @@ package enum MapFilter {
 
     package static func pinRole(for place: PlaceRecord) -> PinRole {
         let folded = AtlasQuery.fold(place.name)
+        switch Faith.kind(for: place) {
+        case .orthodox:
+            return .orthodox
+        case .sspx:
+            return .sspx
+        case .nonChristian, .otherChristian, .unknownWorship:
+            return .worship
+        case .catholic, .secular:
+            break
+        }
         if place.catholic && place.category == "worship" { return .catholic }
+        if Faith.kind(for: place) == .catholic, chapelTokens.contains(where: { folded.contains($0) }) {
+            return folded.contains("shrine") || folded.contains("statue") ? .shrine : .chapel
+        }
         if chapelTokens.contains(where: { folded.contains($0) }) { return .chapel }
         if folded.contains("shrine") || folded.contains("statue") { return .shrine }
         if folded.contains("viewpoint") || folded.contains("overlook") || folded.contains("scenic") { return .viewpoint }
@@ -284,10 +307,31 @@ package enum MapFilter {
         now: Date = Date(),
         timeZone: TimeZone = .current
     ) -> PlaceDraw {
+        switch Faith.kind(for: place) {
+        case .nonChristian:
+            return .hide
+        case .otherChristian, .unknownWorship:
+            if !filter.showOtherWorship { return .hide }
+        case .catholic, .orthodox, .sspx, .secular:
+            break
+        }
         if filter.churches && isUnnamedWorship(place) { return .hide }
         if !matchesPlaceChips(place, filter: filter, now: now, timeZone: timeZone) { return .hide }
         if filter.trails && !filter.restrictsPlaces { return .fade }
         return .show
+    }
+
+    /// Map sources keep other worship so that layer can be turned on. Non-Christian sites stay out.
+    package static func includeOnMap(
+        _ place: PlaceRecord,
+        filter: AtlasFilter,
+        now: Date = Date(),
+        timeZone: TimeZone = .current
+    ) -> Bool {
+        if Faith.kind(for: place) == .nonChristian { return false }
+        var relaxed = filter
+        relaxed.showOtherWorship = true
+        return placeDraw(place, filter: relaxed, now: now, timeZone: timeZone) != .hide
     }
 
     package static func includeInLists(

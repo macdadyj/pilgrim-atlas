@@ -66,6 +66,9 @@ struct AtlasMapView: UIViewRepresentable {
         map.contentScaleFactor = displayScale > 1 ? displayScale : 2
         context.coordinator.onSelect = onSelect
         context.coordinator.onCamera = { model.noteCamera($0) }
+        context.coordinator.onViewport = { southWest, northEast, zoom in
+            model.noteViewport(southWest: southWest, northEast: northEast, zoom: zoom)
+        }
         context.coordinator.places = places
         context.coordinator.showLand = model.showLand
         context.coordinator.showTrails = model.showTrails
@@ -150,6 +153,7 @@ struct AtlasMapView: UIViewRepresentable {
     final class Coordinator: NSObject, @MainActor MLNMapViewDelegate {
         var onSelect: (LonLat, [PlaceRecord]) -> Void
         var onCamera: (LonLat) -> Void = { _ in }
+        var onViewport: (LonLat, LonLat, Double) -> Void = { _, _, _ in }
         var places: [PlaceRecord] = []
         var lastOnline = false
         var lastCamera = 0
@@ -228,6 +232,12 @@ struct AtlasMapView: UIViewRepresentable {
         func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
             let center = mapView.centerCoordinate
             onCamera(LonLat(lon: center.longitude, lat: center.latitude))
+            let bounds = mapView.visibleCoordinateBounds
+            onViewport(
+                LonLat(lon: bounds.sw.longitude, lat: bounds.sw.latitude),
+                LonLat(lon: bounds.ne.longitude, lat: bounds.ne.latitude),
+                mapView.zoomLevel
+            )
             publishPinCount(on: mapView)
         }
 
