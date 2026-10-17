@@ -40,7 +40,7 @@ actor OverpassLoader {
     private func fetch(_ statement: String, from endpoint: URL, fetchedOn: String) async -> [PlaceRecord]? {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        request.timeoutInterval = 30
+        request.timeoutInterval = 18
         request.setValue("PilgrimAtlas/1.0 (church map; https://github.com/macdadyj/pilgrim-atlas)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.httpBody = OverpassQuery.formBody(for: statement)

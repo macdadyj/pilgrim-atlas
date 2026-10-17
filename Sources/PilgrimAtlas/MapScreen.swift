@@ -388,7 +388,7 @@ struct NearbyPanel: View {
                     .padding(.top, 8)
                     .padding(.bottom, 4)
                     .accessibilityIdentifier("nearby-grabber")
-                Text(model.viewIsOutsidePack ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
+                Text((model.viewIsOutsidePack && model.remotePlaceCount == 0) ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
                     .font(.body)
                     .foregroundStyle(.primary)
                     .lineLimit(expanded ? nil : 1)

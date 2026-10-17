@@ -317,6 +317,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         cameraZoom = zoom
         fitBounds = nil
         cameraToken += 1
+        let halfLat = 0.02
+        let halfLon = 0.025
+        noteViewport(
+            southWest: LonLat(lon: coordinate.lon - halfLon, lat: coordinate.lat - halfLat),
+            northEast: LonLat(lon: coordinate.lon + halfLon, lat: coordinate.lat + halfLat),
+            zoom: max(zoom, 12)
+        )
     }
 
     func fitCamera(_ fit: CameraFit) {
@@ -370,6 +377,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             lon: (southWest.lon + northEast.lon) / 2,
             lat: (southWest.lat + northEast.lat) / 2
         )
+        guard OverpassQuery.allows(
+            south: southWest.lat,
+            west: southWest.lon,
+            north: northEast.lat,
+            east: northEast.lon,
+            zoom: zoom
+        ) else { return }
         churchTask?.cancel()
         let south = southWest.lat
         let west = southWest.lon
