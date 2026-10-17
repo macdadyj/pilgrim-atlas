@@ -196,6 +196,8 @@ package enum PackStyleDocument {
         if identifier == "places-worship" {
             return filter.showOtherWorship
         }
+        if identifier == "places-orthodox", !filter.showOrthodox { return false }
+        if identifier == "places-sspx", !filter.showSSPX { return false }
         if !filter.restrictsPlaces { return true }
         if !filter.catholic && !filter.churches { return true }
         switch identifier {

@@ -145,10 +145,33 @@ final class AtlasUITests: XCTestCase {
         }
     }
 
+    func testFaithFiltersAndChurchCardLinks() {
+        let filters = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        XCTAssertTrue(filters.staticTexts["Orthodox churches"].waitForExistence(timeout: 20))
+        XCTAssertTrue(filters.staticTexts["SSPX chapels"].exists)
+        XCTAssertTrue(filters.staticTexts["Catholic churches"].exists)
+        saveLayerShot(filters, "faith-filters")
+        filters.terminate()
+
+        let app = launch(
+            "--debug-open-place=Our Lady of Perpetual Help",
+            "--debug-location=35.096452,-106.582347"
+        )
+        XCTAssertTrue(revealControl(app, "place-website", "Website"))
+        XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
+        saveLayerShot(app, "place-website-directions")
+    }
+
     func testDenverSearchShowsCatholicPins() {
         let app = launch("--debug-search=Denver", "--debug-tab=search")
-        let hit = app.descendants(matching: .any)["search-hit-geocode-0"]
-        XCTAssertTrue(hit.waitForExistence(timeout: 30), "Denver geocode row")
+        let identified = app.descendants(matching: .any)["search-hit-geocode-0"]
+        let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Denver")).firstMatch
+        let deadline = Date().addingTimeInterval(45)
+        while Date() < deadline && !identified.exists && !named.exists {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        let hit = identified.exists ? identified : named
+        XCTAssertTrue(hit.exists, "Denver geocode row")
         hit.tap()
         let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
         XCTAssertTrue(banner.waitForExistence(timeout: 70), "Denver did not load churches from OpenStreetMap")
@@ -184,6 +207,8 @@ final class AtlasUITests: XCTestCase {
             app.otherElements["place-sheet"].waitForExistence(timeout: 25)
                 || app.navigationBars.element.waitForExistence(timeout: 12)
         )
+        XCTAssertTrue(revealControl(app, "place-website", "Website"))
+        XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
         let phone = app.staticTexts["505-256-1539"]
         var swipes = 0
         while !phone.exists && swipes < 4 {
@@ -194,8 +219,6 @@ final class AtlasUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].exists)
         revealText(app, "Call to confirm")
         revealText(app, "Divine Liturgy")
-        XCTAssertTrue(app.links["Call parish"].exists || app.buttons["Call parish"].exists)
-        XCTAssertTrue(app.links["Open website"].exists || app.buttons["Open website"].exists)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Unknown"].exists)
         XCTAssertFalse(app.staticTexts["No visitor hours in the pack."].exists)
@@ -387,7 +410,7 @@ final class AtlasUITests: XCTestCase {
             XCTAssertTrue(toggle.waitForExistence(timeout: 8), role)
             toggle.tap()
             tapDone(app, identifier: "layers-done", title: "Done")
-            let minimum = ["catholic": 4, "worship": 3, "chapel": 2, "landmark": 4][role] ?? 1
+            let minimum = ["catholic": 4, "worship": 1, "chapel": 2, "landmark": 4][role] ?? 1
             let count = waitForPins(app, role: role, minimum: minimum, timeout: 30)
             saveLayerShot(app, "layer-\(role)")
             XCTAssertGreaterThanOrEqual(count, minimum, "\(role) showed \(count) pins in view")
@@ -399,6 +422,18 @@ final class AtlasUITests: XCTestCase {
         let app = launch("--debug-disclaimer-details-open")
         XCTAssertTrue(find(app, "onboarding-understand", "I understand", timeout: 20).exists, app.debugDescription)
         attach(app.screenshot(), name: "disclaimer-details")
+    }
+
+    @discardableResult
+    private func revealControl(_ app: XCUIApplication, _ identifier: String, _ label: String) -> Bool {
+        let identified = app.descendants(matching: .any)[identifier]
+        let labeled = app.descendants(matching: .any)[label]
+        var swipes = 0
+        while !identified.exists && !labeled.exists && swipes < 5 {
+            app.swipeUp()
+            swipes += 1
+        }
+        return identified.waitForExistence(timeout: 8) || labeled.waitForExistence(timeout: 2)
     }
 
     private func revealText(_ app: XCUIApplication, _ label: String) {

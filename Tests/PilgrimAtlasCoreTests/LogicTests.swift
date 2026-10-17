@@ -126,6 +126,39 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(OverpassQuery.allows(south: 39, west: -106, north: 41, east: -104, zoom: 12))
         XCTAssertFalse(OverpassQuery.allows(south: 39.7, west: -105, north: 39.8, east: -104.9, zoom: 8))
         XCTAssertTrue(OverpassQuery.allows(south: 39.72, west: -105.0, north: 39.78, east: -104.94, zoom: 12))
+        var faith = AtlasFilter.empty
+        XCTAssertTrue(MapFilter.includeOnMap(orthodox, filter: faith))
+        XCTAssertTrue(MapFilter.includeOnMap(sspx, filter: faith))
+        faith.showOrthodox = false
+        XCTAssertFalse(MapFilter.includeOnMap(orthodox, filter: faith))
+        XCTAssertTrue(MapFilter.includeOnMap(sspx, filter: faith))
+        faith.showOrthodox = true
+        faith.showSSPX = false
+        XCTAssertFalse(MapFilter.includeOnMap(sspx, filter: faith))
+        faith.showSSPX = true
+        faith.showCatholic = false
+        XCTAssertFalse(MapFilter.includeOnMap(pius, filter: faith))
+        XCTAssertFalse(MapFilter.includeOnMap(mosque, filter: faith))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-orthodox", filter: AtlasFilter(showOrthodox: false)))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-sspx", filter: AtlasFilter(showSSPX: false)))
+        XCTAssertEqual(SiteLink.usable("https://www.olphnm.org/")?.host, "www.olphnm.org")
+        XCTAssertEqual(SiteLink.usable("www.denvercathedral.org")?.absoluteString, "https://www.denvercathedral.org")
+        XCTAssertNil(SiteLink.usable(""))
+        XCTAssertNil(SiteLink.usable("n/a"))
+        XCTAssertNil(SiteLink.usable("https://example.com/parish"))
+        XCTAssertNil(SiteLink.usable("not a url"))
+        XCTAssertEqual(SiteLink.direct(candidates: ["", "https://www.olphnm.org/"])?.host, "www.olphnm.org")
+        XCTAssertEqual(SiteLink.qid(from: "Q3663700"), "Q3663700")
+        XCTAssertEqual(SiteLink.qid(from: "https://www.wikidata.org/wiki/Q5352121"), "Q5352121")
+        XCTAssertNil(SiteLink.qid(from: ""))
+        let claims = """
+        {"claims":{"P856":[{"mainsnak":{"datavalue":{"value":"https://www.cbsfa.org/"}}}]}}
+        """.data(using: .utf8)!
+        XCTAssertEqual(SiteLink.wikidataWebsite(from: claims)?.host, "www.cbsfa.org")
+        let broken = """
+        {"claims":{"P856":[{"mainsnak":{"datavalue":{"value":"n/a"}}}]}}
+        """.data(using: .utf8)!
+        XCTAssertNil(SiteLink.wikidataWebsite(from: broken))
         XCTAssertTrue(OverpassQuery.statement(south: 39.7, west: -105, north: 39.8, east: -104.9).contains("religion\"=\"christian\""))
         let body = try XCTUnwrap(OverpassQuery.formBody(for: "nwr[\"religion\"=\"christian\"]"))
         let encoded = try XCTUnwrap(String(data: body, encoding: .utf8))
@@ -529,15 +562,18 @@ final class LogicTests: XCTestCase {
     func testAppInfoAndFilterControls() {
         XCTAssertEqual(AppInfo.versionLine(marketing: "1.0", build: "101"), "1.0 (101)")
         XCTAssertEqual(FilterControl.all.map(\.id), [
-            "catholic", "churches", "trails", "public-land", "parks", "food", "open-now",
+            "show-catholic", "orthodox", "sspx", "catholic", "churches", "trails", "public-land", "parks", "food", "open-now",
         ])
+        XCTAssertTrue(AtlasFilter.empty.showCatholic)
+        XCTAssertTrue(AtlasFilter.empty.showOrthodox)
+        XCTAssertTrue(AtlasFilter.empty.showSSPX)
         XCTAssertFalse(FilterControl.all.first { $0.id == "food" }?.enabled ?? true)
         var filter = AtlasFilter.empty
         filter.toggle("catholic")
         filter.toggle("trails")
         XCTAssertTrue(filter.catholic)
         XCTAssertTrue(filter.trails)
-        XCTAssertEqual(filter.activeControls.map(\.id), ["catholic", "trails"])
+        XCTAssertEqual(filter.activeControls.map(\.id), ["show-catholic", "orthodox", "sspx", "catholic", "trails"])
         filter.toggle("food")
         XCTAssertFalse(filter.isOn("food"))
         XCTAssertEqual(AppInfo.versionLine(marketing: "1.0", build: "5.3"), "1.0 (5.3)")
@@ -546,14 +582,15 @@ final class LogicTests: XCTestCase {
     func testEachFilterControlChangesOnlyItsOwnField() {
         for control in FilterControl.all {
             var filter = AtlasFilter.empty
+            let started = filter.isOn(control.id)
             filter.toggle(control.id)
-            XCTAssertEqual(filter.isOn(control.id), control.enabled, control.id)
-            let flags = [
-                filter.catholic, filter.churches, filter.trails,
-                filter.publicLand, filter.parks, filter.openNow,
-            ]
-            XCTAssertEqual(flags.filter { $0 }.count, control.enabled ? 1 : 0, control.id)
+            if control.enabled {
+                XCTAssertNotEqual(filter.isOn(control.id), started, control.id)
+            } else {
+                XCTAssertEqual(filter.isOn(control.id), started, control.id)
+            }
             filter.toggle(control.id)
+            XCTAssertEqual(filter.isOn(control.id), started, control.id)
             XCTAssertFalse(filter.anyChip, control.id)
         }
     }
