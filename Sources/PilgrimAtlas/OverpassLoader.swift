@@ -40,11 +40,10 @@ actor OverpassLoader {
     private func fetch(_ statement: String, from endpoint: URL, fetchedOn: String) async -> [PlaceRecord]? {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        request.timeoutInterval = 30
+        request.timeoutInterval = 18
         request.setValue("PilgrimAtlas/1.0 (church map; https://github.com/macdadyj/pilgrim-atlas)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        let body = "data=" + (statement.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? statement)
-        request.httpBody = body.data(using: .utf8)
+        request.httpBody = OverpassQuery.formBody(for: statement)
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode)

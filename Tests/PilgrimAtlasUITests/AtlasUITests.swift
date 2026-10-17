@@ -150,7 +150,9 @@ final class AtlasUITests: XCTestCase {
         let hit = app.descendants(matching: .any)["search-hit-geocode-0"]
         XCTAssertTrue(hit.waitForExistence(timeout: 30), "Denver geocode row")
         hit.tap()
-        let count = waitForPins(app, role: "catholic", minimum: 1, timeout: 45)
+        let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 70), "Denver did not load churches from OpenStreetMap")
+        let count = waitForPins(app, role: "catholic", minimum: 1, timeout: 25)
         saveLayerShot(app, "denver-churches")
         XCTAssertGreaterThanOrEqual(count, 1, "Denver showed \(count) Catholic pins")
         XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
