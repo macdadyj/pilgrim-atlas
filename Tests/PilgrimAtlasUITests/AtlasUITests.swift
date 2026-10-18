@@ -54,10 +54,7 @@ final class AtlasUITests: XCTestCase {
             ("filter-row-open-now", "Open now"),
         ]
         for (identifier, title) in filterRows {
-            if !app.buttons[identifier].exists && !app.staticTexts[title].exists {
-                app.swipeUp()
-            }
-            let row = app.buttons[identifier].exists ? app.buttons[identifier] : app.staticTexts[title]
+            let row = filterControl(app, identifier, title)
             XCTAssertTrue(row.waitForExistence(timeout: 4), identifier)
             row.tap()
         }
@@ -378,7 +375,7 @@ final class AtlasUITests: XCTestCase {
     func testCatholicSitesChipShowsRealPins() {
         let app = launch("--debug-center=35.686504,-105.93624")
         find(app, "filters-button", "Filters", timeout: 25).tap()
-        let row = app.buttons["filter-row-catholic"].exists ? app.buttons["filter-row-catholic"] : app.staticTexts["Catholic sites"]
+        let row = filterControl(app, "catholic", "Catholic sites")
         XCTAssertTrue(row.waitForExistence(timeout: 8))
         row.tap()
         tapDone(app, identifier: "filters-done", title: "Done")
@@ -422,6 +419,198 @@ final class AtlasUITests: XCTestCase {
         let app = launch("--debug-disclaimer-details-open")
         XCTAssertTrue(find(app, "onboarding-understand", "I understand", timeout: 20).exists, app.debugDescription)
         attach(app.screenshot(), name: "disclaimer-details")
+    }
+
+    func testFilterSwitchesStayWhereTheyAreSet() {
+        let app = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        let controls = [
+            ("show-catholic", "Catholic churches", true),
+            ("orthodox", "Orthodox churches", true),
+            ("sspx", "SSPX chapels", true),
+            ("catholic", "Catholic sites", false),
+            ("churches", "Churches and shrines", false),
+            ("trails", "Trails", false),
+            ("public-land", "Public land", false),
+            ("parks", "Parks", false),
+            ("open-now", "Open now", false),
+        ]
+        for (identifier, title, startsOn) in controls {
+            let row = filterControl(app, identifier, title)
+            XCTAssertTrue(row.waitForExistence(timeout: 6), identifier)
+            XCTAssertEqual(switchIsOn(row), startsOn, identifier)
+            for _ in 0..<3 {
+                let before = switchIsOn(row)
+                row.tap()
+                XCTAssertTrue(waitForSwitch(row, on: !before), "\(identifier) did not become \(!before) after one tap")
+            }
+            XCTAssertEqual(switchIsOn(row), !startsOn, identifier)
+        }
+        if !app.staticTexts["Food and rest"].exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.staticTexts["Food and rest"].waitForExistence(timeout: 4))
+        XCTAssertFalse(app.switches["filter-row-food"].exists)
+        var towardTop = 0
+        while !app.switches["filter-row-show-catholic"].exists && towardTop < 5 {
+            app.swipeDown()
+            towardTop += 1
+        }
+        saveLayerShot(app, "filters-after-toggles")
+        XCTAssertTrue(app.buttons["reset-filters"].waitForExistence(timeout: 4), "Reset appears after a narrowing filter is on")
+        app.buttons["reset-filters"].tap()
+        XCTAssertTrue(waitForSwitch(app.switches["filter-row-show-catholic"], on: true))
+        tapDone(app, identifier: "filters-done", title: "Done")
+
+        find(app, "filters-button", "Filters", timeout: 8).tap()
+        let catholic = filterControl(app, "show-catholic", "Catholic churches")
+        XCTAssertTrue(switchIsOn(catholic), "Reset leaves Catholic churches on")
+        tapDone(app, identifier: "filters-done", title: "Done")
+        let shown = waitForPins(app, role: "catholic", minimum: 1, timeout: 20)
+        XCTAssertGreaterThanOrEqual(shown, 1, "Catholic pins after the switch was turned back on")
+        find(app, "filters-button", "Filters", timeout: 8).tap()
+        let hideCatholic = filterControl(app, "show-catholic", "Catholic churches")
+        hideCatholic.tap()
+        XCTAssertTrue(waitForSwitch(hideCatholic, on: false))
+        tapDone(app, identifier: "filters-done", title: "Done")
+        let hidden = waitForPinCeiling(app, role: "catholic", ceiling: 0, timeout: 12)
+        XCTAssertEqual(hidden, 0, "Catholic pins stayed on the map after the switch was turned off")
+    }
+
+    func testAlbuquerqueSSPXChapelAndOrthodox() {
+        let app = launch("--debug-center=35.112398,-106.705256", "--debug-show-filters")
+        let catholic = filterControl(app, "show-catholic", "Catholic churches")
+        XCTAssertTrue(catholic.waitForExistence(timeout: 8))
+        catholic.tap()
+        XCTAssertTrue(waitForSwitch(catholic, on: false))
+        let orthodoxSwitch = filterControl(app, "orthodox", "Orthodox churches")
+        orthodoxSwitch.tap()
+        XCTAssertTrue(waitForSwitch(orthodoxSwitch, on: false))
+        let sspxSwitch = filterControl(app, "sspx", "SSPX chapels")
+        XCTAssertTrue(switchIsOn(sspxSwitch))
+        tapDone(app, identifier: "filters-done", title: "Done")
+        let names = app.descendants(matching: .any)["visible-sspx"]
+        XCTAssertTrue(names.waitForExistence(timeout: 20))
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline && !names.label.contains("Peter") {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        XCTAssertTrue(names.label.contains("Peter"), names.label)
+        let pins = waitForPins(app, role: "sspx", minimum: 1, timeout: 20)
+        XCTAssertGreaterThanOrEqual(pins, 1, "SSPX chapel pin")
+        saveLayerShot(app, "abq-sspx")
+        XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
+        app.terminate()
+
+        let orthodox = launch("--debug-center=35.080846,-106.639908")
+        let orthodoxNames = orthodox.descendants(matching: .any)["visible-orthodox"]
+        let orthodoxDeadline = Date().addingTimeInterval(70)
+        while Date() < orthodoxDeadline && !orthodoxNames.label.contains("George") {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertTrue(orthodoxNames.label.contains("George"), orthodoxNames.label)
+        saveLayerShot(orthodox, "abq-orthodox")
+        orthodox.terminate()
+    }
+
+    func testNearbyListNextMassAndShare() {
+        let app = launch(
+            "--debug-show-nearby",
+            "--debug-location=35.112398,-106.705256"
+        )
+        XCTAssertTrue(app.otherElements["nearby-sheet"].waitForExistence(timeout: 20) || app.navigationBars["Nearby"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["next-mass"].waitForExistence(timeout: 12) || app.descendants(matching: .any)["next-mass-empty"].waitForExistence(timeout: 4))
+        let chapel = app.staticTexts["Saints Peter and Paul Church"]
+        var swipes = 0
+        while !chapel.exists && swipes < 6 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(chapel.waitForExistence(timeout: 6))
+        saveLayerShot(app, "nearby-list")
+        chapel.tap()
+        XCTAssertTrue(revealControl(app, "place-website", "Website"))
+        XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
+        XCTAssertTrue(revealControl(app, "place-share", "Share"))
+        XCTAssertTrue(revealControl(app, "place-call", "Call"))
+        saveLayerShot(app, "sspx-chapel-card")
+        app.buttons["place-directions"].tap()
+        let maps = XCUIApplication(bundleIdentifier: "com.apple.Maps")
+        if maps.waitForExistence(timeout: 8) {
+            XCTAssertTrue(maps.state == .runningForeground || maps.buttons.firstMatch.exists)
+            app.activate()
+        } else {
+            XCTAssertTrue(app.buttons["place-directions"].exists || app.buttons["place-done"].exists)
+        }
+    }
+
+    func testCitySearchAndOfflineFallback() {
+        for city in ["Albuquerque", "Denver", "Rome"] {
+            let app = launch("--debug-search=\(city)", "--debug-tab=search")
+            let identified = app.descendants(matching: .any)["search-hit-geocode-0"]
+            let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", city)).firstMatch
+            let deadline = Date().addingTimeInterval(40)
+            while Date() < deadline && !identified.exists && !named.exists {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            }
+            let hit = identified.exists ? identified : named
+            XCTAssertTrue(hit.exists, "\(city) geocode row")
+            hit.tap()
+            let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
+            XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")
+            XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
+            saveLayerShot(app, "city-\(city.lowercased())")
+            app.terminate()
+        }
+
+        let offline = launch("--debug-outside-coverage")
+        let outside = offline.staticTexts["This view is outside the offline pack."]
+        let live = offline.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
+        XCTAssertTrue(outside.waitForExistence(timeout: 25) || live.waitForExistence(timeout: 20))
+        saveLayerShot(offline, "offline-fallback")
+    }
+
+    private func filterControl(_ app: XCUIApplication, _ identifier: String, _ title: String) -> XCUIElement {
+        let identified = app.switches["filter-row-\(identifier)"]
+        let labeled = app.switches.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        var swipes = 0
+        while !identified.exists && !labeled.exists && swipes < 6 {
+            app.swipeUp()
+            swipes += 1
+        }
+        if identified.exists { return identified }
+        if labeled.exists { return labeled }
+        return identified
+    }
+
+    private func switchIsOn(_ control: XCUIElement) -> Bool {
+        if let text = control.value as? String {
+            return text == "1" || text == "On" || text == "true"
+        }
+        if let number = control.value as? NSNumber {
+            return number.intValue == 1
+        }
+        return false
+    }
+
+    private func waitForSwitch(_ control: XCUIElement, on: Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline && switchIsOn(control) != on {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return switchIsOn(control) == on
+    }
+
+    private func waitForPinCeiling(_ app: XCUIApplication, role: String, ceiling: Int, timeout: TimeInterval) -> Int {
+        let deadline = Date().addingTimeInterval(timeout)
+        var count = Int.max
+        while Date() < deadline {
+            if let image = UIImage(data: app.screenshot().pngRepresentation) {
+                count = renderedPinCount(image, role: role)
+            }
+            if count <= ceiling { return count }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.7))
+        }
+        return count
     }
 
     @discardableResult
@@ -639,10 +828,12 @@ final class AtlasUITests: XCTestCase {
 
     private func isPinPixel(role: String, red: Int, green: Int, blue: Int) -> Bool {
         switch role {
-        case "catholic", "chapel", "shrine":
+        case "catholic", "chapel", "shrine", "sspx":
             // Chapel and shrine pins are burgundy teardrops, with a house or an arch on top.
             return abs(red - 0x8C) <= 18 && abs(green - 0x2F) <= 18 && abs(blue - 0x39) <= 18
                 && red > green + 25 && red > blue + 15
+        case "orthodox":
+            return red < 55 && green < 70 && blue < 110 && blue > red + 12 && blue >= green
         case "worship":
             return abs(red - 0x2F) <= 20 && abs(green - 0x5F) <= 22 && abs(blue - 0x8A) <= 22
                 && blue > red + 30 && blue > green + 10

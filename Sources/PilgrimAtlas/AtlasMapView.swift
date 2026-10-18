@@ -138,6 +138,7 @@ struct AtlasMapView: UIViewRepresentable {
         )
         context.coordinator.publishPinCount(on: map)
         context.coordinator.publishBasemap(on: map)
+        context.coordinator.publishFaithReadout(on: map, center: model.mapCenter)
         PackStyle.syncSelectedPin(on: map, places: model.places, selectedID: model.selectedPlace?.id)
     }
 
@@ -173,6 +174,8 @@ struct AtlasMapView: UIViewRepresentable {
         private var lastPinCountTime = Date.distantPast
         private var streetReadout: UILabel?
         private var labelReadout: UILabel?
+        private var sspxReadout: UILabel?
+        private var orthodoxReadout: UILabel?
 
         init(onSelect: @escaping (LonLat, [PlaceRecord]) -> Void) {
             self.onSelect = onSelect
@@ -239,6 +242,7 @@ struct AtlasMapView: UIViewRepresentable {
                 mapView.zoomLevel
             )
             publishPinCount(on: mapView)
+            publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
         }
 
         /// Symbols are placed after the camera settles. Sampling only then left the count at 0.
@@ -249,6 +253,7 @@ struct AtlasMapView: UIViewRepresentable {
             lastPinCountTime = now
             publishPinCount(on: mapView)
             publishBasemap(on: mapView)
+            publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
         }
 
         @MainActor
@@ -274,6 +279,38 @@ struct AtlasMapView: UIViewRepresentable {
             label.textColor = .clear
             label.isUserInteractionEnabled = false
             return label
+        }
+
+        @MainActor
+        func publishFaithReadout(on map: MLNMapView, center: LonLat) {
+            if sspxReadout == nil {
+                sspxReadout = basemapReadout("visible-sspx")
+                orthodoxReadout = basemapReadout("visible-orthodox")
+            }
+            if let sspxReadout, sspxReadout.superview !== map {
+                map.addSubview(sspxReadout)
+            }
+            if let orthodoxReadout, orthodoxReadout.superview !== map {
+                map.addSubview(orthodoxReadout)
+            }
+            let sspxNames = faithNames(.sspx, around: center)
+            let orthodoxNames = faithNames(.orthodox, around: center)
+            sspxReadout?.accessibilityLabel = sspxNames
+            sspxReadout?.text = sspxNames
+            orthodoxReadout?.accessibilityLabel = orthodoxNames
+            orthodoxReadout?.text = orthodoxNames
+        }
+
+        private func faithNames(_ role: PinRole, around center: LonLat) -> String {
+            places
+                .filter { MapFilter.pinRole(for: $0) == role && Geometry.haversineMeters($0.coordinate, center) < 12_000 }
+                .map(\.name)
+                .sorted()
+                .joined(separator: "\n")
+        }
+
+        private func onCameraCenter(_ map: MLNMapView) -> LonLat {
+            LonLat(lon: map.centerCoordinate.longitude, lat: map.centerCoordinate.latitude)
         }
 
         @MainActor
@@ -347,6 +384,7 @@ struct AtlasMapView: UIViewRepresentable {
             )
             publishPinCount(on: mapView)
             publishBasemap(on: mapView)
+            publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
         }
     }
 }

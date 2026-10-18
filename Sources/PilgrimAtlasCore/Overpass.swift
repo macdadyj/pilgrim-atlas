@@ -146,23 +146,52 @@ package enum OverpassQuery {
 }
 
 package enum PlaceMerge {
-    /// Keeps the packed record when a live pin sits on the same named place.
+    /// Keeps the first record when a later pin is the same named place.
+    /// An SSPX chapel from the district list wins over a nearby OpenStreetMap twin.
     package static func combine(pack: [PlaceRecord], remote: [PlaceRecord]) -> [PlaceRecord] {
         var kept = pack
         for place in remote {
-            let duplicate = kept.contains { existing in
-                Geometry.haversineMeters(existing.coordinate, place.coordinate) <= 80
-                    && namesMatch(existing.name, place.name)
+            if let index = kept.firstIndex(where: { sameSite($0, place) }) {
+                kept[index] = fillEmpty(kept[index], from: place)
+                continue
             }
-            if !duplicate { kept.append(place) }
+            kept.append(place)
         }
         return kept
     }
 
-    private static func namesMatch(_ left: String, _ right: String) -> Bool {
-        let a = AtlasQuery.fold(left)
-        let b = AtlasQuery.fold(right)
+    package static func worshipNamesMatch(_ left: String, _ right: String) -> Bool {
+        let a = worshipKey(left)
+        let b = worshipKey(right)
         if a.isEmpty || b.isEmpty { return false }
         return a == b || a.contains(b) || b.contains(a)
+    }
+
+    private static func sameSite(_ left: PlaceRecord, _ right: PlaceRecord) -> Bool {
+        let eitherSSPX = Faith.kind(for: left) == .sspx || Faith.kind(for: right) == .sspx
+        let radius = eitherSSPX ? 200.0 : 80.0
+        guard Geometry.haversineMeters(left.coordinate, right.coordinate) <= radius else { return false }
+        return worshipNamesMatch(left.name, right.name)
+    }
+
+    /// Copies contact fields the kept pin does not already have. Affiliation stays on the kept pin.
+    private static func fillEmpty(_ kept: PlaceRecord, from extra: PlaceRecord) -> PlaceRecord {
+        var place = kept
+        if place.address.isEmpty { place.address = extra.address }
+        if place.phone.isEmpty { place.phone = extra.phone }
+        if place.website.isEmpty { place.website = extra.website }
+        if place.wikipedia.isEmpty { place.wikipedia = extra.wikipedia }
+        if place.wikidata.isEmpty { place.wikidata = extra.wikidata }
+        if place.image.isEmpty { place.image = extra.image }
+        return place
+    }
+
+    private static func worshipKey(_ name: String) -> String {
+        let drop: Set<String> = ["church", "chapel", "mission", "catholic", "roman", "the", "parish", "priory", "shrine", "of", "and"]
+        let tokens = AtlasQuery.searchText(name).split(separator: " ").map { token -> String in
+            if token == "sts" || token == "ss" { return "saints" }
+            return String(token)
+        }
+        return tokens.filter { !drop.contains($0) }.joined(separator: " ")
     }
 }

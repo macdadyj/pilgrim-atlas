@@ -12,6 +12,7 @@ struct VisitBlock: View {
     var wikidata: String
     var phone: String
     var name: String
+    var address: String = ""
     var coordinate: LonLat
     var walking: Bool
 
@@ -26,6 +27,7 @@ struct VisitBlock: View {
             website: website,
             phone: phone,
             name: name,
+            address: address,
             coordinate: coordinate,
             walking: walking,
             websiteIdentifier: "place-website",
@@ -44,6 +46,7 @@ struct VisitSection: View {
     var website: URL?
     var phone: String
     var name: String
+    var address: String = ""
     var coordinate: LonLat
     var walking: Bool
     var websiteIdentifier: String
@@ -71,6 +74,10 @@ struct VisitSection: View {
                 }
             }
             .accessibilityIdentifier(directionsIdentifier)
+            ShareLink(item: PlaceShare.message(name: name, address: address, phone: phone, website: website?.absoluteString ?? "")) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .accessibilityIdentifier("place-share")
             if !eta.isEmpty {
                 Text(eta)
                     .font(.subheadline)

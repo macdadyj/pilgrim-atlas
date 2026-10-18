@@ -233,6 +233,10 @@ private struct MapChrome: View {
             LayersSheet()
                 .pilgrimSheet()
         }
+        .sheet(isPresented: $model.showNearby) {
+            NearbyListSheet()
+                .pilgrimSheet()
+        }
         .sheet(item: presentedPlace) { place in
             DetailSheet(place: place)
                 .pilgrimSheet()
@@ -354,7 +358,7 @@ private struct ActiveFilterStrip: View {
                 }
                 ForEach(model.filter.activeControls) { control in
                     IconChip(title: control.title, systemImage: control.systemImage, on: true) {
-                        model.filter.toggle(control.id)
+                        model.setFilter(control.id, on: false)
                         Haptics.selection()
                     }
                 }
@@ -369,7 +373,7 @@ private struct ActiveFilterStrip: View {
 
 struct NearbyPanel: View {
     static func height(expanded: Bool, in geo: GeometryProxy) -> CGFloat {
-        expanded ? max(geo.size.height * 0.36, 220) : 96
+        expanded ? max(geo.size.height * 0.36, 220) : 112
     }
 
     @Environment(AtlasModel.self) private var model
@@ -387,20 +391,36 @@ struct NearbyPanel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
                     .padding(.bottom, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(duration: 0.35)) { expanded.toggle() }
+                    }
                     .accessibilityIdentifier("nearby-grabber")
-                Text((model.viewIsOutsidePack && model.remotePlaceCount == 0) ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .lineLimit(expanded ? nil : 1)
-                    .fixedSize(horizontal: false, vertical: expanded)
-                    .padding(.horizontal, Theme.screenPadding)
-                    .padding(.bottom, expanded ? 0 : 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("nearby-headline")
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.spring(duration: 0.35)) { expanded.toggle() }
+                HStack(alignment: .center, spacing: 8) {
+                    Text((model.viewIsOutsidePack && model.remotePlaceCount == 0) ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .lineLimit(expanded ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: expanded)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(duration: 0.35)) { expanded.toggle() }
+                        }
+                        .accessibilityIdentifier("nearby-headline")
+                    Button {
+                        model.showNearby = true
+                        Haptics.light()
+                    } label: {
+                        Label("List", systemImage: "list.bullet")
+                            .font(.subheadline.weight(.semibold))
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("nearby-button")
+                }
+                .padding(.horizontal, Theme.screenPadding)
+                .padding(.bottom, expanded ? 0 : 8)
             }
             .gesture(
                 DragGesture(minimumDistance: 12)

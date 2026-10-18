@@ -25,6 +25,8 @@ package enum PlaceText {
     }
 
     package static func denominationLabel(_ raw: String) -> String {
+        let folded = AtlasQuery.fold(raw).replacingOccurrences(of: "_", with: " ")
+        if folded == "sspx" || folded == "fsspx" { return "Society of St. Pius X" }
         let words = raw.replacingOccurrences(of: "_", with: " ").split(separator: " ")
         return words.map { word in
             let lower = word.lowercased()

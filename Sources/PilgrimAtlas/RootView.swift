@@ -50,7 +50,8 @@ struct RootView: View {
         }
         .sheet(isPresented: $model.showFilters) {
             FilterSheet()
-                .pilgrimSheet()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .alert("Online tiles", isPresented: $model.pendingOnlineConfirm) {
             Button("Keep offline") { model.onlineTiles = false }

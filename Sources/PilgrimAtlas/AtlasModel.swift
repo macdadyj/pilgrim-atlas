@@ -61,6 +61,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     package var debugTapPoint: LonLat?
     var selectedTab: AppTab = .map
     var showFilters = false
+    var showNearby = false
     var searchQuery = ""
     var onboardingPage = 0
     var onlyRole: String?
@@ -107,6 +108,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         onlyRole = parsed.onlyRole
         if parsed.showTerrain { showTerrain = true }
         if parsed.showFilters || parsed.focusFood { showFilters = true }
+        if parsed.showNearby { showNearby = true }
         if let tab = parsed.tab, let parsedTab = AppTab(rawValue: tab) {
             selectedTab = parsedTab
         }
@@ -168,6 +170,20 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         let hideHours = filter.hidePlacesWithoutHours
         filter = AtlasFilter.empty
         filter.hidePlacesWithoutHours = hideHours
+    }
+
+    /// One assignment of the whole filter. A second call with the same value does not flip it back.
+    func setFilter(_ id: String, on: Bool) {
+        guard FilterControl.all.contains(where: { $0.id == id && $0.enabled }) else { return }
+        var next = filter
+        next.set(id, on: on)
+        guard next != filter else { return }
+        filter = next
+        if on, id == "catholic" {
+            frameRole("catholic")
+        } else if on, id == "churches" {
+            frameChurches()
+        }
     }
 
     func acceptDisclaimer() {
@@ -555,8 +571,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         do {
             let snapshot = try PackDatabase.load()
             meta = snapshot.meta
-            packPlaces = snapshot.places
-            places = snapshot.places
+            let chapels = SSPXChapels.places()
+            packPlaces = PlaceMerge.combine(pack: chapels, remote: snapshot.places)
+            places = packPlaces
             trails = snapshot.trails
             lands = snapshot.lands
             links = snapshot.links

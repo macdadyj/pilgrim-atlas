@@ -59,17 +59,14 @@ struct FilterSheet: View {
 
     @ViewBuilder
     private func filterRow(_ control: FilterControl) -> some View {
-        let on = model.filter.isOn(control.id)
         if control.enabled {
-            Button {
-                model.filter.toggle(control.id)
-                if control.id == "catholic", model.filter.catholic {
-                    model.frameRole("catholic")
-                } else if control.id == "churches", model.filter.churches {
-                    model.frameChurches()
+            Toggle(isOn: Binding(
+                get: { model.filter.isOn(control.id) },
+                set: { on in
+                    model.setFilter(control.id, on: on)
+                    Haptics.selection()
                 }
-                Haptics.selection()
-            } label: {
+            )) {
                 HStack(spacing: 12) {
                     IconTile(systemName: control.systemImage)
                     VStack(alignment: .leading, spacing: 2) {
@@ -80,15 +77,9 @@ struct FilterSheet: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 8)
-                    Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(on ? Theme.control : Color.secondary)
                 }
             }
-            .buttonStyle(.plain)
             .accessibilityIdentifier("filter-row-\(control.id)")
-            .accessibilityAddTraits(on ? .isSelected : [])
         } else {
             HStack(spacing: 12) {
                 IconTile(systemName: control.systemImage)

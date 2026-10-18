@@ -1343,6 +1343,149 @@ final class LogicTests: XCTestCase {
         )
     }
 
+    func testFilterSetWritesTheValueOnce() {
+        var filter = AtlasFilter.empty
+        XCTAssertTrue(filter.showCatholic)
+        XCTAssertTrue(filter.showOrthodox)
+        XCTAssertTrue(filter.showSSPX)
+        filter.set("show-catholic", on: false)
+        filter.set("show-catholic", on: false)
+        XCTAssertFalse(filter.showCatholic)
+        XCTAssertTrue(filter.showOrthodox)
+        filter.set("orthodox", on: false)
+        filter.set("sspx", on: true)
+        filter.set("sspx", on: true)
+        XCTAssertFalse(filter.showOrthodox)
+        XCTAssertTrue(filter.showSSPX)
+        filter.set("catholic", on: true)
+        filter.set("trails", on: true)
+        filter.set("public-land", on: true)
+        filter.set("parks", on: true)
+        filter.set("open-now", on: true)
+        filter.set("churches", on: true)
+        filter.set("food", on: true)
+        XCTAssertFalse(filter.isOn("food"))
+        XCTAssertEqual(
+            filter.activeControls.map(\.id),
+            ["sspx", "catholic", "churches", "trails", "public-land", "parks", "open-now"]
+        )
+        filter.set("catholic", on: false)
+        filter.set("catholic", on: false)
+        XCTAssertFalse(filter.catholic)
+    }
+
+    func testBundledSSPXChapelsIncludeAlbuquerque() {
+        let chapels = SSPXChapels.places()
+        XCTAssertEqual(chapels.count, 128)
+        XCTAssertEqual(Set(chapels.map(\.id)).count, 128)
+        XCTAssertTrue(chapels.allSatisfy { Faith.kind(for: $0) == .sspx })
+        let abq = try? XCTUnwrap(chapels.first {
+            $0.name == "Saints Peter and Paul Church" && $0.address.contains("Albuquerque")
+        })
+        let chapel = try! XCTUnwrap(abq)
+        XCTAssertEqual(chapel.address, "5800 Ouray Road NW, Albuquerque, NM 87120")
+        XCTAssertEqual(chapel.phone, "505-352-1234")
+        XCTAssertEqual(chapel.website, "https://www.sspxnm.com/")
+        XCTAssertEqual(chapel.source, SSPXChapels.sourceName)
+        XCTAssertEqual(chapel.sourceDate, "2026-10-18")
+        XCTAssertTrue(MapFilter.includeOnMap(chapel, filter: .empty))
+        var hidden = AtlasFilter.empty
+        hidden.showSSPX = false
+        XCTAssertFalse(MapFilter.includeOnMap(chapel, filter: hidden))
+        hidden.showSSPX = true
+        hidden.showCatholic = false
+        XCTAssertTrue(MapFilter.includeOnMap(chapel, filter: hidden))
+        let phoenix = chapels.first { $0.address.contains("750 E. Baseline Road") && $0.address.contains("Phoenix") }
+        XCTAssertEqual(phoenix?.name, "Our Lady of Sorrows Church")
+        XCTAssertTrue(chapels.contains { $0.description.contains("ZIP centroid") })
+        XCTAssertFalse(chapels.contains { Faith.kind(for: $0) == .nonChristian })
+    }
+
+    func testSSPXChapelReplacesANearbySameNamePin() {
+        let chapel = try! XCTUnwrap(SSPXChapels.places().first { $0.address.contains("5800 Ouray") })
+        let osm = samplePlace(
+            id: -40,
+            name: "Sts. Peter & Paul Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: chapel.lat,
+            lon: chapel.lon + 0.0004,
+            denomination: "roman_catholic"
+        )
+        let merged = PlaceMerge.combine(pack: [chapel], remote: [osm])
+        XCTAssertEqual(merged.map(\.id), [chapel.id])
+        XCTAssertEqual(merged[0].denomination, "sspx")
+        XCTAssertEqual(Faith.kind(for: merged[0]), .sspx)
+        let mosque = samplePlace(
+            id: -41,
+            name: "Khadeeja Mosque",
+            category: "worship",
+            catholic: false,
+            lat: chapel.lat,
+            lon: chapel.lon,
+            denomination: "sunni"
+        )
+        let kept = PlaceMerge.combine(pack: merged, remote: [mosque])
+        XCTAssertEqual(kept.count, 2)
+        XCTAssertFalse(MapFilter.includeOnMap(mosque, filter: .empty))
+        let george = samplePlace(
+            id: -42,
+            name: "Saint George Greek Orthodox Church",
+            category: "worship",
+            catholic: false,
+            lat: 35.0808458,
+            lon: -106.639908,
+            denomination: "greek_orthodox"
+        )
+        XCTAssertEqual(Faith.kind(for: george), .orthodox)
+        XCTAssertEqual(MapFilter.pinRole(for: george), .orthodox)
+        XCTAssertTrue(MapFilter.includeOnMap(george, filter: .empty))
+        var orthodoxOff = AtlasFilter.empty
+        orthodoxOff.showOrthodox = false
+        XCTAssertFalse(MapFilter.includeOnMap(george, filter: orthodoxOff))
+    }
+
+    func testNextVerifiedMassUsesTheHandCheckedClock() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Denver")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 18, hour: 9, minute: 0))!
+        let holyFamily = samplePlace(
+            id: 77,
+            name: "Holy Family",
+            category: "worship",
+            catholic: true,
+            lat: 35.074517,
+            lon: -106.686561
+        )
+        let upcoming = MassSoon.next(
+            places: [holyFamily],
+            origin: holyFamily.coordinate,
+            now: now,
+            timeZone: calendar.timeZone
+        )
+        XCTAssertEqual(upcoming?.placeName, "Holy Family")
+        XCTAssertEqual(upcoming?.line, "Sun 10:00 AM Mass, Spanish")
+        let far = samplePlace(
+            id: 78,
+            name: "Holy Family",
+            category: "worship",
+            catholic: true,
+            lat: 40.0,
+            lon: -105.0
+        )
+        XCTAssertNil(MassSoon.next(places: [far], origin: holyFamily.coordinate, now: now, timeZone: calendar.timeZone))
+        XCTAssertNil(MassSoon.nextDate(on: "Find our Mass times on fsspx.today.", now: now, calendar: calendar))
+        let share = PlaceShare.message(
+            name: "Saints Peter and Paul Church",
+            address: "5800 Ouray Road NW, Albuquerque, NM 87120",
+            phone: "505-352-1234",
+            website: "https://www.sspxnm.com/"
+        )
+        XCTAssertTrue(share.contains("5800 Ouray Road NW"))
+        XCTAssertTrue(share.contains("https://www.sspxnm.com/"))
+        XCTAssertFalse(PlaceShare.message(name: "Chapel", address: "", phone: "", website: "example.com").contains("example.com"))
+    }
+
     private func samplePlace(
         id: Int = 1,
         name: String,
