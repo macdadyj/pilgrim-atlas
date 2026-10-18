@@ -572,7 +572,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             let snapshot = try PackDatabase.load()
             meta = snapshot.meta
             let chapels = SSPXChapels.places()
-            packPlaces = PlaceMerge.combine(pack: chapels, remote: snapshot.places)
+            packPlaces = PlaceMerge.install(chapels, into: snapshot.places)
             places = packPlaces
             trails = snapshot.trails
             lands = snapshot.lands

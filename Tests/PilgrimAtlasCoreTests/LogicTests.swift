@@ -1415,6 +1415,9 @@ final class LogicTests: XCTestCase {
         let merged = PlaceMerge.combine(pack: [chapel], remote: [osm])
         XCTAssertEqual(merged.map(\.id), [chapel.id])
         XCTAssertEqual(merged[0].denomination, "sspx")
+        let installed = PlaceMerge.install([chapel], into: [osm])
+        XCTAssertEqual(installed.map(\.id), [chapel.id])
+        XCTAssertEqual(Faith.kind(for: installed[0]), .sspx)
         XCTAssertEqual(Faith.kind(for: merged[0]), .sspx)
         let mosque = samplePlace(
             id: -41,

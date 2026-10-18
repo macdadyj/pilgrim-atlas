@@ -147,14 +147,34 @@ package enum OverpassQuery {
 
 package enum PlaceMerge {
     /// Keeps the first record when a later pin is the same named place.
-    /// An SSPX chapel from the district list wins over a nearby OpenStreetMap twin.
+    /// Matching uses a coarse grid so a full pack does not compare every pair on launch.
     package static func combine(pack: [PlaceRecord], remote: [PlaceRecord]) -> [PlaceRecord] {
         var kept = pack
+        var grid = PlaceGrid(kept)
         for place in remote {
-            if let index = kept.firstIndex(where: { sameSite($0, place) }) {
+            if let index = grid.match(place, in: kept) {
                 kept[index] = fillEmpty(kept[index], from: place)
                 continue
             }
+            grid.insert(place, at: kept.count)
+            kept.append(place)
+        }
+        return kept
+    }
+
+    /// Incoming chapels replace a nearby same-name pin. The chapel keeps its affiliation.
+    package static func install(_ incoming: [PlaceRecord], into existing: [PlaceRecord]) -> [PlaceRecord] {
+        var kept = existing
+        var grid = PlaceGrid(kept)
+        for place in incoming {
+            if let index = grid.match(place, in: kept) {
+                var winner = place
+                winner = fillEmpty(winner, from: kept[index])
+                kept[index] = winner
+                grid.insert(winner, at: index)
+                continue
+            }
+            grid.insert(place, at: kept.count)
             kept.append(place)
         }
         return kept
@@ -167,7 +187,7 @@ package enum PlaceMerge {
         return a == b || a.contains(b) || b.contains(a)
     }
 
-    private static func sameSite(_ left: PlaceRecord, _ right: PlaceRecord) -> Bool {
+    fileprivate static func sameSite(_ left: PlaceRecord, _ right: PlaceRecord) -> Bool {
         let eitherSSPX = Faith.kind(for: left) == .sspx || Faith.kind(for: right) == .sspx
         let radius = eitherSSPX ? 200.0 : 80.0
         guard Geometry.haversineMeters(left.coordinate, right.coordinate) <= radius else { return false }
@@ -193,5 +213,49 @@ package enum PlaceMerge {
             return String(token)
         }
         return tokens.filter { !drop.contains($0) }.joined(separator: " ")
+    }
+}
+
+/// About 330 m cells. A match only looks at the home cell and its neighbors.
+private struct PlaceGrid {
+    private var cells: [Cell: [Int]] = [:]
+    private static let step = 0.003
+
+    init(_ places: [PlaceRecord]) {
+        cells.reserveCapacity(places.count)
+        for (index, place) in places.enumerated() {
+            insert(place, at: index)
+        }
+    }
+
+    mutating func insert(_ place: PlaceRecord, at index: Int) {
+        cells[Self.cell(place.coordinate), default: []].append(index)
+    }
+
+    func match(_ place: PlaceRecord, in kept: [PlaceRecord]) -> Int? {
+        let origin = Self.cell(place.coordinate)
+        for latOffset in -1...1 {
+            for lonOffset in -1...1 {
+                let key = Cell(lat: origin.lat + latOffset, lon: origin.lon + lonOffset)
+                for index in cells[key] ?? [] where index < kept.count {
+                    if PlaceMerge.sameSite(kept[index], place) {
+                        return index
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func cell(_ coordinate: LonLat) -> Cell {
+        Cell(
+            lat: Int((coordinate.lat / step).rounded()),
+            lon: Int((coordinate.lon / step).rounded())
+        )
+    }
+
+    private struct Cell: Hashable {
+        var lat: Int
+        var lon: Int
     }
 }
