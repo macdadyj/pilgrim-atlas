@@ -435,14 +435,22 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
     }
 
+    private var geocodeQuery = ""
+
     private func scheduleGeocode(_ query: String) {
-        geocodeTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else {
+            geocodeTask?.cancel()
             geocodeHits = []
             geocodeLoading = false
+            geocodeQuery = ""
             return
         }
+        if trimmed == geocodeQuery, geocodeLoading || !geocodeHits.isEmpty {
+            return
+        }
+        geocodeTask?.cancel()
+        geocodeQuery = trimmed
         geocodeLoading = true
         geocodeTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)

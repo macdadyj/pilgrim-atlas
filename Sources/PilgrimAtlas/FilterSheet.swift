@@ -30,7 +30,7 @@ struct FilterSheet: View {
                 }
                 Section {
                     ForEach(FilterControl.all) { control in
-                        filterRow(control)
+                        filterRow(control, isOn: filterBinding(control.id))
                     }
                 } header: {
                     SectionTitle(text: "Show on the map")
@@ -45,6 +45,12 @@ struct FilterSheet: View {
                     proxy.scrollTo("food", anchor: .center)
                 }
             }
+            .onChange(of: model.filter.catholic) { _, on in
+                if on { model.frameRole("catholic") }
+            }
+            .onChange(of: model.filter.churches) { _, on in
+                if on { model.frameChurches() }
+            }
             }
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
@@ -58,16 +64,36 @@ struct FilterSheet: View {
         .accessibilityIdentifier("filters-sheet")
     }
 
+    private func filterBinding(_ id: String) -> Binding<Bool> {
+        @Bindable var model = model
+        switch id {
+        case "show-catholic":
+            return $model.filter.showCatholic
+        case "orthodox":
+            return $model.filter.showOrthodox
+        case "sspx":
+            return $model.filter.showSSPX
+        case "catholic":
+            return $model.filter.catholic
+        case "churches":
+            return $model.filter.churches
+        case "trails":
+            return $model.filter.trails
+        case "public-land":
+            return $model.filter.publicLand
+        case "parks":
+            return $model.filter.parks
+        case "open-now":
+            return $model.filter.openNow
+        default:
+            return .constant(false)
+        }
+    }
+
     @ViewBuilder
-    private func filterRow(_ control: FilterControl) -> some View {
+    private func filterRow(_ control: FilterControl, isOn: Binding<Bool>) -> some View {
         if control.enabled {
-            Toggle(isOn: Binding(
-                get: { model.filter.isOn(control.id) },
-                set: { on in
-                    model.setFilter(control.id, on: on)
-                    Haptics.selection()
-                }
-            )) {
+            Toggle(isOn: isOn) {
                 HStack(spacing: 12) {
                     IconTile(systemName: control.systemImage)
                     VStack(alignment: .leading, spacing: 2) {
@@ -80,7 +106,6 @@ struct FilterSheet: View {
                     }
                 }
             }
-            .buttonStyle(.borderless)
             .accessibilityIdentifier("filter-row-\(control.id)")
         } else {
             HStack(spacing: 12) {

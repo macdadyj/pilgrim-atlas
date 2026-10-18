@@ -205,7 +205,7 @@ final class AtlasUITests: XCTestCase {
                 || app.navigationBars.element.waitForExistence(timeout: 12)
         )
         XCTAssertTrue(revealControl(app, "place-website", "Website"))
-        XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].waitForExistence(timeout: 4))
+        revealText(app, "Last verified 15 Oct 2026")
         XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
         let phone = app.staticTexts["505-256-1539"]
         var swipes = 0
@@ -557,7 +557,8 @@ final class AtlasUITests: XCTestCase {
             hit.tap()
             if city == "Albuquerque" {
                 let names = app.descendants(matching: .any)["visible-sspx"]
-                let arrived = Date().addingTimeInterval(25)
+                XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
+                let arrived = Date().addingTimeInterval(20)
                 while Date() < arrived && !names.label.contains("Peter") {
                     RunLoop.current.run(until: Date().addingTimeInterval(0.4))
                 }
