@@ -377,7 +377,7 @@ final class AtlasUITests: XCTestCase {
         find(app, "filters-button", "Filters", timeout: 25).tap()
         let row = filterControl(app, "catholic", "Catholic sites")
         XCTAssertTrue(row.waitForExistence(timeout: 8))
-        row.tap()
+        tapFilter(row)
         tapDone(app, identifier: "filters-done", title: "Done")
         let count = waitForPins(app, role: "catholic", minimum: 4, timeout: 30)
         saveLayerShot(app, "catholic-sites")
@@ -440,8 +440,8 @@ final class AtlasUITests: XCTestCase {
             XCTAssertEqual(switchIsOn(row), startsOn, identifier)
             for _ in 0..<3 {
                 let before = switchIsOn(row)
-                row.tap()
-                XCTAssertTrue(waitForSwitch(row, on: !before), "\(identifier) did not become \(!before) after one tap")
+                tapFilter(row)
+                XCTAssertTrue(waitForSwitch(row, on: !before), "\(identifier) stayed \(row.value ?? "nil"), wanted \(!before)")
             }
             XCTAssertEqual(switchIsOn(row), !startsOn, identifier)
         }
@@ -469,7 +469,7 @@ final class AtlasUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(shown, 1, "Catholic pins after the switch was turned back on")
         find(app, "filters-button", "Filters", timeout: 8).tap()
         let hideCatholic = filterControl(app, "show-catholic", "Catholic churches")
-        hideCatholic.tap()
+        tapFilter(hideCatholic)
         XCTAssertTrue(waitForSwitch(hideCatholic, on: false))
         tapDone(app, identifier: "filters-done", title: "Done")
         let hidden = waitForPinCeiling(app, role: "catholic", ceiling: 0, timeout: 12)
@@ -480,10 +480,10 @@ final class AtlasUITests: XCTestCase {
         let app = launch("--debug-center=35.112398,-106.705256", "--debug-show-filters")
         let catholic = filterControl(app, "show-catholic", "Catholic churches")
         XCTAssertTrue(catholic.waitForExistence(timeout: 8))
-        catholic.tap()
+        tapFilter(catholic)
         XCTAssertTrue(waitForSwitch(catholic, on: false))
         let orthodoxSwitch = filterControl(app, "orthodox", "Orthodox churches")
-        orthodoxSwitch.tap()
+        tapFilter(orthodoxSwitch)
         XCTAssertTrue(waitForSwitch(orthodoxSwitch, on: false))
         let sspxSwitch = filterControl(app, "sspx", "SSPX chapels")
         XCTAssertTrue(switchIsOn(sspxSwitch))
@@ -556,7 +556,7 @@ final class AtlasUITests: XCTestCase {
             XCTAssertTrue(hit.exists, "\(city) geocode row")
             hit.tap()
             if city == "Albuquerque" {
-                XCTAssertTrue(find(app, "search-pill", "Search", timeout: 15).exists, "Albuquerque opened the map")
+                XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 15), "Albuquerque opened the map")
                 let names = app.descendants(matching: .any)["visible-sspx"]
                 XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
                 let arrived = Date().addingTimeInterval(20)
@@ -581,7 +581,7 @@ final class AtlasUITests: XCTestCase {
     }
 
     private func filterControl(_ app: XCUIApplication, _ identifier: String, _ title: String) -> XCUIElement {
-        let identified = app.switches["filter-row-\(identifier)"]
+        let identified = app.descendants(matching: .any)["filter-row-\(identifier)"]
         let labeled = app.switches.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         var swipes = 0
         while !identified.exists && !labeled.exists && swipes < 6 {
@@ -591,6 +591,11 @@ final class AtlasUITests: XCTestCase {
         if identified.exists { return identified }
         if labeled.exists { return labeled }
         return identified
+    }
+
+    /// The switch sits on the trailing edge of a wide row. Tap that edge.
+    private func tapFilter(_ control: XCUIElement) {
+        control.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
     }
 
     private func switchIsOn(_ control: XCUIElement) -> Bool {

@@ -30,29 +30,10 @@ struct FilterSheet: View {
                 }
                 Section {
                     ForEach(FilterControl.all) { control in
-                        switch control.id {
-                        case "show-catholic":
-                            filterRow(control, isOn: $model.filter.showCatholic)
-                        case "orthodox":
-                            filterRow(control, isOn: $model.filter.showOrthodox)
-                        case "sspx":
-                            filterRow(control, isOn: $model.filter.showSSPX)
-                        case "catholic":
-                            filterRow(control, isOn: $model.filter.catholic)
-                        case "churches":
-                            filterRow(control, isOn: $model.filter.churches)
-                        case "trails":
-                            filterRow(control, isOn: $model.filter.trails)
-                        case "public-land":
-                            filterRow(control, isOn: $model.filter.publicLand)
-                        case "parks":
-                            filterRow(control, isOn: $model.filter.parks)
-                        case "open-now":
-                            filterRow(control, isOn: $model.filter.openNow)
-                        case "food":
+                        if control.id == "food" {
                             foodRow
-                        default:
-                            EmptyView()
+                        } else {
+                            filterRow(control)
                         }
                     }
                 } header: {
@@ -86,9 +67,12 @@ struct FilterSheet: View {
         .accessibilityIdentifier("filters-sheet")
     }
 
-    @ViewBuilder
-    private func filterRow(_ control: FilterControl, isOn: Binding<Bool>) -> some View {
-        Toggle(isOn: isOn) {
+    private func filterRow(_ control: FilterControl) -> some View {
+        let on = model.filter.isOn(control.id)
+        return Button {
+            model.setFilter(control.id, on: !on)
+            Haptics.selection()
+        } label: {
             HStack(spacing: 12) {
                 IconTile(systemName: control.systemImage)
                 VStack(alignment: .leading, spacing: 2) {
@@ -99,9 +83,17 @@ struct FilterSheet: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer(minLength: 8)
+                Toggle("", isOn: .constant(on))
+                    .labelsHidden()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
+        .buttonStyle(.borderless)
         .accessibilityIdentifier("filter-row-\(control.id)")
+        .accessibilityValue(on ? "1" : "0")
+        .accessibilityAddTraits(.isToggle)
     }
 
     private var foodRow: some View {
