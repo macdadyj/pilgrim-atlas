@@ -39,6 +39,7 @@ struct FilterSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .buttonStyle(.borderless)
             .onAppear {
                 if model.focusFoodChip {
                     proxy.scrollTo("food", anchor: .center)
@@ -79,6 +80,7 @@ struct FilterSheet: View {
                     }
                 }
             }
+            .buttonStyle(.borderless)
             .accessibilityIdentifier("filter-row-\(control.id)")
         } else {
             HStack(spacing: 12) {

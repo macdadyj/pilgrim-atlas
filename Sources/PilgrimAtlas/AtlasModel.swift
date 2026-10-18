@@ -62,6 +62,8 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var selectedTab: AppTab = .map
     var showFilters = false
     var showNearby = false
+    /// A list row can deliver the switch change twice. The second, opposite write is dropped.
+    private var filterEcho: (id: String, on: Bool, time: Date)?
     var searchQuery = ""
     var onboardingPage = 0
     var onlyRole: String?
@@ -167,17 +169,23 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func resetFilters() {
+        filterEcho = nil
         let hideHours = filter.hidePlacesWithoutHours
         filter = AtlasFilter.empty
         filter.hidePlacesWithoutHours = hideHours
     }
 
-    /// One assignment of the whole filter. A second call with the same value does not flip it back.
+    /// One assignment of the whole filter. A second opposite write from the same tap is ignored.
     func setFilter(_ id: String, on: Bool) {
         guard FilterControl.all.contains(where: { $0.id == id && $0.enabled }) else { return }
+        let now = Date()
+        if let echo = filterEcho, echo.id == id, echo.on != on, now.timeIntervalSince(echo.time) < 0.35 {
+            return
+        }
         var next = filter
         next.set(id, on: on)
         guard next != filter else { return }
+        filterEcho = (id, on, now)
         filter = next
         if on, id == "catholic" {
             frameRole("catholic")

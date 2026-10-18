@@ -205,6 +205,7 @@ final class AtlasUITests: XCTestCase {
                 || app.navigationBars.element.waitForExistence(timeout: 12)
         )
         XCTAssertTrue(revealControl(app, "place-website", "Website"))
+        XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].waitForExistence(timeout: 4))
         XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
         let phone = app.staticTexts["505-256-1539"]
         var swipes = 0
@@ -213,7 +214,6 @@ final class AtlasUITests: XCTestCase {
             swipes += 1
         }
         XCTAssertTrue(phone.waitForExistence(timeout: 6))
-        XCTAssertTrue(app.staticTexts["Last verified 15 Oct 2026"].exists)
         revealText(app, "Call to confirm")
         revealText(app, "Divine Liturgy")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
@@ -555,8 +555,17 @@ final class AtlasUITests: XCTestCase {
             let hit = identified.exists ? identified : named
             XCTAssertTrue(hit.exists, "\(city) geocode row")
             hit.tap()
-            let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
-            XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")
+            if city == "Albuquerque" {
+                let names = app.descendants(matching: .any)["visible-sspx"]
+                let arrived = Date().addingTimeInterval(25)
+                while Date() < arrived && !names.label.contains("Peter") {
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+                }
+                XCTAssertTrue(names.label.contains("Peter"), "Albuquerque should include Saints Peter and Paul")
+            } else {
+                let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
+                XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")
+            }
             XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
             saveLayerShot(app, "city-\(city.lowercased())")
             app.terminate()
