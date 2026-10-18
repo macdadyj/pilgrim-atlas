@@ -556,13 +556,14 @@ final class AtlasUITests: XCTestCase {
             XCTAssertTrue(hit.exists, "\(city) geocode row")
             hit.tap()
             if city == "Albuquerque" {
+                XCTAssertTrue(find(app, "search-pill", "Search", timeout: 15).exists, "Albuquerque opened the map")
                 let names = app.descendants(matching: .any)["visible-sspx"]
                 XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
                 let arrived = Date().addingTimeInterval(20)
                 while Date() < arrived && !names.label.contains("Peter") {
                     RunLoop.current.run(until: Date().addingTimeInterval(0.4))
                 }
-                XCTAssertTrue(names.label.contains("Peter"), "Albuquerque should include Saints Peter and Paul")
+                XCTAssertTrue(names.label.contains("Peter"), names.label)
             } else {
                 let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
                 XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")

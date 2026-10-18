@@ -295,10 +295,10 @@ struct AtlasMapView: UIViewRepresentable {
             }
             let sspxNames = faithNames(.sspx, around: center)
             let orthodoxNames = faithNames(.orthodox, around: center)
-            sspxReadout?.accessibilityLabel = sspxNames
-            sspxReadout?.text = sspxNames
-            orthodoxReadout?.accessibilityLabel = orthodoxNames
-            orthodoxReadout?.text = orthodoxNames
+            sspxReadout?.accessibilityLabel = sspxNames.isEmpty ? "none" : sspxNames
+            sspxReadout?.text = sspxReadout?.accessibilityLabel
+            orthodoxReadout?.accessibilityLabel = orthodoxNames.isEmpty ? "none" : orthodoxNames
+            orthodoxReadout?.text = orthodoxReadout?.accessibilityLabel
         }
 
         private func faithNames(_ role: PinRole, around center: LonLat) -> String {

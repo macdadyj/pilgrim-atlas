@@ -30,7 +30,30 @@ struct FilterSheet: View {
                 }
                 Section {
                     ForEach(FilterControl.all) { control in
-                        filterRow(control, isOn: filterBinding(control.id))
+                        switch control.id {
+                        case "show-catholic":
+                            filterRow(control, isOn: $model.filter.showCatholic)
+                        case "orthodox":
+                            filterRow(control, isOn: $model.filter.showOrthodox)
+                        case "sspx":
+                            filterRow(control, isOn: $model.filter.showSSPX)
+                        case "catholic":
+                            filterRow(control, isOn: $model.filter.catholic)
+                        case "churches":
+                            filterRow(control, isOn: $model.filter.churches)
+                        case "trails":
+                            filterRow(control, isOn: $model.filter.trails)
+                        case "public-land":
+                            filterRow(control, isOn: $model.filter.publicLand)
+                        case "parks":
+                            filterRow(control, isOn: $model.filter.parks)
+                        case "open-now":
+                            filterRow(control, isOn: $model.filter.openNow)
+                        case "food":
+                            foodRow
+                        default:
+                            EmptyView()
+                        }
                     }
                 } header: {
                     SectionTitle(text: "Show on the map")
@@ -39,7 +62,6 @@ struct FilterSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .buttonStyle(.borderless)
             .onAppear {
                 if model.focusFoodChip {
                     proxy.scrollTo("food", anchor: .center)
@@ -64,65 +86,39 @@ struct FilterSheet: View {
         .accessibilityIdentifier("filters-sheet")
     }
 
-    private func filterBinding(_ id: String) -> Binding<Bool> {
-        @Bindable var model = model
-        switch id {
-        case "show-catholic":
-            return $model.filter.showCatholic
-        case "orthodox":
-            return $model.filter.showOrthodox
-        case "sspx":
-            return $model.filter.showSSPX
-        case "catholic":
-            return $model.filter.catholic
-        case "churches":
-            return $model.filter.churches
-        case "trails":
-            return $model.filter.trails
-        case "public-land":
-            return $model.filter.publicLand
-        case "parks":
-            return $model.filter.parks
-        case "open-now":
-            return $model.filter.openNow
-        default:
-            return .constant(false)
-        }
-    }
-
     @ViewBuilder
     private func filterRow(_ control: FilterControl, isOn: Binding<Bool>) -> some View {
-        if control.enabled {
-            Toggle(isOn: isOn) {
-                HStack(spacing: 12) {
-                    IconTile(systemName: control.systemImage)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(control.title)
-                            .foregroundStyle(.primary)
-                        Text(control.subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            .accessibilityIdentifier("filter-row-\(control.id)")
-        } else {
+        Toggle(isOn: isOn) {
             HStack(spacing: 12) {
                 IconTile(systemName: control.systemImage)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(control.title)
                         .foregroundStyle(.primary)
-                    Text(MapFilter.foodCount(model.places) == 0 ? control.subtitle : "\(MapFilter.foodCount(model.places)) in the pack")
+                    Text(control.subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .opacity(0.7)
-            .id("food")
-            .accessibilityIdentifier("filter-row-food")
-            .accessibilityLabel("Food and rest, \(MapFilter.foodSubtitle)")
         }
+        .accessibilityIdentifier("filter-row-\(control.id)")
+    }
+
+    private var foodRow: some View {
+        HStack(spacing: 12) {
+            IconTile(systemName: "fork.knife")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Food and rest")
+                    .foregroundStyle(.primary)
+                Text(MapFilter.foodCount(model.places) == 0 ? MapFilter.foodSubtitle : "\(MapFilter.foodCount(model.places)) in the pack")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .opacity(0.7)
+        .id("food")
+        .accessibilityIdentifier("filter-row-food")
+        .accessibilityLabel("Food and rest, \(MapFilter.foodSubtitle)")
     }
 }
 
