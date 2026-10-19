@@ -461,6 +461,17 @@ final class AtlasUITests: XCTestCase {
         attach(app.screenshot(), name: "disclaimer-details")
     }
 
+    func testQuickFilterTapsAllRegister() {
+        let app = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        let row = filterControl(app, "orthodox", "Orthodox churches")
+        XCTAssertTrue(row.waitForExistence(timeout: 6))
+        XCTAssertTrue(switchIsOn(row))
+        tapFilter(row)
+        tapFilter(row)
+        XCTAssertTrue(waitForSwitch(row, on: true), "The second tap did not register")
+        saveLayerShot(app, "filters-quick-taps")
+    }
+
     func testFilterSwitchesStayWhereTheyAreSet() {
         let app = launch("--debug-santa-fe-plaza", "--debug-show-filters")
         let controls = [
