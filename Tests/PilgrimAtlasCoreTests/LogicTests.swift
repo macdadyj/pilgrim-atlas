@@ -607,6 +607,25 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(AtlasQuery.search("zzzz-no-such-place", places: [], trails: []).isEmpty)
         let chimayo = AtlasQuery.search("Chimayo", places: [], trails: [])
         XCTAssertTrue(chimayo.contains { $0.id == "town-chimayo" })
+        let parcel = hit("local_protected", lon: -106.62, lat: 35.0, name: "City of Albuquerque 1", size: 0.05)
+        let other = hit("local_protected", lon: -106.87, lat: 35.08, name: "City of Albuquerque 1", size: 0.04)
+        let albuquerque = AtlasQuery.search("Albuquerque", places: [], trails: [], lands: [parcel, other])
+        XCTAssertEqual(albuquerque.first?.id, "town-albuquerque")
+        XCTAssertEqual(albuquerque.filter { $0.name == "City of Albuquerque 1" }.count, 1)
+        XCTAssertTrue(AtlasQuery.isExactTown("Albuquerque"))
+        XCTAssertFalse(AtlasQuery.isExactTown("City of Albuquerque"))
+        let downtown = LonLat(lon: -106.6504, lat: 35.0844)
+        let chapel = LonLat(lon: -106.705256, lat: 35.112398)
+        let framed = CityFrame.focus(center: downtown, chapels: [chapel], insidePack: true, zoom: 13)
+        XCTAssertEqual(framed.zoom, 14)
+        XCTAssertEqual(framed.point.lat, chapel.lat, accuracy: 0.0001)
+        XCTAssertEqual(framed.point.lon, chapel.lon, accuracy: 0.0001)
+        let denver = CityFrame.focus(center: LonLat(lon: -104.9903, lat: 39.7392), chapels: [chapel], insidePack: false, zoom: 14)
+        XCTAssertEqual(denver.point.lat, 39.7392, accuracy: 0.0001)
+        XCTAssertLessThan(
+            CityPick.rank(name: "Albuquerque", locality: "Albuquerque", thoroughfare: "", query: "Albuquerque"),
+            CityPick.rank(name: "Albuquerque Museum", locality: "Albuquerque", thoroughfare: "2000 Mountain Road", query: "Albuquerque")
+        )
     }
 
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
