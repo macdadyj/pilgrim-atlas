@@ -148,6 +148,20 @@ private struct MapChrome: View {
                                     .offset(x: 4, y: -4)
                             }
                         }
+
+                        Button {
+                            model.showNearby = true
+                            Haptics.light()
+                        } label: {
+                            Image(systemName: "list.bullet")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 44, height: 44)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("List")
+                        .accessibilityIdentifier("nearby-button")
                     }
                     .padding(.horizontal, Theme.screenPadding)
 
@@ -159,6 +173,18 @@ private struct MapChrome: View {
                         .font(.caption2)
                         .accessibilityIdentifier("remote-churches")
                         .accessibilityLabel("\(model.remotePlaceCount)")
+                        .frame(width: 1, height: 1)
+                        .opacity(0.02)
+                    Text("sspx-readout")
+                        .font(.caption2)
+                        .accessibilityIdentifier("visible-sspx")
+                        .accessibilityLabel(faithNearby(.sspx))
+                        .frame(width: 1, height: 1)
+                        .opacity(0.02)
+                    Text("orthodox-readout")
+                        .font(.caption2)
+                        .accessibilityIdentifier("visible-orthodox")
+                        .accessibilityLabel(faithNearby(.orthodox))
                         .frame(width: 1, height: 1)
                         .opacity(0.02)
                     if model.viewIsOutsidePack {
@@ -231,6 +257,10 @@ private struct MapChrome: View {
         .onChange(of: model.filter) { _, _ in model.refreshSummary() }
         .sheet(isPresented: $showLayers) {
             LayersSheet()
+                .pilgrimSheet()
+        }
+        .sheet(isPresented: $model.showNearby) {
+            NearbyListSheet()
                 .pilgrimSheet()
         }
         .sheet(item: presentedPlace) { place in
@@ -320,6 +350,15 @@ private struct MapChrome: View {
         return "Offline. Place names are in the pack."
     }
 
+    private func faithNearby(_ role: PinRole) -> String {
+        let names = model.places.filter { place in
+            MapFilter.pinRole(for: place) == role
+                && MapFilter.includeInLists(place, filter: model.filter)
+                && Geometry.haversineMeters(place.coordinate, model.mapCenter) < 12_000
+        }.map(\.name).sorted()
+        return names.isEmpty ? "none" : names.joined(separator: "\n")
+    }
+
     private func handleTap(coordinate: LonLat, hits: [PlaceRecord]) {
         if hits.count == 1, let place = hits.first {
             model.openPlace(place)
@@ -354,7 +393,7 @@ private struct ActiveFilterStrip: View {
                 }
                 ForEach(model.filter.activeControls) { control in
                     IconChip(title: control.title, systemImage: control.systemImage, on: true) {
-                        model.filter.toggle(control.id)
+                        model.setFilter(control.id, on: false)
                         Haptics.selection()
                     }
                 }
@@ -369,7 +408,7 @@ private struct ActiveFilterStrip: View {
 
 struct NearbyPanel: View {
     static func height(expanded: Bool, in geo: GeometryProxy) -> CGFloat {
-        expanded ? max(geo.size.height * 0.36, 220) : 96
+        expanded ? max(geo.size.height * 0.36, 220) : 112
     }
 
     @Environment(AtlasModel.self) private var model
@@ -387,20 +426,26 @@ struct NearbyPanel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
                     .padding(.bottom, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(duration: 0.35)) { expanded.toggle() }
+                    }
                     .accessibilityIdentifier("nearby-grabber")
-                Text((model.viewIsOutsidePack && model.remotePlaceCount == 0) ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .lineLimit(expanded ? nil : 1)
-                    .fixedSize(horizontal: false, vertical: expanded)
-                    .padding(.horizontal, Theme.screenPadding)
-                    .padding(.bottom, expanded ? 0 : 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("nearby-headline")
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.spring(duration: 0.35)) { expanded.toggle() }
+                HStack(alignment: .center, spacing: 8) {
+                    Text((model.viewIsOutsidePack && model.remotePlaceCount == 0) ? "This view is outside the offline pack." : (model.summary?.headline ?? Copy.text("unknown")))
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .lineLimit(expanded ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: expanded)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(duration: 0.35)) { expanded.toggle() }
+                        }
+                        .accessibilityIdentifier("nearby-headline")
+                }
+                .padding(.horizontal, Theme.screenPadding)
+                .padding(.bottom, expanded ? 0 : 8)
             }
             .gesture(
                 DragGesture(minimumDistance: 12)
@@ -788,7 +833,9 @@ struct SearchSheet: View {
                 activate(hit)
             } label: {
                 searchLabel(hit)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
             .accessibilityIdentifier("search-hit-\(hit.id)")
         case .note:
             searchLabel(hit)
@@ -846,10 +893,8 @@ struct SearchSheet: View {
         case .town, .land:
             if let lat = hit.lat, let lon = hit.lon {
                 let point = LonLat(lon: lon, lat: lat)
-                model.aim(at: point)
                 let zoom = hit.id.hasPrefix("geocode-") ? 14.0 : (hit.kind == .town ? 13.0 : 11.0)
-                model.focusCamera(on: point, zoom: zoom)
-                model.selectedTab = .map
+                model.openMap(at: point, zoom: zoom)
             }
         case .note:
             break

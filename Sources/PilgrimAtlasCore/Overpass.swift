@@ -146,23 +146,138 @@ package enum OverpassQuery {
 }
 
 package enum PlaceMerge {
-    /// Keeps the packed record when a live pin sits on the same named place.
+    /// Keeps the first record when a later pin is the same named place.
+    /// Matching uses a coarse grid so a full pack does not compare every pair on launch.
     package static func combine(pack: [PlaceRecord], remote: [PlaceRecord]) -> [PlaceRecord] {
         var kept = pack
+        var grid = PlaceGrid(kept)
         for place in remote {
-            let duplicate = kept.contains { existing in
-                Geometry.haversineMeters(existing.coordinate, place.coordinate) <= 80
-                    && namesMatch(existing.name, place.name)
+            if let index = grid.match(place, in: kept) {
+                kept[index] = fillEmpty(kept[index], from: place)
+                continue
             }
-            if !duplicate { kept.append(place) }
+            grid.insert(place, at: kept.count)
+            kept.append(place)
         }
         return kept
     }
 
-    private static func namesMatch(_ left: String, _ right: String) -> Bool {
-        let a = AtlasQuery.fold(left)
-        let b = AtlasQuery.fold(right)
+    /// Incoming chapels replace a nearby same-name pin. The chapel keeps its affiliation.
+    package static func install(_ incoming: [PlaceRecord], into existing: [PlaceRecord]) -> [PlaceRecord] {
+        var kept = existing
+        var grid = PlaceGrid(kept)
+        for place in incoming {
+            if let index = grid.match(place, in: kept) {
+                var winner = place
+                winner = fillEmpty(winner, from: kept[index])
+                kept[index] = winner
+                grid.insert(winner, at: index)
+                continue
+            }
+            grid.insert(place, at: kept.count)
+            kept.append(place)
+        }
+        return kept
+    }
+
+    package static func worshipNamesMatch(_ left: String, _ right: String) -> Bool {
+        let a = worshipKey(left)
+        let b = worshipKey(right)
         if a.isEmpty || b.isEmpty { return false }
         return a == b || a.contains(b) || b.contains(a)
+    }
+
+    /// Drops a later pin that is the same named worship site. An SSPX chapel wins over the live twin.
+    package static func uniqueSites(_ places: [PlaceRecord]) -> [PlaceRecord] {
+        var kept: [PlaceRecord] = []
+        var grid = PlaceGrid([])
+        let ordered = places.sorted { left, right in
+            let leftChapel = Faith.kind(for: left) == .sspx
+            let rightChapel = Faith.kind(for: right) == .sspx
+            if leftChapel != rightChapel { return leftChapel }
+            return left.id < right.id
+        }
+        for place in ordered {
+            if grid.match(place, in: kept) != nil { continue }
+            grid.insert(place, at: kept.count)
+            kept.append(place)
+        }
+        return kept
+    }
+
+    fileprivate static func sameSite(_ left: PlaceRecord, _ right: PlaceRecord) -> Bool {
+        let key = worshipKey(left.name)
+        let other = worshipKey(right.name)
+        guard !key.isEmpty, !other.isEmpty else { return false }
+        let namesMatch = key == other || key.contains(other) || other.contains(key)
+        guard namesMatch else { return false }
+        let eitherSSPX = Faith.kind(for: left) == .sspx || Faith.kind(for: right) == .sspx
+        let radius = eitherSSPX && key == other ? 500.0 : (eitherSSPX ? 250.0 : 80.0)
+        return Geometry.haversineMeters(left.coordinate, right.coordinate) <= radius
+    }
+
+    /// Copies contact fields the kept pin does not already have. Affiliation stays on the kept pin.
+    private static func fillEmpty(_ kept: PlaceRecord, from extra: PlaceRecord) -> PlaceRecord {
+        var place = kept
+        if place.address.isEmpty { place.address = extra.address }
+        if place.phone.isEmpty { place.phone = extra.phone }
+        if place.website.isEmpty { place.website = extra.website }
+        if place.wikipedia.isEmpty { place.wikipedia = extra.wikipedia }
+        if place.wikidata.isEmpty { place.wikidata = extra.wikidata }
+        if place.image.isEmpty { place.image = extra.image }
+        return place
+    }
+
+    private static func worshipKey(_ name: String) -> String {
+        let drop: Set<String> = ["church", "chapel", "mission", "catholic", "roman", "the", "parish", "priory", "shrine", "of", "and"]
+        let tokens = AtlasQuery.searchText(name).split(separator: " ").map { token -> String in
+            if token == "sts" || token == "ss" { return "saints" }
+            return String(token)
+        }
+        return tokens.filter { !drop.contains($0) }.joined(separator: " ")
+    }
+}
+
+/// About 330 m cells. A match only looks at the home cell and its neighbors.
+private struct PlaceGrid {
+    private var cells: [Cell: [Int]] = [:]
+    private static let step = 0.003
+
+    init(_ places: [PlaceRecord]) {
+        cells.reserveCapacity(places.count)
+        for (index, place) in places.enumerated() {
+            insert(place, at: index)
+        }
+    }
+
+    mutating func insert(_ place: PlaceRecord, at index: Int) {
+        cells[Self.cell(place.coordinate), default: []].append(index)
+    }
+
+    func match(_ place: PlaceRecord, in kept: [PlaceRecord]) -> Int? {
+        let origin = Self.cell(place.coordinate)
+        for latOffset in -2...2 {
+            for lonOffset in -2...2 {
+                let key = Cell(lat: origin.lat + latOffset, lon: origin.lon + lonOffset)
+                for index in cells[key] ?? [] where index < kept.count {
+                    if PlaceMerge.sameSite(kept[index], place) {
+                        return index
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func cell(_ coordinate: LonLat) -> Cell {
+        Cell(
+            lat: Int((coordinate.lat / step).rounded()),
+            lon: Int((coordinate.lon / step).rounded())
+        )
+    }
+
+    private struct Cell: Hashable {
+        var lat: Int
+        var lon: Int
     }
 }
