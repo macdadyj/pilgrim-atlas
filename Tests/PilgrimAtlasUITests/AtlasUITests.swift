@@ -159,6 +159,54 @@ final class AtlasUITests: XCTestCase {
         saveLayerShot(app, "place-website-directions")
     }
 
+    func testWebsiteStaysOpen() {
+        let app = launch(
+            "--debug-open-place=Our Lady of Perpetual Help",
+            "--debug-location=35.096452,-106.582347"
+        )
+        XCTAssertTrue(
+            app.otherElements["place-sheet"].waitForExistence(timeout: 25)
+                || app.navigationBars.element.waitForExistence(timeout: 12)
+        )
+        XCTAssertTrue(revealControl(app, "place-website", "Website"))
+        app.buttons["place-website"].tap()
+        let safari = app.descendants(matching: .any)["place-safari"]
+        let page = app.webViews.firstMatch
+        XCTAssertTrue(safari.waitForExistence(timeout: 8) || page.waitForExistence(timeout: 4), "Safari did not open")
+        let stay = Date().addingTimeInterval(4)
+        while Date() < stay {
+            XCTAssertTrue(safari.exists || page.exists, "Safari closed")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        saveLayerShot(app, "website-safari")
+        if app.buttons["Close"].waitForExistence(timeout: 2) {
+            app.buttons["Close"].tap()
+        }
+        XCTAssertTrue(app.otherElements["place-sheet"].waitForExistence(timeout: 6))
+
+        XCTAssertTrue(revealControl(app, "place-call", "Call"))
+        app.buttons["place-call"].tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        if app.alerts.firstMatch.exists {
+            app.alerts.firstMatch.buttons.firstMatch.tap()
+        }
+        app.activate()
+        XCTAssertTrue(app.otherElements["place-sheet"].waitForExistence(timeout: 6), "Call dismissed the church card")
+
+        XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
+        app.buttons["place-directions"].tap()
+        let maps = XCUIApplication(bundleIdentifier: "com.apple.Maps")
+        if maps.waitForExistence(timeout: 8) {
+            XCTAssertTrue(maps.state == .runningForeground || maps.buttons.firstMatch.exists)
+            app.activate()
+        }
+        XCTAssertTrue(
+            app.otherElements["place-sheet"].waitForExistence(timeout: 6)
+                || app.buttons["place-directions"].exists,
+            "Directions dismissed the church card"
+        )
+    }
+
     func testDenverSearchShowsCatholicPins() {
         let app = launch("--debug-search=Denver", "--debug-tab=search")
         let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Denver")).firstMatch
