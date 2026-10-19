@@ -35,11 +35,12 @@ struct AtlasMapView: UIViewRepresentable {
         map.shouldRequestAuthorizationToUseLocationServices = !model.debugPlaza
         map.showsUserLocation = !model.debugPlaza && model.launch.simulatedUser == nil
         context.coordinator.syncSimulatedUser(on: map, at: model.launch.simulatedUser)
-        map.setCenter(
-            CLLocationCoordinate2D(latitude: model.mapCenter.lat, longitude: model.mapCenter.lon),
-            zoomLevel: model.cameraZoom,
-            animated: false
+        context.coordinator.rememberCamera(
+            latitude: model.mapCenter.lat,
+            longitude: model.mapCenter.lon,
+            zoom: model.cameraZoom
         )
+        context.coordinator.applyRememberedCamera(on: map, animated: false)
         applyChrome(on: map)
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         tap.numberOfTapsRequired = 1
@@ -67,8 +68,9 @@ struct AtlasMapView: UIViewRepresentable {
         context.coordinator.onSelect = onSelect
         context.coordinator.onCamera = { model.noteCamera($0) }
         context.coordinator.onViewport = { southWest, northEast, zoom in
-            model.noteViewport(southWest: southWest, northEast: northEast, zoom: zoom)
+            model.noteViewport(southWest: southWest, northEast: northEast, zoom: zoom, reportingMap: true)
         }
+        context.coordinator.onUserCamera = { model.releaseCameraAim() }
         context.coordinator.places = places
         context.coordinator.showLand = model.showLand
         context.coordinator.showTrails = model.showTrails
@@ -115,11 +117,12 @@ struct AtlasMapView: UIViewRepresentable {
         }
         if context.coordinator.lastCamera != model.cameraToken {
             context.coordinator.lastCamera = model.cameraToken
-            map.setCenter(
-                CLLocationCoordinate2D(latitude: model.mapCenter.lat, longitude: model.mapCenter.lon),
-                zoomLevel: model.cameraZoom,
-                animated: true
+            context.coordinator.rememberCamera(
+                latitude: model.mapCenter.lat,
+                longitude: model.mapCenter.lon,
+                zoom: model.cameraZoom
             )
+            context.coordinator.applyRememberedCamera(on: map, animated: true)
         }
         context.coordinator.onPackLayersMissing = { missing in
             model.loadError = "Pack map layers did not render: \(missing.joined(separator: ", "))."
@@ -152,6 +155,8 @@ struct AtlasMapView: UIViewRepresentable {
         var onSelect: (LonLat, [PlaceRecord]) -> Void
         var onCamera: (LonLat) -> Void = { _ in }
         var onViewport: (LonLat, LonLat, Double) -> Void = { _, _, _ in }
+        var onUserCamera: () -> Void = {}
+        var desiredCamera: (center: CLLocationCoordinate2D, zoom: Double)?
         var places: [PlaceRecord] = []
         var lastOnline = false
         var lastCamera = 0
@@ -276,12 +281,35 @@ struct AtlasMapView: UIViewRepresentable {
         }
 
         @MainActor
-        func mapView(_ mapView: MLNMapView, regionWillChangeAnimated animated: Bool) {
-            regionSettled = false
+        func rememberCamera(latitude: Double, longitude: Double, zoom: Double) {
+            desiredCamera = (
+                CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                zoom
+            )
         }
 
         @MainActor
-        func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
+        func applyRememberedCamera(on map: MLNMapView, animated: Bool) {
+            guard let desiredCamera else { return }
+            map.setCenter(desiredCamera.center, zoomLevel: desiredCamera.zoom, animated: animated)
+        }
+
+        @MainActor
+        func mapView(_ mapView: MLNMapView, regionWillChangeWith reason: MLNCameraChangeReason, animated: Bool) {
+            regionSettled = false
+        }
+
+        /// A finger gesture drops the city aim. Compass resets and style loads do not.
+        /// Implementing this method means `regionDidChangeAnimated` is not called.
+        @MainActor
+        func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
+            let gesture: MLNCameraChangeReason = [
+                .gesturePan, .gesturePinch, .gestureRotate, .gestureZoomIn, .gestureZoomOut,
+                .gestureOneFingerZoom, .gestureTilt,
+            ]
+            if !reason.intersection(gesture).isEmpty {
+                onUserCamera()
+            }
             regionSettled = true
             basemapSamples = 0
             basemapTask?.cancel()
@@ -430,6 +458,7 @@ struct AtlasMapView: UIViewRepresentable {
         @MainActor
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             regionSettled = true
+            applyRememberedCamera(on: mapView, animated: false)
             PackStyle.installMarkers(on: style)
             let present = Set(style.layers.map(\.identifier))
             let packIsVector = style.source(withIdentifier: "pack") is MLNVectorTileSource

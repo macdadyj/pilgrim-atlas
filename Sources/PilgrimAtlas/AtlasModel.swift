@@ -67,8 +67,16 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private var drawnEpoch = 0
     var showFilters = false
     var showNearby = false
-    /// A second, opposite write from the same tap is ignored. A later tap is kept.
-    private var filterEcho: (id: String, on: Bool, time: Date)?
+    private enum FilterFrame {
+        case catholic
+        case churches
+    }
+
+    /// Opposite write from the same tap, cleared on the next turn. Later taps still count.
+    private var filterTurn: (id: String, on: Bool)?
+    private var pendingFrame: FilterFrame?
+    private var filterFollowUp: Task<Void, Never>?
+    private var summaryEpoch = 0
     var searchQuery = ""
     var onboardingPage = 0
     var onlyRole: String?
@@ -165,6 +173,42 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         summaryPinned = true
     }
 
+    /// The role scan stays off the tap. The camera move comes back to the main thread.
+    private func frameMatching(_ include: @escaping @Sendable (PlaceRecord) -> Bool) {
+        let source = places
+        Task.detached {
+            let matching = source.filter(include)
+            await MainActor.run {
+                self.frame(places: matching)
+            }
+        }
+    }
+
+    private func refreshSummaryAsync() {
+        summaryEpoch += 1
+        let epoch = summaryEpoch
+        let lat = summaryPoint.lat
+        let lon = summaryPoint.lon
+        let places = places
+        let trails = trails
+        let lands = lands
+        let current = filter
+        Task.detached {
+            let summary = AtlasQuery.nearby(
+                lat: lat,
+                lon: lon,
+                places: places,
+                trails: trails,
+                lands: lands,
+                filter: current
+            )
+            await MainActor.run {
+                guard epoch == self.summaryEpoch else { return }
+                self.summary = summary
+            }
+        }
+    }
+
     var layerBadge: Int {
         var count = 0
         if showParcels { count += 1 }
@@ -175,30 +219,61 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func resetFilters() {
-        filterEcho = nil
+        filterTurn = nil
+        pendingFrame = nil
         let hideHours = filter.hidePlacesWithoutHours
         filter = AtlasFilter.empty
         filter.hidePlacesWithoutHours = hideHours
-        reloadDrawnPlaces()
+        scheduleFilterFollowUp()
     }
 
-    /// One assignment of the whole filter. A second opposite write from the same tap is ignored.
+    /// The checkmark updates in this turn. Refiltering and camera framing wait, off the tap.
     func setFilter(_ id: String, on: Bool) {
         guard FilterControl.all.contains(where: { $0.id == id && $0.enabled }) else { return }
-        let now = Date()
-        if let echo = filterEcho, echo.id == id, echo.on != on, now.timeIntervalSince(echo.time) < 0.35 {
+        if let turn = filterTurn, turn.id == id, turn.on != on {
             return
         }
         var next = filter
         next.set(id, on: on)
         guard next != filter else { return }
-        filterEcho = (id, on, now)
         filter = next
-        reloadDrawnPlaces()
+        if filterTurn == nil {
+            filterTurn = (id, on)
+            Task { @MainActor in
+                self.filterTurn = nil
+            }
+        }
         if on, id == "catholic" {
-            frameRole("catholic")
+            pendingFrame = .catholic
         } else if on, id == "churches" {
-            frameChurches()
+            pendingFrame = .churches
+        } else if id == "catholic" || id == "churches" {
+            pendingFrame = nil
+        }
+        scheduleFilterFollowUp()
+    }
+
+    /// Coalesces a burst of taps into one map update.
+    func scheduleFilterFollowUp() {
+        filterFollowUp?.cancel()
+        filterFollowUp = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 160_000_000)
+            guard !Task.isCancelled else { return }
+            let frame = self.pendingFrame
+            self.pendingFrame = nil
+            self.reloadDrawnPlaces()
+            self.refreshSummaryAsync()
+            switch frame {
+            case .catholic where self.filter.catholic:
+                self.frameMatching { MapFilter.pinRole(for: $0) == .catholic }
+            case .churches where self.filter.churches:
+                self.frameMatching { place in
+                    let role = MapFilter.pinRole(for: place)
+                    return role == .chapel || role == .worship || role == .shrine
+                }
+            case .catholic, .churches, nil:
+                break
+            }
         }
     }
 
@@ -389,7 +464,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     var viewIsOutsidePack: Bool {
-        !PackCoverage.contains(cameraCenter)
+        !PackCoverage.contains(cameraAim ?? cameraCenter)
     }
 
     func jumpToNearestMappedArea() {
@@ -401,6 +476,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func focusCamera(on coordinate: LonLat, zoom: Double) {
+        cameraAim = coordinate
         mapCenter = coordinate
         cameraCenter = coordinate
         cameraZoom = zoom
@@ -419,6 +495,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         fitBounds = fit
         fitToken += 1
         let mid = LonLat(lon: (fit.minLon + fit.maxLon) / 2, lat: (fit.minLat + fit.maxLat) / 2)
+        cameraAim = mid
         mapCenter = mid
         cameraCenter = mid
     }
@@ -457,15 +534,33 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func noteCamera(_ coordinate: LonLat) {
+        guard acceptMapCamera(coordinate) else { return }
         cameraCenter = coordinate
     }
 
+    /// The map view keeps reporting the plaza after a city aim, until its style finishes loading.
+    /// A finger gesture drops the aim so a pan is not held back.
+    func releaseCameraAim() {
+        cameraAim = nil
+    }
+
     /// Loads churches for the area on screen. The offline pack stays underneath.
-    func noteViewport(southWest: LonLat, northEast: LonLat, zoom: Double) {
-        cameraCenter = LonLat(
+    func noteViewport(southWest: LonLat, northEast: LonLat, zoom: Double, reportingMap: Bool = false) {
+        let reported = LonLat(
             lon: (southWest.lon + northEast.lon) / 2,
             lat: (southWest.lat + northEast.lat) / 2
         )
+        if reportingMap, !acceptMapCamera(reported) { return }
+        cameraCenter = reported
+        // A UI test that injects a city also injects one church there. Albuquerque
+        // does not set the flag, so its Overpass query is unchanged.
+        if launch.stubGeocode != nil {
+            churchTask?.cancel()
+            if remotePlaceCount == 0, let stubbed = launch.stubChurches(near: cameraCenter) {
+                absorbRemote(stubbed)
+            }
+            return
+        }
         guard OverpassQuery.allows(
             south: southWest.lat,
             west: southWest.lon,
@@ -493,6 +588,16 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
+    /// Set by an aim. Map reports far from it are the view from before the aim, and are ignored.
+    private var cameraAim: LonLat?
+
+    private func acceptMapCamera(_ reported: LonLat) -> Bool {
+        guard let cameraAim else { return true }
+        guard Geometry.haversineMeters(reported, cameraAim) <= 1_500 else { return false }
+        self.cameraAim = nil
+        return true
+    }
+
     private func absorbRemote(_ fetched: [PlaceRecord]) {
         guard !fetched.isEmpty else { return }
         remotePlaces = PlaceMerge.combine(pack: remotePlaces, remote: fetched)
@@ -514,6 +619,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             return
         }
         if trimmed == geocodeQuery, geocodeLoading || !geocodeHits.isEmpty {
+            return
+        }
+        if let stub = launch.geocodeHit(matching: trimmed) {
+            geocodeTask?.cancel()
+            geocodeQuery = trimmed
+            geocodeHits = [stub]
+            geocodeLoading = false
             return
         }
         geocodeTask?.cancel()

@@ -257,7 +257,7 @@ private struct MapChrome: View {
             sheetsReady = true
             model.resumeLocationIfAllowed()
         }
-        .onChange(of: model.filter) { _, _ in model.refreshSummary() }
+        .onChange(of: model.filter) { _, _ in model.scheduleFilterFollowUp() }
         .sheet(isPresented: $showLayers) {
             LayersSheet()
                 .pilgrimSheet()
@@ -837,6 +837,7 @@ struct SearchSheet: View {
                 activate(hit)
             } label: {
                 searchLabel(hit)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
@@ -885,6 +886,7 @@ struct SearchSheet: View {
     }
 
     private func activate(_ hit: SearchHit) {
+        TapTrace.mark("activate \(hit.id)")
         switch hit.kind {
         case .place:
             if let id = hit.placeId, let place = model.place(id: id) {
