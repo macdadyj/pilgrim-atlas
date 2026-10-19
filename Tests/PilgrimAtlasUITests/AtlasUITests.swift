@@ -591,17 +591,15 @@ final class AtlasUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
             XCTAssertTrue(identified.exists, "\(city) geocode row")
-            let town = app.buttons["search-hit-town-\(city.lowercased())"]
-            let row = town.exists ? town : identified
-            var revealed = 0
-            while !row.isHittable && revealed < 4 {
-                app.swipeUp()
-                revealed += 1
+            let settled = Date().addingTimeInterval(2)
+            while Date() < settled && !identified.isHittable {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
             }
-            if row.isHittable {
-                row.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+            if identified.isHittable {
+                identified.tap()
             } else {
-                row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                identified.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
             if city == "Albuquerque" {
                 XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 20), "Albuquerque opened the map")
