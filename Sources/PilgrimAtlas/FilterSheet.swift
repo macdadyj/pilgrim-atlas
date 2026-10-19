@@ -48,12 +48,6 @@ struct FilterSheet: View {
                     proxy.scrollTo("food", anchor: .center)
                 }
             }
-            .onChange(of: model.filter.catholic) { _, on in
-                if on { model.frameRole("catholic") }
-            }
-            .onChange(of: model.filter.churches) { _, on in
-                if on { model.frameChurches() }
-            }
             }
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
@@ -70,7 +64,7 @@ struct FilterSheet: View {
     private func filterRow(_ control: FilterControl) -> some View {
         let on = model.filter.isOn(control.id)
         return Button {
-            model.setFilter(control.id, on: !on)
+            model.setFilter(control.id, on: !model.filter.isOn(control.id))
             Haptics.selection()
         } label: {
             HStack(spacing: 12) {

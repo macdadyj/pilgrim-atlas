@@ -257,7 +257,7 @@ private struct MapChrome: View {
             sheetsReady = true
             model.resumeLocationIfAllowed()
         }
-        .onChange(of: model.filter) { _, _ in model.refreshSummary() }
+        .onChange(of: model.filter) { _, _ in model.scheduleFilterFollowUp() }
         .sheet(isPresented: $showLayers) {
             LayersSheet()
                 .pilgrimSheet()
