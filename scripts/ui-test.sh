@@ -3,6 +3,76 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}"
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/ui-launch-retry.sh"
+
+# XCUIApplication's "Timed out while launching application via Xcode" waiter has
+# no xcodebuild flag. Pre-booting the second simulator and retrying that
+# failure once are the fix. The documented test execution allowance is still
+# set so a slow launch is not also killed as a hung test. Assertion failures
+# are not retried.
+preboot_simulator() {
+  local udid="$1"
+  echo "Pre-booting simulator ${udid}"
+  xcrun simctl boot "${udid}" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "${udid}" -b
+  echo "Simulator ${udid} is booted"
+}
+
+xcodebuild_status=0
+run_xcodebuild() {
+  local log="$1"
+  shift
+  mkdir -p "$(dirname "${log}")"
+  set +e
+  xcodebuild "$@" 2>&1 | tee "${log}"
+  xcodebuild_status=${PIPESTATUS[0]}
+  set -e
+}
+
+# Re-runs only tests that failed to launch. Returns 0 when there is nothing to retry.
+retry_launch_failures() {
+  local log="$1"
+  local udid="$2"
+  local derived="$3"
+  local retry_log="$4"
+  if [[ "${xcodebuild_status}" -eq 0 ]]; then
+    return 0
+  fi
+  if ! launch_timeout_only "${log}"; then
+    echo "Not retrying. The log has a failure other than a simulator launch or terminate error."
+    return 0
+  fi
+  local names=()
+  local name
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] && names+=("${name}")
+  done < <(failed_launch_tests "${log}")
+  if [[ "${#names[@]}" -eq 0 ]]; then
+    echo "Not retrying. The simulator failure did not name a test."
+    return 0
+  fi
+  local only=()
+  for name in "${names[@]}"; do
+    echo "UI_TEST_RETRY simulator launch or terminate failure: PilgrimAtlasUITests/AtlasUITests/${name}"
+    only+=("-only-testing:PilgrimAtlasUITests/AtlasUITests/${name}")
+  done
+  preboot_simulator "${udid}"
+  run_xcodebuild "${retry_log}" test \
+    -project PilgrimAtlas.xcodeproj \
+    -scheme PilgrimAtlasUI \
+    -destination "platform=iOS Simulator,id=${udid}" \
+    -clonedSourcePackagesDirPath build/SourcePackages \
+    -derivedDataPath "${derived}" \
+    "${only[@]}" \
+    -test-timeouts-enabled YES \
+    -default-test-execution-time-allowance 600 \
+    -maximum-test-execution-time-allowance 600 \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY="-" \
+    DEVELOPMENT_TEAM=""
+}
 if [[ ! -d PilgrimAtlas.xcodeproj ]]; then
   xcodegen generate
 fi
@@ -82,24 +152,29 @@ fi
 echo "UI tests on ${UDID}"
 if [[ -n "${SECOND}" ]]; then
   echo "Journey tests also on ${SECOND}"
+  preboot_simulator "${SECOND}"
 fi
 export PIN_SCREENSHOT_DIR="${ROOT}/build/layer-screenshots"
-mkdir -p "${PIN_SCREENSHOT_DIR}" /tmp/layer-screenshots
-set +e
-xcodebuild test \
+mkdir -p "${PIN_SCREENSHOT_DIR}" /tmp/layer-screenshots build/ui-logs
+run_xcodebuild build/ui-logs/primary.log test \
   -project PilgrimAtlas.xcodeproj \
   -scheme PilgrimAtlasUI \
   -destination "platform=iOS Simulator,id=${UDID}" \
   -clonedSourcePackagesDirPath build/SourcePackages \
   -derivedDataPath build/UIDerivedData \
   -resultBundlePath build/PilgrimAtlasUITests.xcresult \
+  -test-timeouts-enabled YES \
+  -default-test-execution-time-allowance 600 \
+  -maximum-test-execution-time-allowance 600 \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="-" \
   DEVELOPMENT_TEAM=""
-status=$?
+retry_launch_failures build/ui-logs/primary.log "${UDID}" build/UIDerivedData build/ui-logs/primary-retry.log
+status="${xcodebuild_status}"
 if [[ "${status}" -eq 0 && -n "${SECOND}" ]]; then
-  xcodebuild test \
+  preboot_simulator "${SECOND}"
+  run_xcodebuild build/ui-logs/second.log test \
     -project PilgrimAtlas.xcodeproj \
     -scheme PilgrimAtlasUI \
     -destination "platform=iOS Simulator,id=${SECOND}" \
@@ -109,12 +184,15 @@ if [[ "${status}" -eq 0 && -n "${SECOND}" ]]; then
     -only-testing:PilgrimAtlasUITests/AtlasUITests/testAlbuquerqueSSPXChapelAndOrthodox \
     -only-testing:PilgrimAtlasUITests/AtlasUITests/testNearbyListNextMassAndShare \
     -only-testing:PilgrimAtlasUITests/AtlasUITests/testCitySearchAndOfflineFallback \
+    -test-timeouts-enabled YES \
+    -default-test-execution-time-allowance 600 \
+    -maximum-test-execution-time-allowance 600 \
     CODE_SIGNING_ALLOWED=NO \
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY="-" \
     DEVELOPMENT_TEAM=""
-  status=$?
+  retry_launch_failures build/ui-logs/second.log "${SECOND}" build/UIDerivedDataSmall build/ui-logs/second-retry.log
+  status="${xcodebuild_status}"
 fi
-set -e
 cp -f /tmp/layer-screenshots/*.png "${PIN_SCREENSHOT_DIR}/" 2>/dev/null || true
 exit "${status}"
