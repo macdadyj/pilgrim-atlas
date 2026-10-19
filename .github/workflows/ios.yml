@@ -86,6 +86,9 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Package.swift', 'Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
 
+      - name: Check launch-retry rules
+        run: scripts/test-ui-launch-retry.sh
+
       - name: Phone UI tests
         run: scripts/ui-test.sh
 
