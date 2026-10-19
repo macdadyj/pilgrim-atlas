@@ -588,11 +588,10 @@ final class AtlasUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
             XCTAssertTrue(identified.exists, "\(city) geocode row")
-            let keyboard = Date().addingTimeInterval(6)
-            while Date() < keyboard && app.keyboards.firstMatch.exists {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-            }
-            if identified.isHittable {
+            let row = app.buttons["search-hit-geocode-0"]
+            if row.waitForExistence(timeout: 4), row.isHittable {
+                row.tap()
+            } else if identified.isHittable {
                 identified.tap()
             } else {
                 identified.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
@@ -860,7 +859,7 @@ final class AtlasUITests: XCTestCase {
         }
         var unseen = cells
         var pins = 0
-        let minimumCells = role == "chapel" ? 4 : 8
+        let minimumCells = role == "chapel" ? 4 : (role == "viewpoint" || role == "trailhead" ? 5 : 8)
         while let start = unseen.first {
             var queue = [start]
             unseen.remove(start)

@@ -148,6 +148,20 @@ private struct MapChrome: View {
                                     .offset(x: 4, y: -4)
                             }
                         }
+
+                        Button {
+                            model.showNearby = true
+                            Haptics.light()
+                        } label: {
+                            Image(systemName: "list.bullet")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 44, height: 44)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("List")
+                        .accessibilityIdentifier("nearby-button")
                     }
                     .padding(.horizontal, Theme.screenPadding)
 
@@ -206,32 +220,17 @@ private struct MapChrome: View {
                             .padding(.vertical, 4)
                             .background(Theme.mapCream.opacity(0.92), in: Capsule())
                         Spacer(minLength: 0)
-                        VStack(spacing: 10) {
-                            Button {
-                                model.showNearby = true
-                                Haptics.light()
-                            } label: {
-                                Image(systemName: "list.bullet")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 50, height: 50)
-                                    .background(.regularMaterial, in: Circle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("List")
-                            .accessibilityIdentifier("nearby-button")
-                            Button { model.recenter() } label: {
-                                Image(systemName: "location")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 50, height: 50)
-                                    .background(.regularMaterial, in: Circle())
-                                    .symbolEffect(.bounce, value: model.cameraToken)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Location")
-                            .accessibilityIdentifier("location-button")
+                        Button { model.recenter() } label: {
+                            Image(systemName: "location")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 50, height: 50)
+                                .background(.regularMaterial, in: Circle())
+                                .symbolEffect(.bounce, value: model.cameraToken)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Location")
+                        .accessibilityIdentifier("location-button")
                     }
                     .padding(.horizontal, Theme.screenPadding)
                     .padding(.bottom, 8)
@@ -758,7 +757,6 @@ struct LayersSheet: View {
 
 struct SearchSheet: View {
     @Environment(AtlasModel.self) private var model
-    @State private var searchFieldPresented = false
 
     var body: some View {
         @Bindable var model = model
@@ -785,7 +783,7 @@ struct SearchSheet: View {
                     }
                 }
                 .listStyle(.insetGrouped)
-                .searchable(text: $model.searchQuery, isPresented: $searchFieldPresented, prompt: "Search a city or a name")
+                .searchable(text: $model.searchQuery, prompt: "Search a city or a name")
             .navigationTitle(model.filter.searchTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -799,11 +797,6 @@ struct SearchSheet: View {
             }
             .onChange(of: model.searchQuery) { _, newValue in
                 model.revealSearch(newValue)
-            }
-            .onChange(of: model.geocodeHits.count) { _, count in
-                if count > 0 {
-                    searchFieldPresented = false
-                }
             }
             .onDisappear {
                 model.endSearch()
@@ -837,7 +830,6 @@ struct SearchSheet: View {
         switch hit.kind {
         case .place, .trail, .town, .land:
             Button {
-                searchFieldPresented = false
                 activate(hit)
             } label: {
                 searchLabel(hit)

@@ -194,12 +194,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    /// Shows the map on the next turn as well. A tab change made inside the search list can be overwritten before the turn ends.
+    /// Shows the map, then selects it again after the search list has finished dismissing.
     func openMap(at point: LonLat, zoom: Double) {
-        selectedTab = .map
         aim(at: point)
         focusCamera(on: point, zoom: zoom)
+        selectedTab = .map
         Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
             selectedTab = .map
         }
     }
