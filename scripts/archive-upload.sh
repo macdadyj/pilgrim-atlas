@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Archive with manual distribution signing and upload to TestFlight.
-# The App Store Connect API key creates a new iOS Distribution certificate
-# and App Store profiles. Existing certificates are never touched. On exit, success
-# or failure, it deletes the profiles it created and revokes only the distribution
-# certificate it created in this run, so certificates never pile up.
-# Does not print secret values. Deletes the API key, keychain, and profiles on exit.
+# Imports the shared iOS Distribution certificate (DIST_CERT_P12) into a
+# temporary keychain, then fetches or creates an App Store profile per
+# distributable target tied to that certificate. Does not create or delete
+# certificates. Export does not ask Xcode to refresh provisioning, because
+# that option can mint a distribution certificate when signing is not already
+# pinned to the installed cert. Deletes the keychain, the .p12, and the API
+# key on exit. Does not print secret values.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -59,6 +61,48 @@ destination.write_bytes(data)
 PY
 }
 
+# Writes the shared distribution certificate from base64 DIST_CERT_P12.
+# Error text never includes the secret.
+write_p12() {
+  python3 - <<'PY'
+import base64
+import os
+import sys
+from pathlib import Path
+
+raw = os.environ.get("DIST_CERT_P12", "")
+compact = "".join(raw.split())
+destination = Path(os.environ["P12_PATH"])
+if not compact:
+    sys.exit("DIST_CERT_P12 is empty.")
+pad = (-len(compact)) % 4
+try:
+    data = base64.b64decode(compact + ("=" * pad), validate=True)
+except Exception:
+    sys.exit("DIST_CERT_P12 is not valid base64.")
+if not data or data[0] != 0x30:
+    sys.exit("DIST_CERT_P12 decoded, but it does not look like a .p12.")
+destination.write_bytes(data)
+PY
+}
+
+write_p12_password() {
+  python3 - <<'PY'
+import os
+import sys
+from pathlib import Path
+
+password = os.environ.get("DIST_CERT_PASSWORD", "")
+if password.endswith("\r\n"):
+    password = password[:-2]
+elif password.endswith("\n") or password.endswith("\r"):
+    password = password[:-1]
+if not password:
+    sys.exit("DIST_CERT_PASSWORD is empty.")
+Path(os.environ["PASS_PATH"]).write_text(password)
+PY
+}
+
 check_encryption() {
   local plist="${ROOT}/Info.plist"
   if ! awk '
@@ -69,6 +113,10 @@ check_encryption() {
     echo "Info.plist must set ITSAppUsesNonExemptEncryption to false." >&2
     exit 1
   fi
+}
+
+signing_base() {
+  printf '%s' "${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 }
 
 if [[ "${1:-}" == "--self-test" ]]; then
@@ -102,6 +150,33 @@ PY
     exit 1
   fi
   echo "asc key decode rejected invalid input"
+  p12_b64="$(python3 -c 'import base64; print(base64.b64encode(bytes([48, 3, 1, 1, 0])).decode())')"
+  DIST_CERT_P12="${p12_b64}" P12_PATH="${tmp}/distribution.p12" write_p12
+  python3 - "${tmp}/distribution.p12" <<'PY'
+import sys
+from pathlib import Path
+body = Path(sys.argv[1]).read_bytes()
+if body[:1] != b"\x30":
+    sys.exit("self-test failed: p12 decode")
+print("dist cert decode ok")
+PY
+  if DIST_CERT_P12="not-a-cert" P12_PATH="${tmp}/bad.p12" write_p12 2>"${tmp}/p12err"; then
+    echo "self-test failed: invalid p12 was accepted" >&2
+    exit 1
+  fi
+  if grep -q "not-a-cert" "${tmp}/p12err"; then
+    echo "self-test failed: p12 error text included the secret" >&2
+    exit 1
+  fi
+  echo "dist cert decode rejected invalid input"
+  DIST_CERT_PASSWORD=$'pw-fixture\n' PASS_PATH="${tmp}/p12.pass" write_p12_password
+  python3 - "${tmp}/p12.pass" <<'PY'
+import sys
+from pathlib import Path
+if Path(sys.argv[1]).read_text() != "pw-fixture":
+    sys.exit("self-test failed: p12 password file")
+print("dist cert password file ok")
+PY
   rm -rf "${tmp}"
   trap - EXIT
   check_encryption
@@ -110,20 +185,64 @@ PY
   [[ "$(compute_build_number 5 3)" == "5.3" ]] || { echo "self-test failed: build number for a re-run" >&2; exit 1; }
   [[ "$(compute_build_number "" 1)" == "1" ]] || { echo "self-test failed: build number without a run" >&2; exit 1; }
   echo "build number ok: run 1 -> 1, run 5 attempt 3 -> 5.3"
+  python3 - "${SCRIPT_DIR}/archive-upload.sh" "${SCRIPT_DIR}/asc_signing.py" "${ROOT}/.github/workflows/ios.yml" <<'PY'
+import sys
+from pathlib import Path
+shell, signing, workflow = (Path(arg).read_text() for arg in sys.argv[1:])
+upload = shell.split("\nmissing=0\n", 1)[1]
+production = signing.split("\ndef self_test", 1)[0]
+for label, text in (("upload", upload), ("signing", production)):
+    if "csrContent" in text or "genrsa" in text or "BEGIN CERTIFICATE REQUEST" in text:
+        sys.exit(label + " still creates a certificate")
+forbidden = "allow" + "ProvisioningUpdates"
+for line in upload.splitlines():
+    stripped = line.strip()
+    if stripped.startswith("xcodebuild") or stripped.startswith("-"):
+        if forbidden in line:
+            sys.exit("export asks Xcode to update provisioning")
+if forbidden in workflow:
+    sys.exit("workflow asks Xcode to update provisioning")
+print("certificate creation absent")
+PY
+  for keychain_script in "${SCRIPT_DIR}/archive-upload.sh" "${SCRIPT_DIR}/delete-signing-keychain.sh"; do
+    if ! grep -q 'pilgrim-signing.keychain-db' "${keychain_script}"; then
+      echo "self-test failed: keychain path is not shared" >&2
+      exit 1
+    fi
+  done
+  if ! awk '
+    /Delete the temporary signing keychain/ { step=1 }
+    step && /if: always\(\)/ { found=1 }
+    END { exit found ? 0 : 1 }
+  ' "${ROOT}/.github/workflows/ios.yml"; then
+    echo "self-test failed: keychain cleanup is not an always step" >&2
+    exit 1
+  fi
+  cleanup_tmp="$(mktemp -d)"
+  mkdir -p "${cleanup_tmp}/pilgrim-signing"
+  printf 'secret' > "${cleanup_tmp}/pilgrim-signing/distribution.p12"
+  touch "${cleanup_tmp}/pilgrim-signing.keychain-db"
+  RUNNER_TEMP="${cleanup_tmp}" "${SCRIPT_DIR}/delete-signing-keychain.sh"
+  if [[ -e "${cleanup_tmp}/pilgrim-signing" || -e "${cleanup_tmp}/pilgrim-signing.keychain-db" ]]; then
+    echo "self-test failed: signing cleanup left files behind" >&2
+    exit 1
+  fi
+  rm -rf "${cleanup_tmp}"
+  echo "signing cleanup ok"
   python3 "${SCRIPT_DIR}/asc_signing.py" --self-test
   python3 "${SCRIPT_DIR}/asc_testflight.py" --self-test
   exit 0
 fi
 
 missing=0
-for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 DIST_CERT_P12 DIST_CERT_PASSWORD; do
   if [[ -z "${!name:-}" ]]; then
     echo "Missing GitHub secret ${name}." >&2
     missing=1
   fi
 done
 if [[ "${missing}" -ne 0 ]]; then
-  echo "Add the App Store Connect API key secrets before uploading. See docs/TESTFLIGHT.md." >&2
+  echo "Add the App Store Connect API key and the shared distribution certificate before uploading. See docs/TESTFLIGHT.md." >&2
   exit 1
 fi
 
@@ -134,30 +253,32 @@ fi
 TEAM="${DEVELOPMENT_TEAM}"
 BUILD_NUMBER="$(compute_build_number "${GITHUB_RUN_NUMBER:-1}" "${GITHUB_RUN_ATTEMPT:-1}")"
 echo "Archive build number ${BUILD_NUMBER} for com.lojo.PilgrimAtlas."
-WORKDIR="$(mktemp -d)"
-KEYCHAIN="${WORKDIR}/signing.keychain-db"
-MANIFEST="${WORKDIR}/signing-manifest.json"
-KEY_PATH="${WORKDIR}/private_keys/AuthKey_${ASC_KEY_ID}.p8"
-KEYCHAIN_READY=0
+BASE="$(signing_base)"
+SECRET_DIR="${BASE}/pilgrim-signing"
+KEYCHAIN="${BASE}/pilgrim-signing.keychain-db"
+MANIFEST="${SECRET_DIR}/signing-manifest.json"
+KEY_PATH="${SECRET_DIR}/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+P12_PATH="${SECRET_DIR}/distribution.p12"
+PASS_PATH="${SECRET_DIR}/p12.pass"
+KEYCHAIN_PASS="${SECRET_DIR}/keychain.pass"
 cleanup() {
   local status=$?
-  if [[ "${KEYCHAIN_READY}" == "1" ]]; then
-    security delete-keychain "${KEYCHAIN}" >/dev/null 2>&1 || true
-    security default-keychain -s login.keychain-db >/dev/null 2>&1 || true
-    security list-keychains -d user -s login.keychain-db >/dev/null 2>&1 || true
-  fi
-  if [[ -f "${MANIFEST}" && -f "${KEY_PATH}" ]]; then
+  if [[ -f "${MANIFEST}" ]]; then
     SIGNING_MANIFEST="${MANIFEST}" python3 "${SCRIPT_DIR}/asc_signing.py" cleanup || \
-      echo "Warning: could not fully clean up App Store Connect signing assets for this run." >&2
+      echo "Warning: could not remove local provisioning profiles for this run." >&2
   fi
-  rm -rf "${WORKDIR}"
+  "${SCRIPT_DIR}/delete-signing-keychain.sh" || \
+    echo "Warning: could not delete the temporary signing keychain." >&2
   exit "${status}"
 }
 trap cleanup EXIT
-mkdir -p "${WORKDIR}/private_keys"
-export KEY_PATH
+mkdir -p "${SECRET_DIR}/private_keys"
+chmod 700 "${SECRET_DIR}"
+export KEY_PATH P12_PATH PASS_PATH
 umask 077
 write_api_key
+write_p12
+write_p12_password
 
 cd "${ROOT}"
 if [[ ! -d PilgrimAtlas.xcodeproj ]]; then
@@ -165,58 +286,56 @@ if [[ ! -d PilgrimAtlas.xcodeproj ]]; then
 fi
 check_encryption
 
-openssl genrsa -out "${WORKDIR}/distribution.key" 2048
-cat > "${WORKDIR}/openssl.cnf" <<'EOF'
-[req]
-distinguished_name = dn
-prompt = no
-[dn]
-CN = Pilgrim Atlas Distribution
-EOF
-openssl req -new -sha256 \
-  -key "${WORKDIR}/distribution.key" \
-  -out "${WORKDIR}/distribution.csr" \
-  -config "${WORKDIR}/openssl.cnf"
+openssl rand -base64 32 | tr -d '\n' > "${KEYCHAIN_PASS}"
+chmod 600 "${KEYCHAIN_PASS}" "${PASS_PATH}" "${P12_PATH}"
+security delete-keychain "${KEYCHAIN}" >/dev/null 2>&1 || true
+rm -f "${KEYCHAIN}"
+security create-keychain -p "$(cat "${KEYCHAIN_PASS}")" "${KEYCHAIN}"
+security set-keychain-settings -lut 21600 "${KEYCHAIN}"
+security unlock-keychain -p "$(cat "${KEYCHAIN_PASS}")" "${KEYCHAIN}"
+if ! security import "${P12_PATH}" \
+  -k "${KEYCHAIN}" \
+  -P "$(cat "${PASS_PATH}")" \
+  -f pkcs12 -A \
+  -T /usr/bin/codesign \
+  -T /usr/bin/security >/dev/null; then
+  echo "Could not import the distribution certificate into the temporary keychain." >&2
+  exit 1
+fi
+if ! security set-key-partition-list \
+  -S apple-tool:,apple:,codesign: \
+  -s \
+  -k "$(cat "${KEYCHAIN_PASS}")" \
+  "${KEYCHAIN}" >/dev/null; then
+  echo "Could not allow codesign to use the distribution key." >&2
+  exit 1
+fi
+current="$(security list-keychains -d user | sed 's/^[[:space:]]*"//;s/"[[:space:]]*$//' | grep -v 'pilgrim-signing.keychain-db' || true)"
+# Add the temporary keychain without dropping the keychains already on the search list.
+# shellcheck disable=SC2086
+security list-keychains -d user -s "${KEYCHAIN}" ${current} >/dev/null
+security default-keychain -s "${KEYCHAIN}"
+identities="$(security find-identity -p codesigning -v "${KEYCHAIN}" 2>/dev/null || true)"
+if ! printf '%s\n' "${identities}" | grep -q "Distribution"; then
+  echo "The distribution certificate did not import into the temporary keychain." >&2
+  printf '%s\n' "${identities}" >&2
+  exit 1
+fi
+echo "Imported the shared distribution certificate into the temporary keychain."
+
+if ! security find-certificate -a -c "Distribution" -p "${KEYCHAIN}" > "${SECRET_DIR}/installed.pem"; then
+  echo "Could not read the distribution certificate from the temporary keychain." >&2
+  exit 1
+fi
 
 python3 "${SCRIPT_DIR}/asc_signing.py" prepare \
-  --certificate-out "${WORKDIR}/distribution.cer" \
+  --installed-pem "${SECRET_DIR}/installed.pem" \
   --manifest "${MANIFEST}" \
   --profiles-dir "${HOME}/Library/MobileDevice/Provisioning Profiles" \
-  --csr "${WORKDIR}/distribution.csr" \
   --team "${TEAM}" \
   --keychain "${KEYCHAIN}" \
   --pbxproj "${ROOT}/PilgrimAtlas.xcodeproj/project.pbxproj" \
   --export-plist "${ROOT}/build/ExportOptions.plist"
-
-openssl x509 -inform DER -in "${WORKDIR}/distribution.cer" -out "${WORKDIR}/distribution.pem"
-openssl rand -base64 32 | tr -d '\n' > "${WORKDIR}/keychain.pass"
-chmod 600 "${WORKDIR}/keychain.pass"
-openssl pkcs12 -export \
-  -inkey "${WORKDIR}/distribution.key" \
-  -in "${WORKDIR}/distribution.pem" \
-  -out "${WORKDIR}/distribution.p12" \
-  -passout "file:${WORKDIR}/keychain.pass"
-security create-keychain -p "$(cat "${WORKDIR}/keychain.pass")" "${KEYCHAIN}"
-KEYCHAIN_READY=1
-security set-keychain-settings -lut 21600 "${KEYCHAIN}"
-security unlock-keychain -p "$(cat "${WORKDIR}/keychain.pass")" "${KEYCHAIN}"
-security import "${WORKDIR}/distribution.p12" \
-  -k "${KEYCHAIN}" \
-  -P "$(cat "${WORKDIR}/keychain.pass")" \
-  -f pkcs12 -A \
-  -T /usr/bin/codesign \
-  -T /usr/bin/security >/dev/null
-security set-key-partition-list \
-  -S apple-tool:,apple:,codesign: \
-  -s \
-  -k "$(cat "${WORKDIR}/keychain.pass")" \
-  "${KEYCHAIN}" >/dev/null
-security list-keychains -d user -s "${KEYCHAIN}" login.keychain-db >/dev/null
-security default-keychain -s "${KEYCHAIN}"
-if ! security find-identity -p codesigning "${KEYCHAIN}" 2>/dev/null | grep -q "Distribution"; then
-  echo "The distribution certificate did not import into the temporary keychain." >&2
-  exit 1
-fi
 
 echo "Archiving with manual distribution signing."
 xcodebuild archive \

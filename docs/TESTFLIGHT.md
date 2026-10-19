@@ -4,7 +4,7 @@ GitHub Actions archives `com.lojo.PilgrimAtlas` on every push to `main` after un
 
 Sideloading with xtool still uses team `N9H4648NB9` and the install id `XTL-N9H4648NB9.com.lojo.PilgrimAtlas`. TestFlight uses the unprefixed bundle id `com.lojo.PilgrimAtlas`.
 
-Never commit API keys, `.p8` files, or provisioning profiles.
+Never commit API keys, `.p8` files, `.p12` files, or provisioning profiles.
 
 ## GitHub secrets
 
@@ -16,6 +16,10 @@ Copy these from [lojo-watch-remote](https://github.com/macdadyj/lojo-watch-remot
 | `ASC_ISSUER_ID` | App Store Connect issuer id |
 | `ASC_KEY_P8` | The `.p8` key, PEM or base64 |
 | `DEVELOPMENT_TEAM` | Apple Developer Team ID (not the xtool `N9H4648NB9` prefix) |
+| `DIST_CERT_P12` | Shared iOS Distribution certificate, base64-encoded `.p12` |
+| `DIST_CERT_PASSWORD` | Password for that `.p12` |
+
+The archive imports `DIST_CERT_P12` into a temporary keychain and signs with manual App Store profiles tied to certificate `VJ5MXTN7UT`. The workflow does not create a distribution certificate. GitHub Actions deletes the keychain after the upload step, including when that step fails.
 
 ## App Store Connect clicks
 
