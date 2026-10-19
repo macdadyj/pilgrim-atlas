@@ -37,6 +37,12 @@ struct DetailSheet: View {
                     if !place.denomination.isEmpty {
                         labeledRow("Denomination", PlaceText.denominationLabel(place.denomination))
                     }
+                    if let liturgy, !liturgy.verifiedLine.isEmpty {
+                        Text(liturgy.verifiedLine)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("liturgy-verified")
+                    }
                     if let note = PlaceText.diamondNote(for: place) {
                         Text(note)
                             .font(.subheadline)
@@ -172,10 +178,6 @@ struct DetailSheet: View {
     @ViewBuilder
     private func liturgySection(_ card: LiturgyCard) -> some View {
         Section {
-            Text(card.verifiedLine)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("liturgy-verified")
             if !card.note.isEmpty {
                 Text(card.note)
                     .font(.subheadline)
