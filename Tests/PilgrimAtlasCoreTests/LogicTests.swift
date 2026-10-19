@@ -628,6 +628,14 @@ final class LogicTests: XCTestCase {
         )
     }
 
+    func testLiturgyLineSplitsTheDayFromTheClock() {
+        let parts = LiturgyLine.dayAndRest("Sun 10:00 AM Mass, Spanish")
+        XCTAssertEqual(parts?.day, "Sun")
+        XCTAssertEqual(parts?.rest, "10:00 AM Mass, Spanish")
+        XCTAssertNil(LiturgyLine.dayAndRest("Call the office"))
+        XCTAssertNil(LiturgyLine.dayAndRest("Sun"))
+    }
+
     func testDebugLaunchResolvesLandmarksAndTapRadius() {
         let places = screenshotPlaces()
         let trail = TrailRecord(

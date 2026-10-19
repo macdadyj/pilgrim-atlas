@@ -51,6 +51,20 @@ package enum ChurchMark: String, CaseIterable, Sendable {
 
 package struct LiturgyLine: Equatable, Sendable {
     package var text: String
+
+    private static let days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    /// “Sun 10:00 AM Mass, Spanish” splits into the day and the clock.
+    package static func dayAndRest(_ line: String) -> (day: String, rest: String)? {
+        for day in days {
+            let prefix = day + " "
+            guard line.hasPrefix(prefix) else { continue }
+            let rest = String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            guard !rest.isEmpty else { return nil }
+            return (day, rest)
+        }
+        return nil
+    }
 }
 
 /// One successful read from a source. Later sources are skipped when this exists.
