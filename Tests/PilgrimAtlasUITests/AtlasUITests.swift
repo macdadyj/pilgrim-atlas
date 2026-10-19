@@ -498,14 +498,21 @@ final class AtlasUITests: XCTestCase {
         let sspxSwitch = filterControl(app, "sspx", "SSPX chapels")
         XCTAssertTrue(switchIsOn(sspxSwitch))
         tapDone(app, identifier: "filters-done", title: "Done")
+        let sheetGone = Date().addingTimeInterval(8)
+        while Date() < sheetGone && app.otherElements["filters-sheet"].exists {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertFalse(app.otherElements["filters-sheet"].exists, "Filter sheet stayed up over the chapel")
         saveLayerShot(app, "abq-sspx")
         let pins = waitForPins(app, role: "sspx", minimum: 1, timeout: 25)
         XCTAssertGreaterThanOrEqual(pins, 1, "SSPX chapel pin")
         let list = app.descendants(matching: .any)["nearby-button"]
         XCTAssertTrue(list.waitForExistence(timeout: 8))
         list.tap()
-        let chapel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church")).firstMatch
-        XCTAssertTrue(chapel.waitForExistence(timeout: 8), "Saints Peter and Paul in the nearby list")
+        let nearbySheet = app.otherElements["nearby-sheet"]
+        XCTAssertTrue(nearbySheet.waitForExistence(timeout: 8))
+        let chapels = nearbySheet.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church"))
+        XCTAssertEqual(chapels.count, 1, "The nearby list should show Saints Peter and Paul once")
         XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
         app.terminate()
 
@@ -581,6 +588,10 @@ final class AtlasUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
             XCTAssertTrue(identified.exists, "\(city) geocode row")
+            let keyboard = Date().addingTimeInterval(6)
+            while Date() < keyboard && app.keyboards.firstMatch.exists {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            }
             if identified.isHittable {
                 identified.tap()
             } else {
@@ -624,9 +635,9 @@ final class AtlasUITests: XCTestCase {
         return identified
     }
 
-    /// The switch sits on the trailing edge of a wide row. Tap that edge.
+    /// The whole row is the switch. Tap the title, clear of the trailing glyph.
     private func tapFilter(_ control: XCUIElement) {
-        control.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        control.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).tap()
     }
 
     private func switchIsOn(_ control: XCUIElement) -> Bool {
@@ -640,7 +651,7 @@ final class AtlasUITests: XCTestCase {
     }
 
     private func waitForSwitch(_ control: XCUIElement, on: Bool) -> Bool {
-        let deadline = Date().addingTimeInterval(2)
+        let deadline = Date().addingTimeInterval(4)
         while Date() < deadline && switchIsOn(control) != on {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }

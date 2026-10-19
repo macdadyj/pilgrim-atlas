@@ -62,7 +62,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var selectedTab: AppTab = .map
     var showFilters = false
     var showNearby = false
-    /// A list row can deliver the switch change twice. The second, opposite write is dropped.
+    /// A second, opposite write from the same tap is ignored. A later tap is kept.
     private var filterEcho: (id: String, on: Bool, time: Date)?
     var searchQuery = ""
     var onboardingPage = 0
@@ -191,6 +191,16 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             frameRole("catholic")
         } else if on, id == "churches" {
             frameChurches()
+        }
+    }
+
+    /// Shows the map on the next turn as well. A tab change made inside the search list can be overwritten before the turn ends.
+    func openMap(at point: LonLat, zoom: Double) {
+        selectedTab = .map
+        aim(at: point)
+        focusCamera(on: point, zoom: zoom)
+        Task { @MainActor in
+            selectedTab = .map
         }
     }
 

@@ -84,11 +84,12 @@ struct FilterSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
-                Toggle("", isOn: .constant(on))
-                    .labelsHidden()
-                    .allowsHitTesting(false)
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(on ? Theme.accentFill : Color.secondary)
                     .accessibilityHidden(true)
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .accessibilityIdentifier("filter-row-\(control.id)")
