@@ -60,8 +60,6 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var debugPickerPlaces: [PlaceRecord] = []
     package var debugTapPoint: LonLat?
     var selectedTab: AppTab = .map
-    /// Ignores a search-tab write-back while a city result is opening the map.
-    var mapTabLocked = false
     var showFilters = false
     var showNearby = false
     /// A second, opposite write from the same tap is ignored. A later tap is kept.
@@ -196,16 +194,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    /// Shows the map and keeps it selected while the search list finishes updating.
+    /// Shows the map. The tab is set again on the next turn so a search-row update cannot put it back.
     func openMap(at point: LonLat, zoom: Double) {
         aim(at: point)
         focusCamera(on: point, zoom: zoom)
-        mapTabLocked = true
         selectedTab = .map
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
             selectedTab = .map
-            mapTabLocked = false
         }
     }
 

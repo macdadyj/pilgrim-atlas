@@ -506,12 +506,9 @@ final class AtlasUITests: XCTestCase {
         saveLayerShot(app, "abq-sspx")
         let pins = waitForPins(app, role: "sspx", minimum: 1, timeout: 25)
         XCTAssertGreaterThanOrEqual(pins, 1, "SSPX chapel pin")
-        let listByID = app.descendants(matching: .any)["nearby-button"]
-        let listByLabel = app.buttons["List"]
-        if listByID.waitForExistence(timeout: 6) {
-            listByID.tap()
-        } else if listByLabel.waitForExistence(timeout: 3) {
-            listByLabel.tap()
+        let list = app.buttons.matching(NSPredicate(format: "label == %@", "List")).firstMatch
+        if list.waitForExistence(timeout: 8) {
+            list.tap()
         } else {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.075)).tap()
         }
@@ -531,7 +528,7 @@ final class AtlasUITests: XCTestCase {
                 sawGeorge = true
                 break
             }
-            let nearby = orthodox.descendants(matching: .any)["nearby-button"]
+            let nearby = orthodox.buttons.matching(NSPredicate(format: "label == %@", "List")).firstMatch
             if nearby.exists {
                 nearby.tap()
                 let george = orthodox.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "George")).firstMatch
@@ -594,26 +591,21 @@ final class AtlasUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
             XCTAssertTrue(identified.exists, "\(city) geocode row")
-            let row = app.buttons["search-hit-geocode-0"]
-            if row.waitForExistence(timeout: 4), row.isHittable {
+            let town = app.buttons["search-hit-town-\(city.lowercased())"]
+            let row = town.exists ? town : identified
+            var revealed = 0
+            while !row.isHittable && revealed < 4 {
+                app.swipeUp()
+                revealed += 1
+            }
+            if row.isHittable {
                 row.tap()
-            } else if identified.isHittable {
-                identified.tap()
             } else {
-                identified.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
             if city == "Albuquerque" {
-                let opened = Date().addingTimeInterval(20)
-                var onMap = false
-                while Date() < opened && !onMap {
-                    if app.descendants(matching: .any)["search-pill"].exists || app.tabBars.buttons["Map"].isSelected {
-                        onMap = true
-                        break
-                    }
-                    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-                }
-                XCTAssertTrue(onMap, "Albuquerque opened the map")
-                let names = app.descendants(matching: .any)["visible-sspx"]
+                XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 20), "Albuquerque opened the map")
+                let names = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "visible-sspx")).firstMatch
                 XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
                 let arrived = Date().addingTimeInterval(20)
                 while Date() < arrived && !names.label.contains("Peter") {

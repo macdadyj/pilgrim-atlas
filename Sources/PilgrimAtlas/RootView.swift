@@ -32,7 +32,7 @@ struct RootView: View {
 
     private var tabs: some View {
         @Bindable var model = model
-        return TabView(selection: tabSelection) {
+        return TabView(selection: $model.selectedTab) {
             MapScreen()
                 .tabItem { Label("Map", systemImage: "map") }
                 .tag(AppTab.map)
@@ -61,16 +61,6 @@ struct RootView: View {
         } message: {
             Text("OpenFreeMap will see this phone's IP address and the map tiles it requests. That is an approximate location. Pilgrim Atlas still does not upload your GPS position, and it does not run a server.")
         }
-    }
-
-    private var tabSelection: Binding<AppTab> {
-        Binding(
-            get: { model.selectedTab },
-            set: { newValue in
-                if model.mapTabLocked && newValue != .map { return }
-                model.selectedTab = newValue
-            }
-        )
     }
 
     private var resolvedScheme: ColorScheme? {
