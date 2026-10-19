@@ -168,8 +168,7 @@ final class AtlasUITests: XCTestCase {
         }
         XCTAssertTrue(hit.exists, "Denver search row")
         hit.tap()
-        let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
-        XCTAssertTrue(banner.waitForExistence(timeout: 70), "Denver did not load churches from OpenStreetMap")
+        waitForLiveChurches(app, city: "Denver")
         let count = waitForPins(app, role: "catholic", minimum: 1, timeout: 25)
         saveLayerShot(app, "denver-churches")
         XCTAssertGreaterThanOrEqual(count, 1, "Denver showed \(count) Catholic pins")
@@ -618,8 +617,7 @@ final class AtlasUITests: XCTestCase {
                 }
                 XCTAssertTrue(label.contains("Peter") && label.contains("Ouray"), label)
             } else {
-                let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
-                XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")
+                waitForLiveChurches(app, city: city)
             }
             XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
             saveLayerShot(app, "city-\(city.lowercased())")
@@ -631,6 +629,27 @@ final class AtlasUITests: XCTestCase {
         let live = offline.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
         XCTAssertTrue(outside.waitForExistence(timeout: 25) || live.waitForExistence(timeout: 20))
         saveLayerShot(offline, "offline-fallback")
+    }
+
+    /// The outside-pack banner, once it names OpenStreetMap. Scoped to that card so the
+    /// query does not walk every label while the map is drawing.
+    private func waitForLiveChurches(_ app: XCUIApplication, city: String) {
+        let banner = app.descendants(matching: .any)["outside-coverage-banner"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 20), "\(city) opened the map outside the pack")
+        let deadline = Date().addingTimeInterval(15)
+        var label = banner.label
+        while Date() < deadline && !label.contains("OpenStreetMap") {
+            let child = banner.staticTexts.matching(
+                NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")
+            ).firstMatch
+            if child.exists {
+                label = child.label
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            label = banner.label
+        }
+        XCTAssertTrue(label.contains("OpenStreetMap"), label)
     }
 
     private func filterControl(_ app: XCUIApplication, _ identifier: String, _ title: String) -> XCUIElement {

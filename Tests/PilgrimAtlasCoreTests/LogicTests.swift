@@ -447,7 +447,7 @@ final class LogicTests: XCTestCase {
         XCTAssertFalse(LandStatus.grantsEntry("The map tag says private. That is how OpenStreetMap recorded it, not a ruling about your visit."))
     }
 
-    func testDebugLaunchParsesScreenshotArguments() {
+    func testDebugLaunchParsesScreenshotArguments() throws {
         let plain = DebugLaunch.parse(["/PilgrimAtlas"])
         XCTAssertEqual(plain, .inactive)
         XCTAssertFalse(plain.suppressesLocation)
@@ -488,6 +488,16 @@ final class LogicTests: XCTestCase {
         XCTAssertNil(stub.geocodeHit(matching: "Albuquerque"))
         XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas", "--debug-geocode=Denver"]).stubGeocode)
         XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas"]).geocodeHit(matching: "Denver"))
+        let denver = LonLat(lon: -104.9903, lat: 39.7392)
+        let churches = stub.stubChurches(near: denver)
+        let church = try XCTUnwrap(churches?.first)
+        XCTAssertEqual(churches?.count, 1)
+        XCTAssertTrue(church.catholic)
+        XCTAssertEqual(church.category, "worship")
+        XCTAssertEqual(MapFilter.pinRole(for: church), .catholic)
+        XCTAssertTrue(MapFilter.includeOnMap(church, filter: .empty))
+        XCTAssertNil(stub.stubChurches(near: LonLat(lon: -106.6504, lat: 35.0844)))
+        XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas"]).stubChurches(near: denver))
         XCTAssertTrue(search.suppressesLocation)
         XCTAssertTrue(search.skipsDisclaimer)
 

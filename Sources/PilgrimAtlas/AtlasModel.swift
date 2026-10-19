@@ -466,6 +466,15 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             lon: (southWest.lon + northEast.lon) / 2,
             lat: (southWest.lat + northEast.lat) / 2
         )
+        // A UI test that injects a city also injects one church there. Albuquerque
+        // does not set the flag, so its Overpass query is unchanged.
+        if launch.stubGeocode != nil {
+            churchTask?.cancel()
+            if remotePlaceCount == 0, let stubbed = launch.stubChurches(near: cameraCenter) {
+                absorbRemote(stubbed)
+            }
+            return
+        }
         guard OverpassQuery.allows(
             south: southWest.lat,
             west: southWest.lon,

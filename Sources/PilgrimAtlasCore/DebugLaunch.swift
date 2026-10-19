@@ -36,7 +36,8 @@ package struct DebugLaunch: Equatable, Sendable {
     package var simulatedUser: LonLat?
     /// Draws every church pin, including the selected state, for a screenshot.
     package var showPins: Bool
-    /// A fixed city-search row. UI tests use this so Denver does not wait on Apple's geocoder.
+    /// A fixed city-search row. UI tests use this so Denver does not wait on Apple's geocoder
+    /// or on Overpass for the one church that proves the map left the offline pack.
     package var stubGeocode: StubGeocode?
 
     package struct StubGeocode: Equatable, Sendable {
@@ -215,6 +216,41 @@ package struct DebugLaunch: Equatable, Sendable {
             city: stub.name,
             meters: nil,
             subtitle: "City"
+        )
+    }
+
+    /// One Catholic church when the camera is on the injected city. Nil everywhere else,
+    /// including Albuquerque, so the live Overpass query still runs.
+    package func stubChurches(near center: LonLat) -> [PlaceRecord]? {
+        guard let stub = stubGeocode else { return nil }
+        guard Geometry.haversineMeters(center, stub.coordinate) <= 3_000 else { return nil }
+        return [Self.stubChurch(at: stub.coordinate)]
+    }
+
+    private static func stubChurch(at coordinate: LonLat) -> PlaceRecord {
+        PlaceRecord(
+            id: -9_000_000_001,
+            name: "Saint Mary Catholic Church",
+            category: "worship",
+            catholic: true,
+            denomination: "catholic",
+            lat: coordinate.lat,
+            lon: coordinate.lon,
+            description: "",
+            address: "",
+            openingHours: "",
+            serviceTimes: "",
+            massTimes: "",
+            confessionTimes: "",
+            access: "",
+            parking: "",
+            wheelchair: "",
+            website: "",
+            wikipedia: "",
+            wikidata: "",
+            image: "",
+            source: "OpenStreetMap",
+            sourceDate: "2026-10-19"
         )
     }
 
