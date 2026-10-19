@@ -401,6 +401,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func focusCamera(on coordinate: LonLat, zoom: Double) {
+        cameraAim = coordinate
         mapCenter = coordinate
         cameraCenter = coordinate
         cameraZoom = zoom
@@ -419,6 +420,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         fitBounds = fit
         fitToken += 1
         let mid = LonLat(lon: (fit.minLon + fit.maxLon) / 2, lat: (fit.minLat + fit.maxLat) / 2)
+        cameraAim = mid
         mapCenter = mid
         cameraCenter = mid
     }
@@ -457,15 +459,24 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func noteCamera(_ coordinate: LonLat) {
+        guard acceptMapCamera(coordinate) else { return }
         cameraCenter = coordinate
     }
 
+    /// The map view keeps reporting the plaza after a city aim, until its style finishes loading.
+    /// A finger gesture drops the aim so a pan is not held back.
+    func releaseCameraAim() {
+        cameraAim = nil
+    }
+
     /// Loads churches for the area on screen. The offline pack stays underneath.
-    func noteViewport(southWest: LonLat, northEast: LonLat, zoom: Double) {
-        cameraCenter = LonLat(
+    func noteViewport(southWest: LonLat, northEast: LonLat, zoom: Double, reportingMap: Bool = false) {
+        let reported = LonLat(
             lon: (southWest.lon + northEast.lon) / 2,
             lat: (southWest.lat + northEast.lat) / 2
         )
+        if reportingMap, !acceptMapCamera(reported) { return }
+        cameraCenter = reported
         // A UI test that injects a city also injects one church there. Albuquerque
         // does not set the flag, so its Overpass query is unchanged.
         if launch.stubGeocode != nil {
@@ -500,6 +511,16 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             guard !Task.isCancelled else { return }
             self.absorbRemote(fetched)
         }
+    }
+
+    /// Set by an aim. Map reports far from it are the view from before the aim, and are ignored.
+    private var cameraAim: LonLat?
+
+    private func acceptMapCamera(_ reported: LonLat) -> Bool {
+        guard let cameraAim else { return true }
+        guard Geometry.haversineMeters(reported, cameraAim) <= 1_500 else { return false }
+        self.cameraAim = nil
+        return true
     }
 
     private func absorbRemote(_ fetched: [PlaceRecord]) {
