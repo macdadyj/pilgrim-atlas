@@ -53,6 +53,8 @@ targets:
         type: folder
       - path: Sources/PilgrimAtlasCore/sentences.json
         buildPhase: resources
+      - path: Sources/PilgrimAtlasCore/sspx-chapels.json
+        buildPhase: resources
       - path: Sources/PilgrimAtlasCore/render-contract.json
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/cabq_disclaimer.txt
@@ -91,6 +93,8 @@ targets:
       - path: Tests/PilgrimAtlasCoreTests/Fixtures
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/sentences.json
+        buildPhase: resources
+      - path: Sources/PilgrimAtlasCore/sspx-chapels.json
         buildPhase: resources
       - path: Sources/PilgrimAtlasCore/render-contract.json
         buildPhase: resources

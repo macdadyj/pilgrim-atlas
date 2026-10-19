@@ -61,6 +61,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     package var debugTapPoint: LonLat?
     var selectedTab: AppTab = .map
     var showFilters = false
+    var showNearby = false
+    /// A second, opposite write from the same tap is ignored. A later tap is kept.
+    private var filterEcho: (id: String, on: Bool, time: Date)?
     var searchQuery = ""
     var onboardingPage = 0
     var onlyRole: String?
@@ -107,6 +110,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         onlyRole = parsed.onlyRole
         if parsed.showTerrain { showTerrain = true }
         if parsed.showFilters || parsed.focusFood { showFilters = true }
+        if parsed.showNearby { showNearby = true }
         if let tab = parsed.tab, let parsedTab = AppTab(rawValue: tab) {
             selectedTab = parsedTab
         }
@@ -165,9 +169,36 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func resetFilters() {
+        filterEcho = nil
         let hideHours = filter.hidePlacesWithoutHours
         filter = AtlasFilter.empty
         filter.hidePlacesWithoutHours = hideHours
+    }
+
+    /// One assignment of the whole filter. A second opposite write from the same tap is ignored.
+    func setFilter(_ id: String, on: Bool) {
+        guard FilterControl.all.contains(where: { $0.id == id && $0.enabled }) else { return }
+        let now = Date()
+        if let echo = filterEcho, echo.id == id, echo.on != on, now.timeIntervalSince(echo.time) < 0.35 {
+            return
+        }
+        var next = filter
+        next.set(id, on: on)
+        guard next != filter else { return }
+        filterEcho = (id, on, now)
+        filter = next
+        if on, id == "catholic" {
+            frameRole("catholic")
+        } else if on, id == "churches" {
+            frameChurches()
+        }
+    }
+
+    /// Shows the map on the chosen city or place.
+    func openMap(at point: LonLat, zoom: Double) {
+        aim(at: point)
+        focusCamera(on: point, zoom: zoom)
+        selectedTab = .map
     }
 
     func acceptDisclaimer() {
@@ -411,14 +442,22 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
     }
 
+    private var geocodeQuery = ""
+
     private func scheduleGeocode(_ query: String) {
-        geocodeTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else {
+            geocodeTask?.cancel()
             geocodeHits = []
             geocodeLoading = false
+            geocodeQuery = ""
             return
         }
+        if trimmed == geocodeQuery, geocodeLoading || !geocodeHits.isEmpty {
+            return
+        }
+        geocodeTask?.cancel()
+        geocodeQuery = trimmed
         geocodeLoading = true
         geocodeTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
@@ -555,8 +594,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         do {
             let snapshot = try PackDatabase.load()
             meta = snapshot.meta
-            packPlaces = snapshot.places
-            places = snapshot.places
+            let chapels = SSPXChapels.places()
+            packPlaces = PlaceMerge.install(chapels, into: snapshot.places)
+            places = packPlaces
             trails = snapshot.trails
             lands = snapshot.lands
             links = snapshot.links

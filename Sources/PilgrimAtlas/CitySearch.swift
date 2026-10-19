@@ -12,7 +12,7 @@ enum CitySearch {
         guard trimmed.count >= 2 else { return [] }
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = trimmed
-        request.resultTypes = .address
+        request.resultTypes = [.address, .pointOfInterest]
         let search = MKLocalSearch(request: request)
         guard let response = try? await search.start() else { return [] }
         return response.mapItems.prefix(5).enumerated().map { index, item in

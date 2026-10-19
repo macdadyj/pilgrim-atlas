@@ -528,19 +528,24 @@ extension AtlasFilter {
         }
     }
 
-    package mutating func toggle(_ id: String) {
+    /// Writes one control to an absolute value. A repeated call with the same value changes nothing.
+    package mutating func set(_ id: String, on: Bool) {
         switch id {
-        case "show-catholic": showCatholic.toggle()
-        case "orthodox": showOrthodox.toggle()
-        case "sspx": showSSPX.toggle()
-        case "catholic": catholic.toggle()
-        case "churches": churches.toggle()
-        case "trails": trails.toggle()
-        case "public-land": publicLand.toggle()
-        case "parks": parks.toggle()
-        case "open-now": openNow.toggle()
+        case "show-catholic": showCatholic = on
+        case "orthodox": showOrthodox = on
+        case "sspx": showSSPX = on
+        case "catholic": catholic = on
+        case "churches": churches = on
+        case "trails": trails = on
+        case "public-land": publicLand = on
+        case "parks": parks = on
+        case "open-now": openNow = on
         default: break
         }
+    }
+
+    package mutating func toggle(_ id: String) {
+        set(id, on: !isOn(id))
     }
 
     package var activeControls: [FilterControl] {
