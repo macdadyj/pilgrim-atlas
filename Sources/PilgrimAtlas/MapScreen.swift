@@ -88,6 +88,7 @@ private struct MapChrome: View {
                             .background(.regularMaterial, in: Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Search")
                         .accessibilityIdentifier("search-pill")
 
@@ -160,6 +161,7 @@ private struct MapChrome: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("List")
                         .accessibilityIdentifier("nearby-button")
                     }
@@ -177,10 +179,11 @@ private struct MapChrome: View {
                         .opacity(0.02)
                     Text("sspx-readout")
                         .font(.caption2)
-                        .accessibilityIdentifier("visible-sspx")
-                        .accessibilityLabel(faithNearby(.sspx))
                         .frame(width: 1, height: 1)
                         .opacity(0.02)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityIdentifier("visible-sspx")
+                        .accessibilityLabel(faithNearby(.sspx))
                     Text("orthodox-readout")
                         .font(.caption2)
                         .accessibilityIdentifier("visible-orthodox")

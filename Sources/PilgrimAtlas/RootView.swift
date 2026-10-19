@@ -34,9 +34,14 @@ struct RootView: View {
         @Bindable var model = model
         return TabView(selection: tabSelection) {
             MapScreen()
-                .tabItem { Label("Map", systemImage: "map") }
+                .accessibilityElement(children: .contain)
+                .tabItem {
+                    // On the tab content, this identifier is copied onto every child
+                    // and replaces search-pill, visible-sspx, and the List button.
+                    Label("Map", systemImage: "map")
+                        .accessibilityIdentifier("tab-map")
+                }
                 .tag(AppTab.map)
-                .accessibilityIdentifier("tab-map")
 
             SearchSheet()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
