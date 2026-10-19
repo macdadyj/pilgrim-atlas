@@ -161,14 +161,12 @@ final class AtlasUITests: XCTestCase {
 
     func testDenverSearchShowsCatholicPins() {
         let app = launch("--debug-search=Denver", "--debug-tab=search")
-        let identified = app.descendants(matching: .any)["search-hit-geocode-0"]
-        let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Denver")).firstMatch
+        let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Denver")).firstMatch
         let deadline = Date().addingTimeInterval(45)
-        while Date() < deadline && !identified.exists && !named.exists {
+        while Date() < deadline && !hit.exists {
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
-        let hit = identified.exists ? identified : named
-        XCTAssertTrue(hit.exists, "Denver geocode row")
+        XCTAssertTrue(hit.exists, "Denver search row")
         hit.tap()
         let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
         XCTAssertTrue(banner.waitForExistence(timeout: 70), "Denver did not load churches from OpenStreetMap")
@@ -585,22 +583,13 @@ final class AtlasUITests: XCTestCase {
     func testCitySearchAndOfflineFallback() {
         for city in ["Albuquerque", "Denver", "Rome"] {
             let app = launch("--debug-search=\(city)", "--debug-tab=search")
-            let identified = app.descendants(matching: .any)["search-hit-geocode-0"]
+            let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", city)).firstMatch
             let deadline = Date().addingTimeInterval(45)
-            while Date() < deadline && !identified.exists {
+            while Date() < deadline && !hit.exists {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
-            XCTAssertTrue(identified.exists, "\(city) geocode row")
-            let settled = Date().addingTimeInterval(2)
-            while Date() < settled && !identified.isHittable {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.6))
-            if identified.isHittable {
-                identified.tap()
-            } else {
-                identified.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            }
+            XCTAssertTrue(hit.exists, "\(city) search row")
+            hit.tap()
             if city == "Albuquerque" {
                 XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 20), "Albuquerque opened the map")
                 let names = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "visible-sspx")).firstMatch

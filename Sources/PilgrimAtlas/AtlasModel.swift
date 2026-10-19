@@ -194,17 +194,11 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    /// Shows the map. A search-list update can put the tab back, so the map is selected again after that work.
+    /// Shows the map on the chosen city or place.
     func openMap(at point: LonLat, zoom: Double) {
         aim(at: point)
         focusCamera(on: point, zoom: zoom)
         selectedTab = .map
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            selectedTab = .map
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            selectedTab = .map
-        }
     }
 
     func acceptDisclaimer() {
