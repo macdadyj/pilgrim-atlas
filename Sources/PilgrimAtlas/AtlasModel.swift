@@ -664,7 +664,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             links = snapshot.links
             TapTrace.mark("pack \(places.count) places \(lands.count) lands \(Int(Date().timeIntervalSince(started) * 1000))ms")
         } catch {
-            loadError = String(describing: error)
+            loadError = "The offline pack did not open. Place names stored on this phone are unavailable."
             TapTrace.mark("pack failed \(Int(Date().timeIntervalSince(started) * 1000))ms")
         }
     }
