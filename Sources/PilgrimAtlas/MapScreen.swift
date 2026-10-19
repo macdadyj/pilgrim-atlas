@@ -488,6 +488,7 @@ struct NearbyPanel: View {
                 .stroke(Theme.hairline, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.12), radius: 16, y: -2)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nearby-card")
     }
 
