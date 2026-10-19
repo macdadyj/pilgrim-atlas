@@ -637,11 +637,12 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             guard !Task.isCancelled, let self, self.searchEpoch == epoch else { return }
             var hits = await CitySearch.search(trimmed, near: self.summaryPoint)
             if hits.isEmpty {
-                try? await Task.sleep(nanoseconds: 800_000_000)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
                 guard !Task.isCancelled, self.searchEpoch == epoch else { return }
                 hits = await CitySearch.search(trimmed, near: self.summaryPoint)
             }
             guard !Task.isCancelled, self.searchEpoch == epoch else { return }
+            TapTrace.mark("geocode \(hits.count) \(trimmed)")
             self.geocodeHits = hits
             self.geocodeLoading = false
         }
