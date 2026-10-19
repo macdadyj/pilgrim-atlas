@@ -187,11 +187,33 @@ package enum PlaceMerge {
         return a == b || a.contains(b) || b.contains(a)
     }
 
+    /// Drops a later pin that is the same named worship site. An SSPX chapel wins over the live twin.
+    package static func uniqueSites(_ places: [PlaceRecord]) -> [PlaceRecord] {
+        var kept: [PlaceRecord] = []
+        var grid = PlaceGrid([])
+        let ordered = places.sorted { left, right in
+            let leftChapel = Faith.kind(for: left) == .sspx
+            let rightChapel = Faith.kind(for: right) == .sspx
+            if leftChapel != rightChapel { return leftChapel }
+            return left.id < right.id
+        }
+        for place in ordered {
+            if grid.match(place, in: kept) != nil { continue }
+            grid.insert(place, at: kept.count)
+            kept.append(place)
+        }
+        return kept
+    }
+
     fileprivate static func sameSite(_ left: PlaceRecord, _ right: PlaceRecord) -> Bool {
+        let key = worshipKey(left.name)
+        let other = worshipKey(right.name)
+        guard !key.isEmpty, !other.isEmpty else { return false }
+        let namesMatch = key == other || key.contains(other) || other.contains(key)
+        guard namesMatch else { return false }
         let eitherSSPX = Faith.kind(for: left) == .sspx || Faith.kind(for: right) == .sspx
-        let radius = eitherSSPX ? 200.0 : 80.0
-        guard Geometry.haversineMeters(left.coordinate, right.coordinate) <= radius else { return false }
-        return worshipNamesMatch(left.name, right.name)
+        let radius = eitherSSPX && key == other ? 500.0 : (eitherSSPX ? 250.0 : 80.0)
+        return Geometry.haversineMeters(left.coordinate, right.coordinate) <= radius
     }
 
     /// Copies contact fields the kept pin does not already have. Affiliation stays on the kept pin.
@@ -234,8 +256,8 @@ private struct PlaceGrid {
 
     func match(_ place: PlaceRecord, in kept: [PlaceRecord]) -> Int? {
         let origin = Self.cell(place.coordinate)
-        for latOffset in -1...1 {
-            for lonOffset in -1...1 {
+        for latOffset in -2...2 {
+            for lonOffset in -2...2 {
                 let key = Cell(lat: origin.lat + latOffset, lon: origin.lon + lonOffset)
                 for index in cells[key] ?? [] where index < kept.count {
                     if PlaceMerge.sameSite(kept[index], place) {

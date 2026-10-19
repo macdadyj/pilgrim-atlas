@@ -547,15 +547,16 @@ final class AtlasUITests: XCTestCase {
         )
         XCTAssertTrue(app.otherElements["nearby-sheet"].waitForExistence(timeout: 20) || app.navigationBars["Nearby"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["next-mass"].waitForExistence(timeout: 12) || app.descendants(matching: .any)["next-mass-empty"].waitForExistence(timeout: 4))
-        let chapel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church")).firstMatch
+        let sheet = app.otherElements["nearby-sheet"].exists ? app.otherElements["nearby-sheet"] : app
+        let chapels = sheet.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church"))
         var swipes = 0
-        while !chapel.exists && swipes < 6 {
+        while chapels.count == 0 && swipes < 6 {
             app.swipeUp()
             swipes += 1
         }
-        XCTAssertTrue(chapel.waitForExistence(timeout: 6))
+        XCTAssertEqual(chapels.count, 1, "The nearby list should show Saints Peter and Paul once")
         saveLayerShot(app, "nearby-list")
-        chapel.tap()
+        chapels.firstMatch.tap()
         XCTAssertTrue(revealControl(app, "place-website", "Website"))
         XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
         XCTAssertTrue(revealControl(app, "place-share", "Share"))
@@ -580,12 +581,10 @@ final class AtlasUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
             XCTAssertTrue(identified.exists, "\(city) geocode row")
-            if app.keyboards.buttons["Search"].exists {
-                app.keyboards.buttons["Search"].tap()
-            }
-            identified.tap()
-            if !app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 8), identified.exists {
+            if identified.isHittable {
                 identified.tap()
+            } else {
+                identified.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
             if city == "Albuquerque" {
                 XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 15), "Albuquerque opened the map")

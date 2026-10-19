@@ -1418,6 +1418,19 @@ final class LogicTests: XCTestCase {
         let installed = PlaceMerge.install([chapel], into: [osm])
         XCTAssertEqual(installed.map(\.id), [chapel.id])
         XCTAssertEqual(Faith.kind(for: installed[0]), .sspx)
+        let farther = samplePlace(
+            id: -43,
+            name: "Sts. Peter and Paul Catholic Church",
+            category: "worship",
+            catholic: true,
+            lat: chapel.lat + 0.003,
+            lon: chapel.lon,
+            denomination: "roman_catholic"
+        )
+        let collapsed = PlaceMerge.combine(pack: [chapel], remote: [farther])
+        XCTAssertEqual(collapsed.map(\.id), [chapel.id])
+        let listed = PlaceMerge.uniqueSites([farther, chapel])
+        XCTAssertEqual(listed.map(\.id), [chapel.id])
         XCTAssertEqual(Faith.kind(for: merged[0]), .sspx)
         let mosque = samplePlace(
             id: -41,

@@ -13,8 +13,8 @@ struct NearbyListSheet: View {
     }
 
     private var rows: [(place: PlaceRecord, meters: Int)] {
-        model.places
-            .filter { MapFilter.includeInLists($0, filter: model.filter) }
+        let visible = model.places.filter { MapFilter.includeInLists($0, filter: model.filter) }
+        return PlaceMerge.uniqueSites(visible)
             .map { place in
                 (place: place, meters: Int(Geometry.haversineMeters(origin, place.coordinate).rounded()))
             }
