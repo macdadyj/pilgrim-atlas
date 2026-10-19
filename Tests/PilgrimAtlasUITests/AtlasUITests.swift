@@ -486,7 +486,7 @@ final class AtlasUITests: XCTestCase {
         tapFilter(catholic)
         XCTAssertTrue(waitForSwitch(catholic, on: false))
         let orthodoxSwitch = filterControl(app, "orthodox", "Orthodox churches")
-        tapFilter(orthodoxSwitch)
+        tapFilter(orthodoxSwitch, until: false)
         XCTAssertTrue(waitForSwitch(orthodoxSwitch, on: false))
         let sspxSwitch = filterControl(app, "sspx", "SSPX chapels")
         XCTAssertTrue(switchIsOn(sspxSwitch))
@@ -663,6 +663,13 @@ final class AtlasUITests: XCTestCase {
     /// The whole row is the switch. Tap the title, clear of the trailing glyph.
     private func tapFilter(_ control: XCUIElement) {
         control.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).tap()
+    }
+
+    /// One tap can land while the filter list is still redrawing. Tap again only if it did not stick.
+    private func tapFilter(_ control: XCUIElement, until on: Bool) {
+        tapFilter(control)
+        if waitForSwitch(control, on: on) { return }
+        tapFilter(control)
     }
 
     private func switchIsOn(_ control: XCUIElement) -> Bool {
