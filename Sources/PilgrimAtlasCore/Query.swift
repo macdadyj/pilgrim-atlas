@@ -178,6 +178,13 @@ package enum AtlasQuery {
         value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     }
 
+    /// A packed town whose name is the whole query, such as Albuquerque, not a parcel that merely contains the word.
+    package static func isExactTown(_ query: String) -> Bool {
+        let needle = searchText(query)
+        guard !needle.isEmpty else { return false }
+        return PlaceText.towns.contains { searchText($0.name) == needle }
+    }
+
     /// `St`, `St.`, and `Saint` become the same token. Punctuation splits tokens.
     package static func searchText(_ value: String) -> String {
         let folded = fold(value)
@@ -391,6 +398,7 @@ package enum AtlasQuery {
                 )
             ))
         }
+        var bestLand: [String: (Double, SearchHit)] = [:]
         for land in lands {
             let displayName = land.name.trimmingCharacters(in: .whitespacesAndNewlines)
             if displayName.isEmpty { continue }
@@ -398,27 +406,35 @@ package enum AtlasQuery {
             guard let box = land.geometry.bbox else { continue }
             let center = LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
             let meters = Int(Geometry.haversineMeters(origin, center).rounded())
-            scored.append((
-                score + 20 - Double(meters) / 1000,
-                SearchHit(
-                    id: "land-\(land.kind.rawValue)-\(fold(displayName))-\(meters)",
-                    kind: .land,
-                    name: displayName,
-                    catholic: false,
-                    placeId: nil,
-                    trailId: nil,
-                    lat: center.lat,
-                    lon: center.lon,
-                    city: "",
-                    meters: meters,
-                    subtitle: "Land"
-                )
-            ))
+            let adjusted = score + 20 - Double(meters) / 1000
+            let hit = SearchHit(
+                id: "land-\(land.kind.rawValue)-\(fold(displayName))-\(meters)",
+                kind: .land,
+                name: displayName,
+                catholic: false,
+                placeId: nil,
+                trailId: nil,
+                lat: center.lat,
+                lon: center.lon,
+                city: "",
+                meters: meters,
+                subtitle: "Land"
+            )
+            let key = fold(displayName)
+            if let existing = bestLand[key], existing.0 >= adjusted { continue }
+            bestLand[key] = (adjusted, hit)
         }
+        scored.append(contentsOf: bestLand.values)
         var ordered = scored.sorted { lhs, rhs in
             if lhs.0 != rhs.0 { return lhs.0 > rhs.0 }
             return lhs.1.id < rhs.1.id
         }.map(\.1)
+        if isExactTown(query),
+           ordered.first?.kind == .land,
+           let townIndex = ordered.firstIndex(where: { $0.kind == .town && searchText($0.name) == needle }) {
+            let town = ordered.remove(at: townIndex)
+            ordered.insert(town, at: 0)
+        }
         let groupUnnamed = queryTokens.contains("unnamed")
             || (filter.churches && (queryTokens.contains("worship") || queryTokens.contains("church")))
         if groupUnnamed, unnamedCount > 0 {
@@ -606,5 +622,30 @@ package enum AtlasQuery {
         let cleaned = access.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleaned.isEmpty { return Copy.text("trail_untagged") }
         return "Tagged access=\(cleaned). That tag is not permission to enter or to leave the trail."
+    }
+}
+
+/// Apple's city search returns the locality and nearby businesses together. A bare locality wins.
+package enum CityPick {
+    package static func rank(name: String, locality: String, thoroughfare: String, query: String) -> Int {
+        let needle = AtlasQuery.fold(query)
+        let foldedName = AtlasQuery.fold(name)
+        let foldedLocality = AtlasQuery.fold(locality)
+        let matches = foldedName == needle || foldedLocality == needle
+        if matches && thoroughfare.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return 0 }
+        if matches { return 1 }
+        return 2
+    }
+}
+
+/// Where a city tap should look. Inside the offline pack, one nearby SSPX chapel stays in frame.
+package enum CityFrame {
+    package static func focus(center: LonLat, chapels: [LonLat], insidePack: Bool, zoom: Double, radiusMeters: Double = 20_000) -> (point: LonLat, zoom: Double) {
+        guard insidePack else { return (center, zoom) }
+        let nearby = chapels.filter { Geometry.haversineMeters(center, $0) <= radiusMeters }
+        guard let chapel = nearby.min(by: { Geometry.haversineMeters(center, $0) < Geometry.haversineMeters(center, $1) }) else {
+            return (center, zoom)
+        }
+        return (chapel, max(zoom, 14))
     }
 }

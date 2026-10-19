@@ -194,11 +194,16 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    /// Shows the map on the chosen city or place.
+    /// Shows the map on the chosen city. Inside the offline pack, a nearby SSPX chapel stays on screen.
     func openMap(at point: LonLat, zoom: Double) {
-        aim(at: point)
-        focusCamera(on: point, zoom: zoom)
         selectedTab = .map
+        let chapels = packPlaces.compactMap { place -> LonLat? in
+            guard Faith.kind(for: place) == .sspx else { return nil }
+            return place.coordinate
+        }
+        let framed = CityFrame.focus(center: point, chapels: chapels, insidePack: PackCoverage.contains(point), zoom: zoom)
+        aim(at: framed.point)
+        focusCamera(on: framed.point, zoom: framed.zoom)
     }
 
     func acceptDisclaimer() {
@@ -246,6 +251,10 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         scheduleGeocode(query)
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            searchReveal = false
+            return
+        }
+        if AtlasQuery.isExactTown(trimmed) {
             searchReveal = false
             return
         }
@@ -462,11 +471,11 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         geocodeTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard !Task.isCancelled, let self else { return }
-            var hits = await CitySearch.search(trimmed)
+            var hits = await CitySearch.search(trimmed, near: self.summaryPoint)
             if hits.isEmpty {
                 try? await Task.sleep(nanoseconds: 800_000_000)
                 guard !Task.isCancelled else { return }
-                hits = await CitySearch.search(trimmed)
+                hits = await CitySearch.search(trimmed, near: self.summaryPoint)
             }
             guard !Task.isCancelled else { return }
             self.geocodeHits = hits
