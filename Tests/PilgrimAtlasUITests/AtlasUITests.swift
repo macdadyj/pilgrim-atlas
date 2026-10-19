@@ -580,6 +580,41 @@ final class AtlasUITests: XCTestCase {
         }
     }
 
+    func testCitySearchAndOfflineFallback() {
+        for city in ["Albuquerque", "Denver", "Rome"] {
+            let app = launch("--debug-search=\(city)", "--debug-tab=search")
+            let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", city)).firstMatch
+            let deadline = Date().addingTimeInterval(45)
+            while Date() < deadline && !hit.exists {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            }
+            XCTAssertTrue(hit.exists, "\(city) search row")
+            hit.tap()
+            if city == "Albuquerque" {
+                XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 20), "Albuquerque opened the map")
+                let names = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "visible-sspx")).firstMatch
+                XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
+                let arrived = Date().addingTimeInterval(20)
+                while Date() < arrived && !names.label.contains("Peter") {
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+                }
+                XCTAssertTrue(names.label.contains("Peter"), names.label)
+            } else {
+                let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
+                XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")
+            }
+            XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
+            saveLayerShot(app, "city-\(city.lowercased())")
+            app.terminate()
+        }
+
+        let offline = launch("--debug-outside-coverage")
+        let outside = offline.staticTexts["This view is outside the offline pack."]
+        let live = offline.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
+        XCTAssertTrue(outside.waitForExistence(timeout: 25) || live.waitForExistence(timeout: 20))
+        saveLayerShot(offline, "offline-fallback")
+    }
+
     private func filterControl(_ app: XCUIApplication, _ identifier: String, _ title: String) -> XCUIElement {
         let identified = app.descendants(matching: .any)["filter-row-\(identifier)"]
         let labeled = app.switches.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
