@@ -52,14 +52,13 @@ struct VisitSection: View {
     var websiteIdentifier: String
     var directionsIdentifier: String
 
-    @State private var safari: URL?
     @State private var chooseMaps = false
     @State private var eta = ""
 
     var body: some View {
         Section {
             if let website {
-                Button("Website") { safari = website }
+                Button("Website") { SafariPresenter.open(website) }
                     .accessibilityIdentifier(websiteIdentifier)
             }
             if let call = VisitRouting.phoneURL(phone) {
@@ -87,14 +86,6 @@ struct VisitSection: View {
         } header: {
             SectionTitle(text: "Visit")
         }
-        .sheet(isPresented: Binding(
-            get: { safari != nil },
-            set: { if !$0 { safari = nil } }
-        )) {
-            if let safari {
-                SafariPage(url: safari)
-            }
-        }
         .confirmationDialog("Directions", isPresented: $chooseMaps, titleVisibility: .visible) {
             Button("Apple Maps") {
                 AppleMaps.open(name: name, coordinate: coordinate, walking: walking)
@@ -110,16 +101,42 @@ struct VisitSection: View {
     }
 }
 
-struct SafariPage: UIViewControllerRepresentable {
-    let url: URL
+/// Presents Safari on the topmost view controller.
+///
+/// A SwiftUI sheet attached to the Visit section sits inside the church card's own sheet.
+/// The next list update, including the travel-time line, dismissed that page immediately.
+enum SafariPresenter {
+    static let identifier = "place-safari"
 
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        let page = SFSafariViewController(url: url)
+    @MainActor
+    static func open(_ url: URL) {
+        guard let presenter = topPresenter() else { return }
+        if presenter is SFSafariViewController { return }
+        let page = MarkedSafari(url: url)
         page.dismissButtonStyle = .close
-        return page
+        page.modalPresentationStyle = .pageSheet
+        presenter.present(page, animated: true)
     }
 
-    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+    @MainActor
+    private static func topPresenter() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        let root = scene?.windows.first { $0.isKeyWindow }?.rootViewController
+            ?? scene?.windows.first?.rootViewController
+        var controller = root
+        while let presented = controller?.presentedViewController, !presented.isBeingDismissed {
+            controller = presented
+        }
+        return controller
+    }
+}
+
+private final class MarkedSafari: SFSafariViewController {
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        view.accessibilityIdentifier = SafariPresenter.identifier
+    }
 }
 
 enum AppleMaps {
