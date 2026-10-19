@@ -161,6 +161,18 @@ private struct MapChrome: View {
                         .accessibilityLabel("\(model.remotePlaceCount)")
                         .frame(width: 1, height: 1)
                         .opacity(0.02)
+                    Text(faithNearby(.sspx))
+                        .font(.caption2)
+                        .accessibilityIdentifier("visible-sspx")
+                        .accessibilityLabel(faithNearby(.sspx))
+                        .frame(width: 1, height: 1)
+                        .opacity(0.02)
+                    Text(faithNearby(.orthodox))
+                        .font(.caption2)
+                        .accessibilityIdentifier("visible-orthodox")
+                        .accessibilityLabel(faithNearby(.orthodox))
+                        .frame(width: 1, height: 1)
+                        .opacity(0.02)
                     if model.viewIsOutsidePack {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(model.remotePlaceCount > 0
@@ -322,6 +334,15 @@ private struct MapChrome: View {
         }
         if model.onlineTiles { return "Streets on. Land and landmarks stay on." }
         return "Offline. Place names are in the pack."
+    }
+
+    private func faithNearby(_ role: PinRole) -> String {
+        let names = model.places.filter { place in
+            MapFilter.pinRole(for: place) == role
+                && MapFilter.includeInLists(place, filter: model.filter)
+                && Geometry.haversineMeters(place.coordinate, model.mapCenter) < 12_000
+        }.map(\.name).sorted()
+        return names.isEmpty ? "none" : names.joined(separator: "\n")
     }
 
     private func handleTap(coordinate: LonLat, hits: [PlaceRecord]) {
@@ -772,6 +793,11 @@ struct SearchSheet: View {
             }
             .onChange(of: model.searchQuery) { _, newValue in
                 model.revealSearch(newValue)
+            }
+            .onChange(of: model.geocodeHits.count) { _, count in
+                if count > 0 {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
             }
             .onDisappear {
                 model.endSearch()

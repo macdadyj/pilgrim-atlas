@@ -562,7 +562,13 @@ final class AtlasUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
             XCTAssertTrue(identified.exists, "\(city) geocode row")
+            if app.keyboards.buttons["Search"].exists {
+                app.keyboards.buttons["Search"].tap()
+            }
             identified.tap()
+            if !app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 6) {
+                identified.tap()
+            }
             if city == "Albuquerque" {
                 XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 15), "Albuquerque opened the map")
                 let names = app.descendants(matching: .any)["visible-sspx"]
