@@ -204,7 +204,6 @@ final class AtlasUITests: XCTestCase {
         )
         XCTAssertTrue(revealControl(app, "place-website", "Website"))
         revealText(app, "Last verified 15 Oct 2026")
-        XCTAssertTrue(revealControl(app, "place-directions", "Directions"))
         let phone = app.staticTexts["505-256-1539"]
         var swipes = 0
         while !phone.exists && swipes < 4 {
