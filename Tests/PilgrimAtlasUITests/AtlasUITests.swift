@@ -160,7 +160,7 @@ final class AtlasUITests: XCTestCase {
     }
 
     func testDenverSearchShowsCatholicPins() {
-        let app = launch("--debug-search=Denver", "--debug-tab=search")
+        let app = launch("--debug-search=Denver", "--debug-tab=search", "--debug-geocode=Denver@39.7392,-104.9903")
         let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Denver")).firstMatch
         let deadline = Date().addingTimeInterval(45)
         while Date() < deadline && !hit.exists {
@@ -582,7 +582,14 @@ final class AtlasUITests: XCTestCase {
 
     func testCitySearchAndOfflineFallback() {
         for city in ["Albuquerque", "Denver", "Rome"] {
-            let app = launch("--debug-search=\(city)", "--debug-tab=search")
+            let app: XCUIApplication
+            if city == "Denver" {
+                app = launch("--debug-search=Denver", "--debug-tab=search", "--debug-geocode=Denver@39.7392,-104.9903")
+            } else if city == "Rome" {
+                app = launch("--debug-search=Rome", "--debug-tab=search", "--debug-geocode=Rome@41.9028,12.4964")
+            } else {
+                app = launch("--debug-search=\(city)", "--debug-tab=search")
+            }
             let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", city)).firstMatch
             let deadline = Date().addingTimeInterval(45)
             while Date() < deadline && !hit.exists {

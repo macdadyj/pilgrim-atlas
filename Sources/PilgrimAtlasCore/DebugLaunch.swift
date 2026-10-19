@@ -36,6 +36,13 @@ package struct DebugLaunch: Equatable, Sendable {
     package var simulatedUser: LonLat?
     /// Draws every church pin, including the selected state, for a screenshot.
     package var showPins: Bool
+    /// A fixed city-search row. UI tests use this so Denver does not wait on Apple's geocoder.
+    package var stubGeocode: StubGeocode?
+
+    package struct StubGeocode: Equatable, Sendable {
+        package var name: String
+        package var coordinate: LonLat
+    }
 
     package static let inactive = DebugLaunch(
         pinPlaza: false,
@@ -60,7 +67,8 @@ package struct DebugLaunch: Equatable, Sendable {
         onlyRole: nil,
         center: nil,
         simulatedUser: nil,
-        showPins: false
+        showPins: false,
+        stubGeocode: nil
     )
 
     /// Northeast Albuquerque in ZIP 87110, near Louisiana Boulevard and Menaul.
@@ -96,6 +104,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || center != nil
             || simulatedUser != nil
             || showPins
+            || stubGeocode != nil
     }
 
     /// A real packed place for each pin role, used to open that layer on a pin.
@@ -189,6 +198,26 @@ package struct DebugLaunch: Equatable, Sendable {
         return nil
     }
 
+    /// The injected row, when the query is that city. Any other query still uses the live geocoder.
+    package func geocodeHit(matching query: String) -> SearchHit? {
+        guard let stub = stubGeocode else { return nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, AtlasQuery.fold(trimmed) == AtlasQuery.fold(stub.name) else { return nil }
+        return SearchHit(
+            id: "geocode-0",
+            kind: .town,
+            name: stub.name,
+            catholic: false,
+            placeId: nil,
+            trailId: nil,
+            lat: stub.coordinate.lat,
+            lon: stub.coordinate.lon,
+            city: stub.name,
+            meters: nil,
+            subtitle: "City"
+        )
+    }
+
     package static func filter(from tokens: [String]) -> AtlasFilter {
         #if DEBUG
         return filterFromTokens(tokens)
@@ -215,6 +244,10 @@ extension DebugLaunch {
                 continue
             } else if let value = taking("--debug-search", argument, arguments, index) {
                 launch.search = value.value
+                index = value.next
+                continue
+            } else if let value = taking("--debug-geocode", argument, arguments, index) {
+                launch.stubGeocode = stubGeocode(value.value)
                 index = value.next
                 continue
             } else if argument == "--debug-show-layers" {
@@ -312,6 +345,15 @@ extension DebugLaunch {
             return (arguments[index + 1], index + 2)
         }
         return nil
+    }
+
+    /// `Denver@39.7392,-104.9903` becomes one geocode row and skips Apple's search.
+    private static func stubGeocode(_ raw: String) -> StubGeocode? {
+        guard let separator = raw.firstIndex(of: "@") else { return nil }
+        let name = String(raw[..<separator]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let point = coordinate(String(raw[raw.index(after: separator)...]))
+        guard !name.isEmpty, let point else { return nil }
+        return StubGeocode(name: name, coordinate: point)
     }
 
     private static func coordinate(_ raw: String) -> LonLat? {

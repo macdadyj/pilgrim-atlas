@@ -477,6 +477,17 @@ final class LogicTests: XCTestCase {
 
         let search = DebugLaunch.parse(["/PilgrimAtlas", "--debug-search", "Santuario de Chimayo"])
         XCTAssertEqual(search.search, "Santuario de Chimayo")
+        let stub = DebugLaunch.parse(["/PilgrimAtlas", "--debug-geocode=Denver@39.7392,-104.9903"])
+        XCTAssertEqual(stub.stubGeocode?.name, "Denver")
+        XCTAssertEqual(stub.stubGeocode?.coordinate.lat ?? 0, 39.7392, accuracy: 0.0001)
+        XCTAssertEqual(stub.stubGeocode?.coordinate.lon ?? 0, -104.9903, accuracy: 0.0001)
+        let stubHit = stub.geocodeHit(matching: "denver")
+        XCTAssertEqual(stubHit?.id, "geocode-0")
+        XCTAssertEqual(stubHit?.name, "Denver")
+        XCTAssertEqual(stubHit?.lat ?? 0, 39.7392, accuracy: 0.0001)
+        XCTAssertNil(stub.geocodeHit(matching: "Albuquerque"))
+        XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas", "--debug-geocode=Denver"]).stubGeocode)
+        XCTAssertNil(DebugLaunch.parse(["/PilgrimAtlas"]).geocodeHit(matching: "Denver"))
         XCTAssertTrue(search.suppressesLocation)
         XCTAssertTrue(search.skipsDisclaimer)
 

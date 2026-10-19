@@ -516,6 +516,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         if trimmed == geocodeQuery, geocodeLoading || !geocodeHits.isEmpty {
             return
         }
+        if let stub = launch.geocodeHit(matching: trimmed) {
+            geocodeTask?.cancel()
+            geocodeQuery = trimmed
+            geocodeHits = [stub]
+            geocodeLoading = false
+            return
+        }
         geocodeTask?.cancel()
         geocodeQuery = trimmed
         geocodeLoading = true
