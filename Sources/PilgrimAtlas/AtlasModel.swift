@@ -60,6 +60,11 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     var debugPickerPlaces: [PlaceRecord] = []
     package var debugTapPoint: LonLat?
     var selectedTab: AppTab = .map
+    /// Ignores a search-tab write-back while a city tap is opening the map.
+    var holdMapTab = false
+    /// Pins for the map. Built off the main thread so a city tap can show the map first.
+    private(set) var drawnPlaces: [PlaceRecord] = []
+    private var drawnEpoch = 0
     var showFilters = false
     var showNearby = false
     /// A second, opposite write from the same tap is ignored. A later tap is kept.
@@ -122,6 +127,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         applyDebugLaunch()
         revealActivePlaceLayer()
         refreshSummary()
+        reloadDrawnPlaces()
     }
 
     /// When a landmark layer is turned on, fit the real places of that role around the camera.
@@ -173,6 +179,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         let hideHours = filter.hidePlacesWithoutHours
         filter = AtlasFilter.empty
         filter.hidePlacesWithoutHours = hideHours
+        reloadDrawnPlaces()
     }
 
     /// One assignment of the whole filter. A second opposite write from the same tap is ignored.
@@ -187,6 +194,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         guard next != filter else { return }
         filterEcho = (id, on, now)
         filter = next
+        reloadDrawnPlaces()
         if on, id == "catholic" {
             frameRole("catholic")
         } else if on, id == "churches" {
@@ -194,11 +202,45 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    /// Shows the map on the chosen city or place.
+    /// Shows the map on the chosen city. Inside the offline pack, a nearby SSPX chapel stays on screen.
+    ///
+    /// The tab changes in this turn and nothing else does. Aiming at Albuquerque rewrites the
+    /// search list that contains the tapped row, and that rewrite was putting the tab back.
     func openMap(at point: LonLat, zoom: Double) {
-        aim(at: point)
-        focusCamera(on: point, zoom: zoom)
+        TapTrace.mark("openMap")
+        searchEpoch += 1
+        geocodeTask?.cancel()
+        churchTask?.cancel()
+        holdMapTab = true
         selectedTab = .map
+        TapTrace.mark("tab=map")
+        let framed = cityFrame(for: point, zoom: zoom)
+        let epoch = searchEpoch
+        Task { @MainActor in
+            await Task.yield()
+            TapTrace.mark("yield tab=\(self.selectedTab.rawValue)")
+            self.geocodeLoading = false
+            guard self.searchEpoch == epoch else {
+                TapTrace.mark("open superseded")
+                self.holdMapTab = false
+                return
+            }
+            let started = Date()
+            self.aim(at: framed.point)
+            self.focusCamera(on: framed.point, zoom: framed.zoom)
+            TapTrace.mark("camera \(Int(Date().timeIntervalSince(started) * 1000))ms z=\(framed.zoom)")
+            await Task.yield()
+            TapTrace.mark("released tab=\(self.selectedTab.rawValue)")
+            self.holdMapTab = false
+        }
+    }
+
+    private func cityFrame(for point: LonLat, zoom: Double) -> (point: LonLat, zoom: Double) {
+        let chapels = packPlaces.compactMap { place -> LonLat? in
+            guard Faith.kind(for: place) == .sspx else { return nil }
+            return place.coordinate
+        }
+        return CityFrame.focus(center: point, chapels: chapels, insidePack: PackCoverage.contains(point), zoom: zoom)
     }
 
     func acceptDisclaimer() {
@@ -227,6 +269,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func refreshSummary() {
+        let started = Date()
         summary = AtlasQuery.nearby(
             lat: summaryPoint.lat,
             lon: summaryPoint.lon,
@@ -235,17 +278,32 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             lands: lands,
             filter: filter
         )
+        let elapsed = Int(Date().timeIntervalSince(started) * 1000)
+        if elapsed >= 15 {
+            TapTrace.mark("summary \(elapsed)ms")
+        }
     }
 
     func search(_ query: String) -> [SearchHit] {
-        AtlasQuery.search(query, places: places, trails: trails, origin: summaryPoint, lands: lands, filter: filter)
+        let started = Date()
+        let hits = AtlasQuery.search(query, places: places, trails: trails, origin: summaryPoint, lands: lands, filter: filter)
+        let elapsed = Int(Date().timeIntervalSince(started) * 1000)
+        if elapsed >= 15 {
+            TapTrace.mark("search \(elapsed)ms \(hits.count) hits")
+        }
+        return hits
     }
 
     /// Recenters on the nearest hit so a chip plus a common word does not fit the whole region.
     func revealSearch(_ query: String) {
+        guard selectedTab == .search else { return }
         scheduleGeocode(query)
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            searchReveal = false
+            return
+        }
+        if AtlasQuery.isExactTown(trimmed) {
             searchReveal = false
             return
         }
@@ -440,9 +498,11 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         remotePlaces = PlaceMerge.combine(pack: remotePlaces, remote: fetched)
         remotePlaceCount = remotePlaces.count
         places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
+        reloadDrawnPlaces()
     }
 
     private var geocodeQuery = ""
+    private var searchEpoch = 0
 
     private func scheduleGeocode(_ query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -459,16 +519,17 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         geocodeTask?.cancel()
         geocodeQuery = trimmed
         geocodeLoading = true
+        let epoch = searchEpoch
         geocodeTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
-            guard !Task.isCancelled, let self else { return }
-            var hits = await CitySearch.search(trimmed)
+            guard !Task.isCancelled, let self, self.searchEpoch == epoch else { return }
+            var hits = await CitySearch.search(trimmed, near: self.summaryPoint)
             if hits.isEmpty {
                 try? await Task.sleep(nanoseconds: 800_000_000)
-                guard !Task.isCancelled else { return }
-                hits = await CitySearch.search(trimmed)
+                guard !Task.isCancelled, self.searchEpoch == epoch else { return }
+                hits = await CitySearch.search(trimmed, near: self.summaryPoint)
             }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.searchEpoch == epoch else { return }
             self.geocodeHits = hits
             self.geocodeLoading = false
         }
@@ -591,6 +652,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     private func loadPack() {
+        let started = Date()
         do {
             let snapshot = try PackDatabase.load()
             meta = snapshot.meta
@@ -600,8 +662,29 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             trails = snapshot.trails
             lands = snapshot.lands
             links = snapshot.links
+            TapTrace.mark("pack \(places.count) places \(lands.count) lands \(Int(Date().timeIntervalSince(started) * 1000))ms")
         } catch {
             loadError = String(describing: error)
+            TapTrace.mark("pack failed \(Int(Date().timeIntervalSince(started) * 1000))ms")
+        }
+    }
+
+    /// Filters and dedupes pins away from the tap that opens the map.
+    private func reloadDrawnPlaces() {
+        drawnEpoch += 1
+        let epoch = drawnEpoch
+        let source = places
+        let current = filter
+        Task.detached(priority: .userInitiated) {
+            let started = Date()
+            let filtered = source.filter { MapFilter.includeOnMap($0, filter: current) }
+            let drawn = AtlasQuery.mapPlaces(filtered)
+            let elapsed = Int(Date().timeIntervalSince(started) * 1000)
+            await MainActor.run {
+                guard epoch == self.drawnEpoch else { return }
+                self.drawnPlaces = drawn
+                TapTrace.mark("drawnPlaces \(drawn.count) in \(elapsed)ms")
+            }
         }
     }
 }

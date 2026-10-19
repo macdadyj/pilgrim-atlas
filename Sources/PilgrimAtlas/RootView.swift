@@ -32,11 +32,16 @@ struct RootView: View {
 
     private var tabs: some View {
         @Bindable var model = model
-        return TabView(selection: $model.selectedTab) {
+        return TabView(selection: tabSelection) {
             MapScreen()
-                .tabItem { Label("Map", systemImage: "map") }
+                .accessibilityElement(children: .contain)
+                .tabItem {
+                    // On the tab content, this identifier is copied onto every child
+                    // and replaces search-pill, visible-sspx, and the List button.
+                    Label("Map", systemImage: "map")
+                        .accessibilityIdentifier("tab-map")
+                }
                 .tag(AppTab.map)
-                .accessibilityIdentifier("tab-map")
 
             SearchSheet()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
@@ -61,6 +66,21 @@ struct RootView: View {
         } message: {
             Text("OpenFreeMap will see this phone's IP address and the map tiles it requests. That is an approximate location. Pilgrim Atlas still does not upload your GPS position, and it does not run a server.")
         }
+    }
+
+    /// A search-list rebuild can write the old tab back in the same turn as a city tap.
+    /// While a city is opening, that write is ignored. A later tap on Search still works.
+    private var tabSelection: Binding<AppTab> {
+        Binding(
+            get: { model.selectedTab },
+            set: { newValue in
+                if model.holdMapTab, newValue != .map {
+                    TapTrace.mark("ignored tab \(newValue.rawValue)")
+                    return
+                }
+                model.selectedTab = newValue
+            }
+        )
     }
 
     private var resolvedScheme: ColorScheme? {

@@ -62,7 +62,7 @@ private struct MapChrome: View {
             ZStack(alignment: .top) {
                 AtlasMapView(
                     topInset: model.filter.anyChip ? 140 : 88,
-                    places: AtlasQuery.mapPlaces(model.places.filter { MapFilter.includeOnMap($0, filter: model.filter) }),
+                    places: model.drawnPlaces,
                     bottomObstruction: obstruction,
                     bottomSafeArea: geo.safeAreaInsets.bottom
                 ) { coordinate, hits in
@@ -88,6 +88,7 @@ private struct MapChrome: View {
                             .background(.regularMaterial, in: Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Search")
                         .accessibilityIdentifier("search-pill")
 
@@ -160,6 +161,7 @@ private struct MapChrome: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("List")
                         .accessibilityIdentifier("nearby-button")
                     }
@@ -177,10 +179,11 @@ private struct MapChrome: View {
                         .opacity(0.02)
                     Text("sspx-readout")
                         .font(.caption2)
-                        .accessibilityIdentifier("visible-sspx")
-                        .accessibilityLabel(faithNearby(.sspx))
                         .frame(width: 1, height: 1)
                         .opacity(0.02)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityIdentifier("visible-sspx")
+                        .accessibilityLabel(faithNearby(.sspx))
                     Text("orthodox-readout")
                         .font(.caption2)
                         .accessibilityIdentifier("visible-orthodox")
@@ -355,7 +358,7 @@ private struct MapChrome: View {
             MapFilter.pinRole(for: place) == role
                 && MapFilter.includeInLists(place, filter: model.filter)
                 && Geometry.haversineMeters(place.coordinate, model.mapCenter) < 12_000
-        }.map(\.name).sorted()
+        }.map { PlaceText.faithReadout($0) }.sorted()
         return names.isEmpty ? "none" : names.joined(separator: "\n")
     }
 
@@ -485,6 +488,7 @@ struct NearbyPanel: View {
                 .stroke(Theme.hairline, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.12), radius: 16, y: -2)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nearby-card")
     }
 

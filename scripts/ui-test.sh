@@ -108,6 +108,7 @@ if [[ "${status}" -eq 0 && -n "${SECOND}" ]]; then
     -only-testing:PilgrimAtlasUITests/AtlasUITests/testFilterSwitchesStayWhereTheyAreSet \
     -only-testing:PilgrimAtlasUITests/AtlasUITests/testAlbuquerqueSSPXChapelAndOrthodox \
     -only-testing:PilgrimAtlasUITests/AtlasUITests/testNearbyListNextMassAndShare \
+    -only-testing:PilgrimAtlasUITests/AtlasUITests/testCitySearchAndOfflineFallback \
     CODE_SIGNING_ALLOWED=NO \
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY="-" \
