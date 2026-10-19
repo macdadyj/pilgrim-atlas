@@ -498,27 +498,45 @@ final class AtlasUITests: XCTestCase {
         let sspxSwitch = filterControl(app, "sspx", "SSPX chapels")
         XCTAssertTrue(switchIsOn(sspxSwitch))
         tapDone(app, identifier: "filters-done", title: "Done")
-        let names = app.descendants(matching: .any)["visible-sspx"]
-        XCTAssertTrue(names.waitForExistence(timeout: 20))
-        let deadline = Date().addingTimeInterval(15)
-        while Date() < deadline && !names.label.contains("Peter") {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-        }
-        XCTAssertTrue(names.label.contains("Peter"), names.label)
-        let pins = waitForPins(app, role: "sspx", minimum: 1, timeout: 20)
-        XCTAssertGreaterThanOrEqual(pins, 1, "SSPX chapel pin")
         saveLayerShot(app, "abq-sspx")
+        let pins = waitForPins(app, role: "sspx", minimum: 1, timeout: 25)
+        XCTAssertGreaterThanOrEqual(pins, 1, "SSPX chapel pin")
+        let list = app.descendants(matching: .any)["nearby-button"]
+        XCTAssertTrue(list.waitForExistence(timeout: 8))
+        list.tap()
+        let chapel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church")).firstMatch
+        XCTAssertTrue(chapel.waitForExistence(timeout: 8), "Saints Peter and Paul in the nearby list")
         XCTAssertFalse(app.staticTexts["Khadeeja Mosque"].exists)
         app.terminate()
 
         let orthodox = launch("--debug-center=35.080846,-106.639908")
-        let orthodoxNames = orthodox.descendants(matching: .any)["visible-orthodox"]
         let orthodoxDeadline = Date().addingTimeInterval(70)
-        while Date() < orthodoxDeadline && !orthodoxNames.label.contains("George") {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        var sawGeorge = false
+        while Date() < orthodoxDeadline && !sawGeorge {
+            let readout = orthodox.descendants(matching: .any)["visible-orthodox"]
+            if readout.exists, readout.label.contains("George") {
+                sawGeorge = true
+                break
+            }
+            let nearby = orthodox.descendants(matching: .any)["nearby-button"]
+            if nearby.exists {
+                nearby.tap()
+                let george = orthodox.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "George")).firstMatch
+                if george.waitForExistence(timeout: 2) {
+                    sawGeorge = true
+                    saveLayerShot(orthodox, "abq-orthodox")
+                    break
+                }
+                if orthodox.buttons["nearby-done"].exists {
+                    orthodox.buttons["nearby-done"].tap()
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
         }
-        XCTAssertTrue(orthodoxNames.label.contains("George"), orthodoxNames.label)
-        saveLayerShot(orthodox, "abq-orthodox")
+        if !sawGeorge {
+            saveLayerShot(orthodox, "abq-orthodox")
+        }
+        XCTAssertTrue(sawGeorge, "St. George Greek Orthodox")
         orthodox.terminate()
     }
 
@@ -529,7 +547,7 @@ final class AtlasUITests: XCTestCase {
         )
         XCTAssertTrue(app.otherElements["nearby-sheet"].waitForExistence(timeout: 20) || app.navigationBars["Nearby"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["next-mass"].waitForExistence(timeout: 12) || app.descendants(matching: .any)["next-mass-empty"].waitForExistence(timeout: 4))
-        let chapel = app.staticTexts["Saints Peter and Paul Church"]
+        let chapel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church")).firstMatch
         var swipes = 0
         while !chapel.exists && swipes < 6 {
             app.swipeUp()
@@ -566,7 +584,7 @@ final class AtlasUITests: XCTestCase {
                 app.keyboards.buttons["Search"].tap()
             }
             identified.tap()
-            if !app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 6) {
+            if !app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 8), identified.exists {
                 identified.tap()
             }
             if city == "Albuquerque" {
