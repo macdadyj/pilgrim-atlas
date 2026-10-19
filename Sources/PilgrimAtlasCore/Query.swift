@@ -381,9 +381,8 @@ package enum AtlasQuery {
         for town in PlaceText.towns {
             guard let score = matchScore(needle: needle, queryTokens: queryTokens, name: town.name) else { continue }
             let meters = Int(Geometry.haversineMeters(origin, town.coordinate).rounded())
-            let exactTown = searchText(town.name) == needle
             scored.append((
-                score - (exactTown ? 0 : 1050) - Double(meters) / 1000,
+                score - 1050 - Double(meters) / 1000,
                 SearchHit(
                     id: "town-\(fold(town.name))",
                     kind: .town,
@@ -430,6 +429,12 @@ package enum AtlasQuery {
             if lhs.0 != rhs.0 { return lhs.0 > rhs.0 }
             return lhs.1.id < rhs.1.id
         }.map(\.1)
+        if isExactTown(query),
+           ordered.first?.kind == .land,
+           let townIndex = ordered.firstIndex(where: { $0.kind == .town && searchText($0.name) == needle }) {
+            let town = ordered.remove(at: townIndex)
+            ordered.insert(town, at: 0)
+        }
         let groupUnnamed = queryTokens.contains("unnamed")
             || (filter.churches && (queryTokens.contains("worship") || queryTokens.contains("church")))
         if groupUnnamed, unnamedCount > 0 {
