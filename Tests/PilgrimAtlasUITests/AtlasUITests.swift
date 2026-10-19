@@ -588,8 +588,16 @@ final class AtlasUITests: XCTestCase {
             while Date() < deadline && !hit.exists {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
-            XCTAssertTrue(hit.exists, "\(city) search row")
-            hit.tap()
+            let row: XCUIElement
+            if city == "Albuquerque" {
+                let town = app.buttons["search-hit-town-albuquerque"]
+                XCTAssertTrue(town.waitForExistence(timeout: 8), "Albuquerque town row")
+                row = town
+            } else {
+                XCTAssertTrue(hit.exists, "\(city) search row")
+                row = hit
+            }
+            row.tap()
             if city == "Albuquerque" {
                 XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 20), "Albuquerque opened the map")
                 let names = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "visible-sspx")).firstMatch
