@@ -59,8 +59,17 @@ struct NearbyListSheet: View {
                 }
                 Section {
                     if rows.isEmpty {
-                        Text("Nothing in this filter is loaded here yet.")
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Nothing nearby in this filter")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text("Turn Catholic, Orthodox, or SSPX back on, or move the map. Non-Christian sites stay off.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("nearby-empty")
                     }
                     ForEach(rows, id: \.place.id) { row in
                         Button {

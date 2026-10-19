@@ -100,7 +100,7 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         case .chapel: return "cross"
         case .worship: return "building.columns"
         case .orthodox: return "building.columns"
-        case .sspx: return "cross.fill"
+        case .sspx: return "cross.circle.fill"
         case .shrine: return "diamond.fill"
         case .viewpoint: return "eye.fill"
         case .museum: return "building.columns.fill"

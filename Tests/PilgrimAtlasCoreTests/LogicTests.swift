@@ -359,6 +359,15 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(PlaceText.rowSymbol(for: statue), "figure.stand")
         XCTAssertEqual(PlaceText.kindLabel(for: basilica), "Catholic landmark")
         XCTAssertEqual(PlaceText.rowSymbol(for: basilica), "cross.fill")
+        let sspx = samplePlace(
+            name: "Saints Peter and Paul Church",
+            category: "worship",
+            catholic: false,
+            lat: 35.112398,
+            lon: -106.705256,
+            denomination: "sspx"
+        )
+        XCTAssertEqual(PlaceText.rowSymbol(for: sspx), "cross.circle.fill")
         XCTAssertEqual(Set(chimayo.map(\.id)).count, chimayo.count)
         let typed = AtlasQuery.search("Cathedral Basilica of St. Francis", places: places, trails: [])
         XCTAssertEqual(typed.first?.placeId, 1295)
