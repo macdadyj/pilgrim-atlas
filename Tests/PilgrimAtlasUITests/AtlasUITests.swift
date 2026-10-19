@@ -215,9 +215,11 @@ final class AtlasUITests: XCTestCase {
         santaFe.terminate()
 
         let denver = launch("--debug-center=39.7392,-104.9903")
+        let outside = denver.staticTexts["This view is outside the offline pack."]
+        let loading = denver.staticTexts["Loading this area"]
         XCTAssertTrue(
-            denver.otherElements["outside-coverage-banner"].waitForExistence(timeout: 12)
-                || denver.otherElements["area-loading"].waitForExistence(timeout: 8)
+            outside.waitForExistence(timeout: 12) || loading.waitForExistence(timeout: 8),
+            "Denver did not show the outside-pack or loading line"
         )
         let denverPins = waitForPins(denver, role: "catholic", minimum: 1, timeout: 50)
         saveLayerShot(denver, "denver-viewport-pins")
