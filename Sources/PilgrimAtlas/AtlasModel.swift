@@ -20,6 +20,13 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private var packPlaces: [PlaceRecord] = []
     private var remotePlaces: [PlaceRecord] = []
     var remotePlaceCount = 0
+    /// True while a viewport query is in flight.
+    var areaLoading = false
+    /// The last viewport query failed after a retry and the fallback server.
+    var areaFailed = false
+    /// A viewport query returned, even when it had no places.
+    var areaAnswered = false
+    private var areaEpoch = 0
     var geocodeHits: [SearchHit] = []
     var geocodeLoading = false
     private var churchTask: Task<Void, Never>?
@@ -567,24 +574,39 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             north: northEast.lat,
             east: northEast.lon,
             zoom: zoom
-        ) else { return }
+        ) else {
+            areaLoading = false
+            return
+        }
         churchTask?.cancel()
+        areaEpoch += 1
+        let epoch = areaEpoch
+        areaLoading = true
+        areaFailed = false
         let south = southWest.lat
         let west = southWest.lon
         let north = northEast.lat
         let east = northEast.lon
         churchTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 700_000_000)
-            guard !Task.isCancelled, let self else { return }
-            let fetched = await OverpassLoader.shared.places(
+            guard !Task.isCancelled, let self, epoch == self.areaEpoch else { return }
+            let outcome = await OverpassLoader.shared.places(
                 south: south,
                 west: west,
                 north: north,
                 east: east,
                 zoom: zoom
             )
-            guard !Task.isCancelled else { return }
-            self.absorbRemote(fetched)
+            guard !Task.isCancelled, epoch == self.areaEpoch else { return }
+            self.areaLoading = false
+            switch outcome {
+            case .unavailable:
+                self.areaFailed = true
+            case .places(let fetched):
+                self.areaFailed = false
+                self.areaAnswered = true
+                self.absorbRemote(fetched)
+            }
         }
     }
 

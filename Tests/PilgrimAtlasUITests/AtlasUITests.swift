@@ -207,6 +207,23 @@ final class AtlasUITests: XCTestCase {
         )
     }
 
+    func testSantaFeAndDenverLoadPlaces() {
+        let santaFe = launch("--debug-center=35.6870,-105.9378")
+        let santaFePins = waitForPins(santaFe, role: "catholic", minimum: 1, timeout: 25)
+        saveLayerShot(santaFe, "santa-fe-pins")
+        XCTAssertGreaterThanOrEqual(santaFePins, 1, "Santa Fe showed \(santaFePins) Catholic pins")
+        santaFe.terminate()
+
+        let denver = launch("--debug-center=39.7392,-104.9903")
+        XCTAssertTrue(
+            denver.otherElements["outside-coverage-banner"].waitForExistence(timeout: 12)
+                || denver.otherElements["area-loading"].waitForExistence(timeout: 8)
+        )
+        let denverPins = waitForPins(denver, role: "catholic", minimum: 1, timeout: 50)
+        saveLayerShot(denver, "denver-viewport-pins")
+        XCTAssertGreaterThanOrEqual(denverPins, 1, "Denver showed \(denverPins) Catholic pins")
+    }
+
     func testDenverSearchShowsCatholicPins() {
         let app = launch("--debug-search=Denver", "--debug-tab=search", "--debug-geocode=Denver@39.7392,-104.9903")
         let hit = app.buttons["search-hit-geocode-0"]

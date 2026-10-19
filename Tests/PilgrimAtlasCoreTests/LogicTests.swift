@@ -159,7 +159,26 @@ final class LogicTests: XCTestCase {
         {"claims":{"P856":[{"mainsnak":{"datavalue":{"value":"n/a"}}}]}}
         """.data(using: .utf8)!
         XCTAssertNil(SiteLink.wikidataWebsite(from: broken))
-        XCTAssertTrue(OverpassQuery.statement(south: 39.7, west: -105, north: 39.8, east: -104.9).contains("religion\"=\"christian\""))
+        let statement = OverpassQuery.statement(south: 39.7, west: -105, north: 39.8, east: -104.9)
+        XCTAssertTrue(statement.contains("religion\"=\"christian\""))
+        XCTAssertTrue(statement.contains("highway\"=\"trailhead\""))
+        XCTAssertTrue(statement.contains("route\"=\"hiking\""))
+        XCTAssertTrue(statement.contains("monument"))
+        let extras = """
+        {"elements":[
+          {"type":"node","id":201,"lat":39.74,"lon":-104.99,"tags":{"name":"Civil War Monument","historic":"monument"}},
+          {"type":"node","id":202,"lat":39.75,"lon":-104.98,"tags":{"name":"Mount Falcon","highway":"trailhead"}},
+          {"type":"way","id":203,"center":{"lat":39.76,"lon":-104.97},"tags":{"name":"Bear Creek Trail","route":"hiking"}}
+        ]}
+        """.data(using: .utf8)!
+        let extraPlaces = OverpassQuery.places(from: extras, fetchedOn: "2026-10-19")
+        let monument = try XCTUnwrap(extraPlaces.first { $0.name == "Civil War Monument" })
+        XCTAssertEqual(monument.category, "landmark")
+        XCTAssertEqual(MapFilter.pinRole(for: monument), .landmark)
+        let trailhead = try XCTUnwrap(extraPlaces.first { $0.name == "Mount Falcon" })
+        XCTAssertEqual(trailhead.category, "trailhead")
+        XCTAssertEqual(MapFilter.pinRole(for: trailhead), .trailhead)
+        XCTAssertEqual(extraPlaces.first { $0.name == "Bear Creek Trail" }?.category, "trailhead")
         let body = try XCTUnwrap(OverpassQuery.formBody(for: "nwr[\"religion\"=\"christian\"]"))
         let encoded = try XCTUnwrap(String(data: body, encoding: .utf8))
         XCTAssertTrue(encoded.hasPrefix("data="))

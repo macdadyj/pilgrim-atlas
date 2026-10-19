@@ -4,6 +4,11 @@ import Foundation
 import PilgrimAtlasCore
 #endif
 
+enum OverpassOutcome: Sendable {
+    case places([PlaceRecord])
+    case unavailable
+}
+
 /// One Overpass query at a time, with a short wait between calls and a memory cache.
 actor OverpassLoader {
     static let shared = OverpassLoader()
@@ -15,26 +20,34 @@ actor OverpassLoader {
         URL(string: "https://overpass-api.de/api/interpreter"),
     ].compactMap { $0 }
 
-    func places(south: Double, west: Double, north: Double, east: Double, zoom: Double) async -> [PlaceRecord] {
-        guard OverpassQuery.allows(south: south, west: west, north: north, east: east, zoom: zoom) else { return [] }
+    func places(south: Double, west: Double, north: Double, east: Double, zoom: Double) async -> OverpassOutcome {
+        guard OverpassQuery.allows(south: south, west: west, north: north, east: east, zoom: zoom) else {
+            return .places([])
+        }
         let key = OverpassQuery.cacheKey(south: south, west: west, north: north, east: east)
-        if let cached = cache[key] { return cached }
+        if let cached = cache[key] { return .places(cached) }
         let wait = minimumGap - Date().timeIntervalSince(lastRequest)
         if wait > 0 {
             try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
         }
-        guard !Task.isCancelled else { return [] }
+        guard !Task.isCancelled else { return .unavailable }
         lastRequest = Date()
         let statement = OverpassQuery.statement(south: south, west: west, north: north, east: east)
         let day = isoDay(Date())
         for endpoint in endpoints {
-            if let places = await fetch(statement, from: endpoint, fetchedOn: day) {
-                cache[key] = places
-                if cache.count > 40, let oldest = cache.keys.first { cache.removeValue(forKey: oldest) }
-                return places
+            for attempt in 0..<2 {
+                if let places = await fetch(statement, from: endpoint, fetchedOn: day) {
+                    cache[key] = places
+                    if cache.count > 40, let oldest = cache.keys.first { cache.removeValue(forKey: oldest) }
+                    return .places(places)
+                }
+                if attempt == 0 {
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    guard !Task.isCancelled else { return .unavailable }
+                }
             }
         }
-        return []
+        return .unavailable
     }
 
     private func fetch(_ statement: String, from endpoint: URL, fetchedOn: String) async -> [PlaceRecord]? {
