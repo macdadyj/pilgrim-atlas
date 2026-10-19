@@ -40,7 +40,7 @@ retry_launch_failures() {
     return 0
   fi
   if ! launch_timeout_only "${log}"; then
-    echo "Not retrying. The log has a failure other than the simulator launch timeout."
+    echo "Not retrying. The log has a failure other than a simulator launch or terminate error."
     return 0
   fi
   local names=()
@@ -49,12 +49,12 @@ retry_launch_failures() {
     [[ -n "${name}" ]] && names+=("${name}")
   done < <(failed_launch_tests "${log}")
   if [[ "${#names[@]}" -eq 0 ]]; then
-    echo "Not retrying. The launch timeout did not name a test."
+    echo "Not retrying. The simulator failure did not name a test."
     return 0
   fi
   local only=()
   for name in "${names[@]}"; do
-    echo "UI_TEST_RETRY launch failure: PilgrimAtlasUITests/AtlasUITests/${name}"
+    echo "UI_TEST_RETRY simulator launch or terminate failure: PilgrimAtlasUITests/AtlasUITests/${name}"
     only+=("-only-testing:PilgrimAtlasUITests/AtlasUITests/${name}")
   done
   preboot_simulator "${udid}"

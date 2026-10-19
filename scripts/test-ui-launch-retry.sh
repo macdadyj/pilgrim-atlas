@@ -35,4 +35,21 @@ if launch_timeout_only "${TMP}/both.log"; then
   exit 1
 fi
 
+cat >"${TMP}/terminate.log" <<'EOF'
+/Users/runner/Tests/PilgrimAtlasUITests/AtlasUITests.swift:728: error: -[PilgrimAtlasUITests.AtlasUITests testFilterSwitchesStayWhereTheyAreSet] : Failed to terminate com.lojo.PilgrimAtlas:63899: Failed to terminate com.lojo.PilgrimAtlas:0
+** TEST FAILED **
+EOF
+launch_timeout_only "${TMP}/terminate.log"
+names="$(failed_launch_tests "${TMP}/terminate.log")"
+[[ "${names}" == "testFilterSwitchesStayWhereTheyAreSet" ]]
+
+cat >"${TMP}/terminate-assert.log" <<'EOF'
+/Users/runner/Tests/PilgrimAtlasUITests/AtlasUITests.swift:207: error: -[PilgrimAtlasUITests.AtlasUITests testChurchPinsAndPerpetualHelpLiturgy] : XCTAssertTrue failed
+/Users/runner/Tests/PilgrimAtlasUITests/AtlasUITests.swift:728: error: -[PilgrimAtlasUITests.AtlasUITests testFilterSwitchesStayWhereTheyAreSet] : Failed to terminate com.lojo.PilgrimAtlas:63899: Failed to terminate com.lojo.PilgrimAtlas:0
+EOF
+if launch_timeout_only "${TMP}/terminate-assert.log"; then
+  echo "a terminate failure mixed with an assertion was treated as retryable" >&2
+  exit 1
+fi
+
 echo "ui launch retry checks passed"
