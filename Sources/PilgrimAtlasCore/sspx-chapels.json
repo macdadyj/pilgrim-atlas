@@ -1,0 +1,1287 @@
+{
+  "source": "SSPX US District chapel list",
+  "sourceURL": "https://sspx.org/en/list-sspx-chapels",
+  "read": "2026-10-18",
+  "chapels": [
+    {
+      "id": 8331563,
+      "name": "North American Martyrs Chapel",
+      "address": "100 Boulevard, Hudson Falls, NY 12839",
+      "phone": "518-747-4101",
+      "website": "https://fsspx.today/chapel/ny-glens-falls/info/",
+      "lat": 43.314683,
+      "lon": -73.592137,
+      "note": ""
+    },
+    {
+      "id": 8693669,
+      "name": "Saint Lawrence Chapel",
+      "address": "1001 Foster Street Extension, South Windsor, CT 06074",
+      "phone": "860-644-5799",
+      "website": "https://www.sspxridgefield.com/missions#/st-lawrence",
+      "lat": 41.848574,
+      "lon": -72.533073,
+      "note": ""
+    },
+    {
+      "id": 8283659,
+      "name": "Saint Anthony of Padua Chapel",
+      "address": "103 Gould Avenue, North Caldwell, NJ 07006",
+      "phone": "973-228-1230",
+      "website": "https://www.sspxridgefield.com/missions#/st-anthony-of-padua",
+      "lat": 40.859413,
+      "lon": -74.258809,
+      "note": ""
+    },
+    {
+      "id": 8603837,
+      "name": "Saint Cecilia's Church",
+      "address": "10540 Collierville Rd, Collierville, TN 38017",
+      "phone": "901-310-5179",
+      "website": "https://fsspx.today/chapel/tn-memphis/",
+      "lat": 35.027481,
+      "lon": -89.711886,
+      "note": ""
+    },
+    {
+      "id": 8017907,
+      "name": "Saint Anthony of Padua Church",
+      "address": "108 Horseshoe Bend Beach Road, Mount Holly, NC 28120",
+      "phone": "704-654-5174",
+      "website": "https://fsspx.today/chapel/nc-charlotte/",
+      "lat": 35.354796,
+      "lon": -80.976411,
+      "note": ""
+    },
+    {
+      "id": 8658704,
+      "name": "Saint Joseph's and Immaculate Heart Church",
+      "address": "1090 W Laurel Street, Colton, CA 92324",
+      "phone": "909-824-0323",
+      "website": "https://fsspx.today/chapel/ca-colton/",
+      "lat": 34.08136,
+      "lon": -117.34279,
+      "note": ""
+    },
+    {
+      "id": 8649356,
+      "name": "Our Lady of the Angels Priory",
+      "address": "11 West Sycamore, Arcadia, CA 91006",
+      "phone": "626-355-0845",
+      "website": "https://fsspx.today/chapel/ca-arcadia/info/",
+      "lat": 34.152734,
+      "lon": -118.032007,
+      "note": ""
+    },
+    {
+      "id": 8172918,
+      "name": "Our Lady of the Angels Church",
+      "address": "1100 W. Duarte Road, Arcadia, CA 91007",
+      "phone": "626-447-1752",
+      "website": "https://fsspx.today/chapel/ca-arcadia/info/",
+      "lat": 34.124601,
+      "lon": -118.064551,
+      "note": ""
+    },
+    {
+      "id": 8458399,
+      "name": "Infant of Prague Mission",
+      "address": "112 S. Van Buren Street, Bay City, MI 48708",
+      "phone": "989-892-5936",
+      "website": "https://stjosephs-priory.com/en/mission-chapels-32416",
+      "lat": 43.589281,
+      "lon": -83.882621,
+      "note": ""
+    },
+    {
+      "id": 8233582,
+      "name": "Saint Mary's Assumption Church & Priory",
+      "address": "1126 Dolman Street, Saint Louis, MO 63104",
+      "phone": "314-436-4544",
+      "website": "http://www.smastl.org/index.cfm",
+      "lat": 38.618786,
+      "lon": -90.209219,
+      "note": ""
+    },
+    {
+      "id": 8504824,
+      "name": "Saint Margaret Mary Church",
+      "address": "11352 Brown Street, Allendale, MI 49401",
+      "phone": "616-895-5890",
+      "website": "https://stjosephs-priory.com/en/mission-chapels-32416",
+      "lat": 42.974714,
+      "lon": -85.955609,
+      "note": ""
+    },
+    {
+      "id": 8195262,
+      "name": "Saint Mary Magdalene Chapel",
+      "address": "1200 N. Clark Street, Mexico, MO 65265",
+      "phone": "573-253-5080",
+      "website": "https://fsspx.today/chapel/mo-mexico/",
+      "lat": 39.18137,
+      "lon": -91.884357,
+      "note": ""
+    },
+    {
+      "id": 8730240,
+      "name": "Mission Santa Maria",
+      "address": "12028 E. Turquoise Circle, Dewey, AZ 86327",
+      "phone": "928-772-5081",
+      "website": "https://ourladyofsorrows-priory.com/en/mission-chapels-31329",
+      "lat": 34.550523,
+      "lon": -112.255109,
+      "note": ""
+    },
+    {
+      "id": 8310778,
+      "name": "Our Lady of the Assumption Priory",
+      "address": "12120 Mc Coy's Fork Road, Walton, KY 41094",
+      "phone": "859-919-0271",
+      "website": "https://www.assumptionchurch.net/",
+      "lat": 38.872648,
+      "lon": -84.636405,
+      "note": ""
+    },
+    {
+      "id": 8107920,
+      "name": "Saint Therese Chapel",
+      "address": "12371 Keno Worden Road, Keno, OR 97627",
+      "phone": "541-891-4907",
+      "website": "https://www.sspxthomasbecket.com/",
+      "lat": 42.113464,
+      "lon": -121.923558,
+      "note": ""
+    },
+    {
+      "id": 8469590,
+      "name": "Saint Benedict's Church",
+      "address": "1240 Matha Avenue, Louisville, KY 40215",
+      "phone": "502-368-1975",
+      "website": "https://fsspx.today/chapel/ky-louisville/",
+      "lat": 38.182584,
+      "lon": -85.781737,
+      "note": ""
+    },
+    {
+      "id": 8055655,
+      "name": "Corpus Christi Chapel",
+      "address": "130 Old Liberty Pike, Franklin, TN 37064",
+      "phone": "615-791-8776",
+      "website": "https://corpuschristichapel.com/",
+      "lat": 35.929773,
+      "lon": -86.863145,
+      "note": ""
+    },
+    {
+      "id": 8224846,
+      "name": "Our Lady of Fatima Church",
+      "address": "13400 NE 28th St, Vancouver, WA 98682",
+      "phone": "360-254-7994",
+      "website": "https://www.sspxolf.org/visit",
+      "lat": 45.642983,
+      "lon": -122.535021,
+      "note": ""
+    },
+    {
+      "id": 8377657,
+      "name": "Jesus and Mary Church",
+      "address": "1401 W. Yandell Drive, El Paso, TX 79902",
+      "phone": "915-544-7385",
+      "website": "https://fsspx.today/chapel/tx-el-paso/",
+      "lat": 31.762522,
+      "lon": -106.503594,
+      "note": ""
+    },
+    {
+      "id": 8026063,
+      "name": "Saint Jude's Church",
+      "address": "1402 E. 10th Street, Eddystone, PA 19022",
+      "phone": "610-579-0571",
+      "website": "https://fsspx.today/chapel/pa-eddystone/info/",
+      "lat": 39.86071,
+      "lon": -75.343176,
+      "note": ""
+    },
+    {
+      "id": 8794874,
+      "name": "Convent of Christ the King",
+      "address": "1409 E. Meyer Boulevard, Kansas City, MO 64131",
+      "phone": "816-333-1463",
+      "website": "https://traditionalosf.org/",
+      "lat": 39.011992,
+      "lon": -94.570841,
+      "note": ""
+    },
+    {
+      "id": 8685965,
+      "name": "Our Lady of Good Success Church",
+      "address": "1460 5th Ave E, Dickinson, ND 58601",
+      "phone": "701-483-3510",
+      "website": "https://www.olgsdickinson.org/",
+      "lat": 46.898998,
+      "lon": -102.77798,
+      "note": ""
+    },
+    {
+      "id": 8399623,
+      "name": "Queen of All Saints Chapel",
+      "address": "1505 W. Atlantic Street, Springfield, MO 65803",
+      "phone": "417-862-0994",
+      "website": "https://smac.edu/en/mission-chapels-31543",
+      "lat": 37.233616,
+      "lon": -93.310186,
+      "note": ""
+    },
+    {
+      "id": 8144004,
+      "name": "Saint Thomas More Chapel",
+      "address": "1565 S. White Road, San Jose, CA 95127",
+      "phone": "408-258-4654",
+      "website": "https://fsspx.today/chapel/ca-san-jose/",
+      "lat": 37.348798,
+      "lon": -121.812539,
+      "note": ""
+    },
+    {
+      "id": 8851216,
+      "name": "Our Lady of Victory Church",
+      "address": "1575 E. Windmill Lane, Las Vegas, NV 89123",
+      "phone": "702-361-5605",
+      "website": "https://fsspx.today/chapel/las-vegas/info/",
+      "lat": 36.042501,
+      "lon": -115.130748,
+      "note": ""
+    },
+    {
+      "id": 8799422,
+      "name": "Saint Peter Chanel Mission",
+      "address": "16-291 Maile St., Keaau, HI 96749",
+      "phone": "808-938-7355",
+      "website": "",
+      "lat": 19.549731,
+      "lon": -155.001007,
+      "note": ""
+    },
+    {
+      "id": 8283156,
+      "name": "Saint Therese Church",
+      "address": "1749 Spruce Avenue, Chico, CA 95926",
+      "phone": "916-486-4961",
+      "website": "https://fsspx.today/chapel/ca-chico/",
+      "lat": 39.746668,
+      "lon": -121.84595,
+      "note": ""
+    },
+    {
+      "id": 8521122,
+      "name": "Saint Philomena Mission",
+      "address": "1781 190th Street, Bremer, IA 50677",
+      "phone": "641-220-8550",
+      "website": "https://fsspx.today/chapel/ia-bremer/",
+      "lat": 42.773457,
+      "lon": -92.400109,
+      "note": ""
+    },
+    {
+      "id": 8515540,
+      "name": "Saint Michael's Chapel",
+      "address": "1782 Chapelle Rue, De Pere, WI 54115",
+      "phone": "920-336-8852",
+      "website": "https://olgsadepere.org/",
+      "lat": 44.397261,
+      "lon": -88.119152,
+      "note": ""
+    },
+    {
+      "id": 8398240,
+      "name": "Mary Immaculate Church",
+      "address": "1800 South Washington Ave., Wichita, KS 67211",
+      "phone": "316-680-9448",
+      "website": "https://smac.edu/en/mission-chapels-31543",
+      "lat": 37.66069,
+      "lon": -97.326286,
+      "note": ""
+    },
+    {
+      "id": 8811693,
+      "name": "Holy Redeemer Church",
+      "address": "1841 N. White Street, Youngsville, NC 27587",
+      "phone": "919-363-8055",
+      "website": "https://fsspx.today/chapel/nc-raleigh/",
+      "lat": 36.004053,
+      "lon": -78.481234,
+      "note": ""
+    },
+    {
+      "id": 8450478,
+      "name": "Saint John Vianney Chapel",
+      "address": "18910 Ellipse Loop, Long Prairie, MN 56347",
+      "phone": "320-732-4274",
+      "website": "https://fsspx.today/chapel/long-prairie/",
+      "lat": 45.903344,
+      "lon": -94.881788,
+      "note": ""
+    },
+    {
+      "id": 8415997,
+      "name": "Saint Aloysius Gonzaga Retreat House",
+      "address": "19101 Bear Creek Road, Los Gatos, CA 95033",
+      "phone": "408-354-7703",
+      "website": "https://fsspx.today/chapel/ca-los-gatos/",
+      "lat": 37.185739,
+      "lon": -122.002359,
+      "note": ""
+    },
+    {
+      "id": 8327848,
+      "name": "St. Michael the Archangel Chapel",
+      "address": "1950 Bartram Rd., Jacksonville, FL 32207",
+      "phone": "904-725-5470",
+      "website": "https://florida.sspx.org/en/saint-michael-archangel-church-33597",
+      "lat": 30.306964,
+      "lon": -81.602946,
+      "note": ""
+    },
+    {
+      "id": 8064192,
+      "name": "The Immaculata",
+      "address": "200 E. Mission Street, Saint Marys, KS 66536",
+      "phone": "785-437-2471",
+      "website": "https://www.smac.edu/",
+      "lat": 39.19222,
+      "lon": -96.062499,
+      "note": ""
+    },
+    {
+      "id": 8625683,
+      "name": "Saint Dominic Chapel",
+      "address": "20274 W. Riverview Drive, Post Falls, ID 83854",
+      "phone": "208-773-7598",
+      "website": "https://www.scholae-fanjeaux.org/etablissements/post-falls/",
+      "lat": 47.687857,
+      "lon": -117.018,
+      "note": ""
+    },
+    {
+      "id": 8412703,
+      "name": "Corpus Christi Church",
+      "address": "204 6th Avenue N., Edmonds, WA 98020",
+      "phone": "425-771-9208",
+      "website": "https://fsspx.today/chapel/wa-edmonds/info/",
+      "lat": 47.811419,
+      "lon": -122.374806,
+      "note": ""
+    },
+    {
+      "id": 8403428,
+      "name": "Our Lady of Good Success",
+      "address": "20418 Hwy 54, Louisiana, MO 63353",
+      "phone": "573-567-4125",
+      "website": "https://www.olgsacademy.org/mass-schedule",
+      "lat": 39.417874,
+      "lon": -91.091577,
+      "note": ""
+    },
+    {
+      "id": 8097255,
+      "name": "Christ the King Church",
+      "address": "209 Tackora Trail, Ridgefield, CT 06877",
+      "phone": "203-431-0201",
+      "website": "https://www.sspxridgefield.com/",
+      "lat": 41.316805,
+      "lon": -73.51743,
+      "note": ""
+    },
+    {
+      "id": 8765105,
+      "name": "Saint Michael's Church",
+      "address": "210 5th Avenue NW, Mandan, ND 58554",
+      "phone": "701-667-2863",
+      "website": "https://stisidores-priory.com/en/mission-chapels-33243",
+      "lat": 46.827174,
+      "lon": -100.897548,
+      "note": ""
+    },
+    {
+      "id": 8371444,
+      "name": "Old Saint Mary's Church",
+      "address": "215 East Mulberry St., Goldsboro, NC 27530",
+      "phone": "919-330-0693",
+      "website": "https://fsspx.today/chapel/nc-goldsboro/info/",
+      "lat": 35.383895,
+      "lon": -77.994597,
+      "note": ""
+    },
+    {
+      "id": 8278395,
+      "name": "Our Lady of Guadalupe",
+      "address": "221 W. Elm Street, New Plymouth, ID 83655",
+      "phone": "208-888-9631",
+      "website": "https://icc.id.sspx.org/en/mass-centers-31326",
+      "lat": 43.970206,
+      "lon": -116.821526,
+      "note": ""
+    },
+    {
+      "id": 8587308,
+      "name": "Our Lady of the Rosary Church",
+      "address": "231 McKinley Parkway, Buffalo, NY 14220",
+      "phone": "716-218-9881",
+      "website": "https://blessedvirginmary-priory.com/en/mission-chapels-33093",
+      "lat": 42.838385,
+      "lon": -78.815007,
+      "note": ""
+    },
+    {
+      "id": 8649843,
+      "name": "Sacred Heart Church",
+      "address": "2342 Valley Road, Mancelona, MI 49659",
+      "phone": "231-347-4954",
+      "website": "https://stjosephs-priory.com/en/mission-chapels-32416",
+      "lat": 44.909642,
+      "lon": -85.043979,
+      "note": ""
+    },
+    {
+      "id": 8516110,
+      "name": "Saint Joseph's Priory",
+      "address": "23511 Armada Center Road, Armada, MI 48005",
+      "phone": "586-784-8405",
+      "website": "https://stjosephs-priory.com/en",
+      "lat": 42.850393,
+      "lon": -82.88056,
+      "note": ""
+    },
+    {
+      "id": 8675914,
+      "name": "Saint Michael the Archangel Church",
+      "address": "24001 Aldine Westfield Road, Spring, TX 77373",
+      "phone": "346-336-2444",
+      "website": "https://stmichael-spring.com/",
+      "lat": 30.056679,
+      "lon": -95.394725,
+      "note": ""
+    },
+    {
+      "id": 8334254,
+      "name": "Saint Joseph's Church",
+      "address": "245 W Broadway Street, Greenwood, IN 46142",
+      "phone": "317-888-2030",
+      "website": "https://saintjosephgreenwood.com/",
+      "lat": 39.615493,
+      "lon": -86.109563,
+      "note": ""
+    },
+    {
+      "id": 8801951,
+      "name": "Our Lady of Lourdes",
+      "address": "25 Chapel Road, Bethlehem, WV 26003",
+      "phone": "330-644-3526",
+      "website": "",
+      "lat": 40.045672,
+      "lon": -80.691642,
+      "note": ""
+    },
+    {
+      "id": 8442213,
+      "name": "Saint Thomas Becket Church",
+      "address": "25269 E Bolton Road, Veneta, OR 97487",
+      "phone": "541-935-3531",
+      "website": "https://fsspx.today/chapel/or-veneta/info/",
+      "lat": 44.041646,
+      "lon": -123.345228,
+      "note": ""
+    },
+    {
+      "id": 8056273,
+      "name": "Our Lady of Grace Church",
+      "address": "2552 Kentucky Avenue, Kenner, LA 70062",
+      "phone": "504-466-2117",
+      "website": "https://dickinson.tx.sspx.org/en/mission-chapels-31450",
+      "lat": 30.001964,
+      "lon": -90.233923,
+      "note": ""
+    },
+    {
+      "id": 8545601,
+      "name": "Blessed Virgin Mary Church",
+      "address": "2656 Warners Road, Warners, NY 13164",
+      "phone": "315-320-4085",
+      "website": "https://fsspx.today/chapel/ny-warners/",
+      "lat": 43.084126,
+      "lon": -76.324445,
+      "note": ""
+    },
+    {
+      "id": 8439222,
+      "name": "Saint Michael's Church",
+      "address": "2730 Mall View Road, Bakersfield, CA 93306",
+      "phone": "661-888-4014",
+      "website": "https://fsspx.today/chapel/ca-bakersfield/",
+      "lat": 35.393862,
+      "lon": -118.965179,
+      "note": ""
+    },
+    {
+      "id": 8323498,
+      "name": "Saint Isidore's Priory",
+      "address": "277 South Watkins Road, Watkins, CO 80137",
+      "phone": "303-325-7558",
+      "website": "http://www.saintisidore.org/",
+      "lat": 39.718755,
+      "lon": -104.603352,
+      "note": ""
+    },
+    {
+      "id": 8882610,
+      "name": "Annunciation Chapel",
+      "address": "290 E. County Road 56, Fort Collins, CO 80524",
+      "phone": "970-484-4868",
+      "website": "https://fsspx.today/chapel/co-fort-collins/",
+      "lat": 40.654584,
+      "lon": -105.07223,
+      "note": ""
+    },
+    {
+      "id": 8119865,
+      "name": "Immaculate Heart of Mary Chapel",
+      "address": "2935 Chenoweth Road, Akron, OH 44312",
+      "phone": "330-644-3526",
+      "website": "",
+      "lat": 40.988573,
+      "lon": -81.488712,
+      "note": ""
+    },
+    {
+      "id": 8655724,
+      "name": "Saint Michael the Archangel Chapel",
+      "address": "3001 W. Golf Course Road, Midland, TX 79701",
+      "phone": "432-553-5841",
+      "website": "",
+      "lat": 32.00686,
+      "lon": -102.115228,
+      "note": ""
+    },
+    {
+      "id": 8477196,
+      "name": "Saint Peregrine Church",
+      "address": "3086 W Streetsboro Rd, Richfield, OH 44286",
+      "phone": "330-659-6242",
+      "website": "https://stperegrines.com/church/",
+      "lat": 41.244674,
+      "lon": -81.598225,
+      "note": ""
+    },
+    {
+      "id": 8459899,
+      "name": "Saint Vincent de Paul Church",
+      "address": "3106 Flora Avenue, Kansas City, MO 64109",
+      "phone": "816-923-0202",
+      "website": "https://www.stvincentkc.org/",
+      "lat": 39.070145,
+      "lon": -94.565634,
+      "note": ""
+    },
+    {
+      "id": 8884704,
+      "name": "Saint Stephen Chapel",
+      "address": "316 Hoffman Way, Grants Pass, OR 97526",
+      "phone": "541-660-3310",
+      "website": "https://www.saintstephenschapel.com/",
+      "lat": 42.497357,
+      "lon": -123.343817,
+      "note": ""
+    },
+    {
+      "id": 8896461,
+      "name": "Saint Isidore's Church",
+      "address": "32100 E. Colfax Service Road, Watkins, CO 80137",
+      "phone": "303-344-9300",
+      "website": "https://stisidores-priory.com/en",
+      "lat": 39.742875,
+      "lon": -104.611693,
+      "note": ""
+    },
+    {
+      "id": 8558282,
+      "name": "Saint James Church",
+      "address": "326 S. Main St., Pittsburgh, PA 15220",
+      "phone": "412-875-6323",
+      "website": "https://fsspx.today/chapel/pa-pittsburgh/",
+      "lat": 40.494294,
+      "lon": -79.937578,
+      "note": ""
+    },
+    {
+      "id": 8715521,
+      "name": "Holy Name of Jesus Academy",
+      "address": "337 Trippany Road, Massena, NY 13662",
+      "phone": "315-769-6030",
+      "website": "https://www.scholae-fanjeaux.org/",
+      "lat": 44.954805,
+      "lon": -74.80741,
+      "note": ""
+    },
+    {
+      "id": 8455350,
+      "name": "Saint Therese Priory",
+      "address": "3427 State Hwy 11B, Nicholville, NY 12965",
+      "phone": "315-674-4035",
+      "website": "https://fsspx.today/chapel/ny-nicholville/info/",
+      "lat": 44.702656,
+      "lon": -74.651199,
+      "note": ""
+    },
+    {
+      "id": 8844332,
+      "name": "Our Lady of Sorrows Chapel",
+      "address": "3475 N. Sherwood Forest Boulevard, Baton Rouge, LA 70814",
+      "phone": "225-272-0289",
+      "website": "https://dickinson.tx.sspx.org/en/mission-chapels-31450",
+      "lat": 30.482626,
+      "lon": -91.058503,
+      "note": ""
+    },
+    {
+      "id": 8607901,
+      "name": "Our Lady of Guadalupe Church",
+      "address": "349 Third Street NE, Cass Lake, MN 56633",
+      "phone": "320-594-2221",
+      "website": "https://fsspx.today/chapel/mn-cass-lake/info/",
+      "lat": 47.380296,
+      "lon": -94.597813,
+      "note": ""
+    },
+    {
+      "id": 8867375,
+      "name": "Maria Stella Maris Mission",
+      "address": "3600 S. Gaffey Street, San Pedro, CA 90731",
+      "phone": "310-548-4706",
+      "website": "https://fsspx.today/chapel/ca-san-pedro/",
+      "lat": 33.711331,
+      "lon": -118.292776,
+      "note": ""
+    },
+    {
+      "id": 8602751,
+      "name": "Our Lady Queen of Angels Chapel",
+      "address": "376 Prospect Avenue, Fort Myers, FL 33905",
+      "phone": "239-694-8755",
+      "website": "https://florida.sspx.org/en/our-lady-queen-angels-church-32518",
+      "lat": 26.671291,
+      "lon": -81.824651,
+      "note": ""
+    },
+    {
+      "id": 8663308,
+      "name": "Our Lady of Fatima Church",
+      "address": "37745 Church Ave, Dade City, FL 33525",
+      "phone": "407-872-1007",
+      "website": "https://florida.sspx.org/en/our-lady-fatima-chapel-33879",
+      "lat": 28.363373,
+      "lon": -82.191591,
+      "note": ""
+    },
+    {
+      "id": 8280738,
+      "name": "Saint Anne's Church",
+      "address": "38100 Five Mile Road, Livonia, MI 48154",
+      "phone": "734-462-3200",
+      "website": "https://stjosephs-priory.com/en/mission-chapels-32416",
+      "lat": 42.396238,
+      "lon": -83.420369,
+      "note": ""
+    },
+    {
+      "id": 8651047,
+      "name": "Our Lady of Mount Carmel Church",
+      "address": "3900 Scruggs Drive, North Richland Hills, TX 76180",
+      "phone": "817-284-4809",
+      "website": "https://olmcnrh.com/",
+      "lat": 32.820643,
+      "lon": -97.234273,
+      "note": ""
+    },
+    {
+      "id": 8731877,
+      "name": "Saint Thomas Chapel",
+      "address": "3945 Fairview Drive, Carson City, NV 89701",
+      "phone": "775-888-9145",
+      "website": "https://fsspx.today/chapel/nv-carson-city/",
+      "lat": 39.168894,
+      "lon": -119.72399,
+      "note": ""
+    },
+    {
+      "id": 8117560,
+      "name": "Our Lady of Fatima Church",
+      "address": "3rd & Peach, Sanger, TX 76266",
+      "phone": "940-458-7344",
+      "website": "https://www.sangercatholic.com/",
+      "lat": 33.36473,
+      "lon": -97.17232,
+      "note": ""
+    },
+    {
+      "id": 8634144,
+      "name": "Carmel of the Holy Trinity",
+      "address": "4027 S. Wilbur Road, Spokane, WA 99206",
+      "phone": "509-928-0114",
+      "website": "",
+      "lat": 47.618543,
+      "lon": -117.247726,
+      "note": ""
+    },
+    {
+      "id": 8479732,
+      "name": "Saint Athanasius Church",
+      "address": "406 Shady Drive, Endwell, NY 13760",
+      "phone": "607-785-0290",
+      "website": "https://blessedvirginmary-priory.com/en/mission-chapels-33093",
+      "lat": 42.105617,
+      "lon": -76.023258,
+      "note": ""
+    },
+    {
+      "id": 8058662,
+      "name": "Our Lady Immaculate Church",
+      "address": "410 Washington Boulevard, Oak Park, IL 60302",
+      "phone": "773-930-3009",
+      "website": "https://fsspx.today/chapel/il-chicago/",
+      "lat": 41.881762,
+      "lon": -87.784996,
+      "note": ""
+    },
+    {
+      "id": 8799055,
+      "name": "Queen of Angels Church",
+      "address": "4100 Highway 3, Dickinson, TX 77539",
+      "phone": "281-337-2508",
+      "website": "https://dickinson.tx.sspx.org/en",
+      "lat": 29.461189,
+      "lon": -95.051733,
+      "note": ""
+    },
+    {
+      "id": 8465898,
+      "name": "Saint Pius V Chapel",
+      "address": "425 Grand Avenue, Mukwonago, WI 53149",
+      "phone": "262-363-5967",
+      "website": "https://fsspx.today/chapel/wi-mukwonago/",
+      "lat": 42.866466,
+      "lon": -88.330551,
+      "note": ""
+    },
+    {
+      "id": 8339959,
+      "name": "Assumption of the BVM Chapel",
+      "address": "426 County Road 152, Clayton, TX 75633",
+      "phone": "346-336-2444",
+      "website": "https://fsspx.today/chapel/tx-carthage/info/",
+      "lat": 32.10113,
+      "lon": -94.48898,
+      "note": ""
+    },
+    {
+      "id": 8598238,
+      "name": "Saint Robert Bellarmine Church",
+      "address": "430 8th Avenue S., Saint Cloud, MN 56301",
+      "phone": "320-255-0255",
+      "website": "https://www.srbca.org/",
+      "lat": 45.555534,
+      "lon": -94.158725,
+      "note": ""
+    },
+    {
+      "id": 8421424,
+      "name": "Saint Catherine of Sienna Mission",
+      "address": "439 Boston Post Rd, Weston, MA 02493",
+      "phone": "781-333-3684",
+      "website": "https://www.stcatherinesweston.com/",
+      "lat": 42.367192,
+      "lon": -71.301634,
+      "note": ""
+    },
+    {
+      "id": 8821079,
+      "name": "Saint Michael's Church",
+      "address": "4524 Garfield Avenue, Carmichael, CA 95608",
+      "phone": "916-486-4961",
+      "website": "https://fsspx.today/chapel/ca-sacramento/",
+      "lat": 38.646713,
+      "lon": -121.336634,
+      "note": ""
+    },
+    {
+      "id": 8066600,
+      "name": "Our Lady of Victory Church",
+      "address": "4580 SW 65th Avenue, Davie, FL 33314",
+      "phone": "954-792-3162",
+      "website": "https://florida.sspx.org/en/our-lady-victory-church-saint-philomena-33880",
+      "lat": 26.064126,
+      "lon": -80.233052,
+      "note": ""
+    },
+    {
+      "id": 8158996,
+      "name": "Saint Michael's Church",
+      "address": "4701 N. McMillan Avenue, Bethany, OK 73008",
+      "phone": "405-367-1351",
+      "website": "https://www.saintmichaelschapel.com/",
+      "lat": 35.518747,
+      "lon": -97.656641,
+      "note": ""
+    },
+    {
+      "id": 8115481,
+      "name": "Our Lady of the Assumption Church",
+      "address": "472 Beaver Road, Walton, KY 41094",
+      "phone": "859-485-3800",
+      "website": "https://www.assumptionchurch.net/",
+      "lat": 38.87103,
+      "lon": -84.628524,
+      "note": ""
+    },
+    {
+      "id": 8176944,
+      "name": "Saint John Fisher Church",
+      "address": "4800 S Calhoun St, Fort Wayne, IN 46807",
+      "phone": "260-447-5085",
+      "website": "",
+      "lat": 41.040218,
+      "lon": -85.137007,
+      "note": ""
+    },
+    {
+      "id": 8698338,
+      "name": "Saint John Bosco Mission",
+      "address": "4805 Mercury St. Suite J, San Diego, CA 92111",
+      "phone": "858-499-3677",
+      "website": "https://fsspx.today/chapel/ca-san-diego/",
+      "lat": 32.82921,
+      "lon": -117.148763,
+      "note": ""
+    },
+    {
+      "id": 8716069,
+      "name": "Our Lady of Sorrows Chapel",
+      "address": "4911 Dodge St, Omaha, NE 68132",
+      "phone": "402-490-1528",
+      "website": "https://fsspx.today/chapel/ne-omaha/info/",
+      "lat": 41.259623,
+      "lon": -95.988169,
+      "note": ""
+    },
+    {
+      "id": 8619143,
+      "name": "Immaculate Conception Church",
+      "address": "495 N Lincoln Street, Post Falls, ID 83854",
+      "phone": "208-773-2231",
+      "website": "https://icc.id.sspx.org/",
+      "lat": 47.711993,
+      "lon": -116.940444,
+      "note": ""
+    },
+    {
+      "id": 8481146,
+      "name": "Our Lady of the BitterRoot Chapel",
+      "address": "4th Street & B Street, Victor, MT 59875",
+      "phone": "406-642-9528",
+      "website": "https://fsspx.today/chapel/mt-victor/info/",
+      "lat": 46.415379,
+      "lon": -114.154491,
+      "note": ""
+    },
+    {
+      "id": 8166700,
+      "name": "Immaculate Conception Church",
+      "address": "500 Morrill Street, Gilford, NH 03249",
+      "phone": "",
+      "website": "https://fsspx.today/chapel/7224-2/info/",
+      "lat": 43.553217,
+      "lon": -71.437031,
+      "note": ""
+    },
+    {
+      "id": 8171917,
+      "name": "Immaculate Heart of Mary Chapel",
+      "address": "501 Wayland Rd, Kingsford Heights, IN 46346",
+      "phone": "447-792-9626",
+      "website": "",
+      "lat": 41.476152,
+      "lon": -86.693094,
+      "note": ""
+    },
+    {
+      "id": 8774563,
+      "name": "Notre Dame de la Salette Chapel",
+      "address": "5065 Olivet Rd, Georgetown, IL 61846",
+      "phone": "217-662-2127",
+      "website": "https://www.lasalette.net/",
+      "lat": 39.941638,
+      "lon": -87.6436,
+      "note": ""
+    },
+    {
+      "id": 8715658,
+      "name": "Queen of the Most Holy Rosary Chapel",
+      "address": "509 21st Street, West Palm Beach, FL 33407",
+      "phone": "407-872-1007",
+      "website": "https://florida.sspx.org/en/queen-most-holy-rosary-church-33596",
+      "lat": 26.733323,
+      "lon": -80.055391,
+      "note": ""
+    },
+    {
+      "id": 8576092,
+      "name": "Our Lady of Fatima Chapel",
+      "address": "5217 Futura Avenue, Richmond, VA 23231",
+      "phone": "757-317-0611",
+      "website": "https://fsspx.today/chapel/va-richmond/info/",
+      "lat": 37.514841,
+      "lon": -77.389237,
+      "note": ""
+    },
+    {
+      "id": 8033738,
+      "name": "Our Lady of Sorrows Church",
+      "address": "525 Lawrence Avenue, Girard, OH 44420",
+      "phone": "330-545-0307",
+      "website": "https://fsspx.today/chapel/oh-girard/",
+      "lat": 41.159464,
+      "lon": -80.697917,
+      "note": ""
+    },
+    {
+      "id": 8446715,
+      "name": "Immaculate Heart of Mary Chapel",
+      "address": "5267 John Marshall Hwy, Linden, VA 22642",
+      "phone": "571-389-3861",
+      "website": "https://fsspx.today/chapel/front-royal/info/",
+      "lat": 38.911699,
+      "lon": -78.091139,
+      "note": ""
+    },
+    {
+      "id": 8690581,
+      "name": "Sacred Heart Novitiate",
+      "address": "540 W. 8th Street, Browerville, MN 56438",
+      "phone": "320-594-2944",
+      "website": "https://sspx.org/en/sspx-sisters-founded-assist-and-pray-priesthood-34858",
+      "lat": 46.087353,
+      "lon": -94.872952,
+      "note": ""
+    },
+    {
+      "id": 8383264,
+      "name": "Saint Thomas More Church",
+      "address": "550 Riverview Avenue, Sanford, FL 32771",
+      "phone": "407-872-1007",
+      "website": "https://florida.sspx.org/",
+      "lat": 28.816609,
+      "lon": -81.294122,
+      "note": ""
+    },
+    {
+      "id": 8256576,
+      "name": "Our Lady of the Blessed Sacrament Mission",
+      "address": "5549 Leopard Street, Corpus Christi, TX 78408",
+      "phone": "346-336-2444",
+      "website": "https://fsspx.today/chapel/tx-corpus-christi/info/",
+      "lat": 27.796128,
+      "lon": -97.466879,
+      "note": ""
+    },
+    {
+      "id": 8373928,
+      "name": "Saint Joseph's Church",
+      "address": "57575 Romeo Plank Rd., Ray Township, MI 48096",
+      "phone": "586-677-9511",
+      "website": "https://stjosephs-priory.com/en",
+      "lat": 42.719777,
+      "lon": -82.959736,
+      "note": ""
+    },
+    {
+      "id": 8168462,
+      "name": "Saints Peter and Paul Church",
+      "address": "5800 Ouray Road NW, Albuquerque, NM 87120",
+      "phone": "505-352-1234",
+      "website": "https://www.sspxnm.com/",
+      "lat": 35.112398,
+      "lon": -106.705256,
+      "note": ""
+    },
+    {
+      "id": 8717068,
+      "name": "Our Lady of Sorrows Chapel",
+      "address": "600 E. Roberts Street, Crookston, MN 56716",
+      "phone": "320-594-2221",
+      "website": "https://fsspx.today/chapel/mn-crookston/",
+      "lat": 47.767589,
+      "lon": -96.599415,
+      "note": ""
+    },
+    {
+      "id": 8605253,
+      "name": "Saint Therese Chapel",
+      "address": "6039 Baltes Road, Waunakee, WI 53597",
+      "phone": "608-831-7565",
+      "website": "https://madison.wi.sspx.org/en",
+      "lat": 43.18498,
+      "lon": -89.556045,
+      "note": ""
+    },
+    {
+      "id": 8315867,
+      "name": "Child Jesus Chapel",
+      "address": "62 Broad Street, Pittston, PA 18640",
+      "phone": "570-655-4734",
+      "website": "https://fsspx.today/chapel/pa-pittston/info/",
+      "lat": 41.32189,
+      "lon": -75.788312,
+      "note": ""
+    },
+    {
+      "id": 8037405,
+      "name": "Queen of the Miraculous Medal Chapel",
+      "address": "6401 Boone Road, 2nd Floor Purple Rm, Bryant, AR 72022",
+      "phone": "720-505-7191",
+      "website": "https://fsspx.today/chapel/ar-little-rock/",
+      "lat": 34.595584,
+      "lon": -92.515812,
+      "note": ""
+    },
+    {
+      "id": 8760329,
+      "name": "Our Lady of Fatima Catholic Church",
+      "address": "66110 Vortisch Rd, Lacombe, LA 70445",
+      "phone": "985-377-9895",
+      "website": "https://fsspx.today/chapel/la-lacombe/info/",
+      "lat": 30.388291,
+      "lon": -89.896329,
+      "note": ""
+    },
+    {
+      "id": 8176390,
+      "name": "Saint Therese Chapel",
+      "address": "68 County Route 55, Nicholville, NY 12965",
+      "phone": "315-328-4027",
+      "website": "https://fsspx.today/chapel/ny-nicholville/info/",
+      "lat": 44.7041,
+      "lon": -74.65544,
+      "note": ""
+    },
+    {
+      "id": 8620504,
+      "name": "Saint Anthony Mary Claret Chapel",
+      "address": "686 Scenic Gulf Drive, Miramar Beach, FL 32550",
+      "phone": "850-842-2406",
+      "website": "https://florida.sspx.org/en/st-anthony-mary-claret-chapel-33628",
+      "lat": 30.375464,
+      "lon": -86.360304,
+      "note": ""
+    },
+    {
+      "id": 8811362,
+      "name": "Our Lady Immaculate Priory",
+      "address": "7011 W. Addison Street, Chicago, IL 60634",
+      "phone": "773-930-3009",
+      "website": "https://fsspx.today/chapel/il-chicago/info/",
+      "lat": 41.94531,
+      "lon": -87.801698,
+      "note": ""
+    },
+    {
+      "id": 8478513,
+      "name": "Saint Michael's Church",
+      "address": "715 Hardscrabble Road, Roswell, GA 30075",
+      "phone": "770-992-8171",
+      "website": "https://sspxatlanta.com/",
+      "lat": 34.06622,
+      "lon": -84.378886,
+      "note": ""
+    },
+    {
+      "id": 8557055,
+      "name": "Our Lady of Sorrows Church",
+      "address": "750 E. Baseline Road, Phoenix, AZ 85042",
+      "phone": "602-268-7673",
+      "website": "https://ourladyofsorrows-priory.com/en",
+      "lat": 33.377809,
+      "lon": -112.063849,
+      "note": ""
+    },
+    {
+      "id": 8520470,
+      "name": "St. Pius X Chapel",
+      "address": "7604 S Osborne Road, Upper Marlboro, MD 20772",
+      "phone": "571-389-3861",
+      "website": "https://fsspx.today/chapel/md-upper-marlboro/",
+      "lat": 38.785086,
+      "lon": -76.797681,
+      "note": ""
+    },
+    {
+      "id": 8620098,
+      "name": "Saint Therese, Patroness of Alaska Mission",
+      "address": "7653 Cranberry Road, Anchorage, AK 99502",
+      "phone": "907-349-2042",
+      "website": "https://fsspx.today/chapel/ak-anchorage/info/",
+      "lat": 61.151221,
+      "lon": -149.936843,
+      "note": ""
+    },
+    {
+      "id": 8373719,
+      "name": "Immaculate Heart of Mary Chapel & Academy",
+      "address": "777 221st Avenue N.W., Oak Grove, MN 55011",
+      "phone": "763-753-8614",
+      "website": "https://fsspx.today/chapel/mn-oak-grove/info/",
+      "lat": 45.370471,
+      "lon": -93.286997,
+      "note": ""
+    },
+    {
+      "id": 8427288,
+      "name": "Saint Joseph's Church",
+      "address": "7815 Orland Park, San Antonio, TX 78213",
+      "phone": "210-525-0334",
+      "website": "https://fsspx.today/chapel/tx-san-antonio/info/",
+      "lat": 29.506793,
+      "lon": -98.517768,
+      "note": ""
+    },
+    {
+      "id": 8253251,
+      "name": "Saint Joseph Mission",
+      "address": "81525 Hwy 3, St Maries, ID 83861",
+      "phone": "",
+      "website": "https://icc.id.sspx.org/en/mass-centers-31326",
+      "lat": 47.286085,
+      "lon": -116.521339,
+      "note": ""
+    },
+    {
+      "id": 8824838,
+      "name": "Saint John Vianney Priory",
+      "address": "820 Saint John's Avenue, Browerville, MN 56438",
+      "phone": "320-594-2221",
+      "website": "",
+      "lat": 46.087548,
+      "lon": -94.874873,
+      "note": ""
+    },
+    {
+      "id": 8680567,
+      "name": "Our Lady of Good Counsel",
+      "address": "8616 N Dixie Dr, Dayton, OH 45414",
+      "phone": "937-603-5144",
+      "website": "",
+      "lat": 39.855755,
+      "lon": -84.198863,
+      "note": ""
+    },
+    {
+      "id": 8413761,
+      "name": "Our Lady of the Visitation Roman Catholic Church",
+      "address": "875 Manomin Avenue S., Saint Paul, MN 55107",
+      "phone": "651-224-5944",
+      "website": "https://fsspx.today/chapel/mn-st-paul/",
+      "lat": 44.919973,
+      "lon": -93.100676,
+      "note": ""
+    },
+    {
+      "id": 8375147,
+      "name": "Immaculate Conception Chapel",
+      "address": "890 Foy's Canyon Road, Kalispell, MT 59901",
+      "phone": "406-312-9827",
+      "website": "https://icc.id.sspx.org/en/mass-centers-31326",
+      "lat": 48.129408,
+      "lon": -114.3176,
+      "note": ""
+    },
+    {
+      "id": 8524334,
+      "name": "Saint Michael The Archangel's Church",
+      "address": "900 Horseblock Road, Farmingville, NY 11738",
+      "phone": "631-736-6515",
+      "website": "https://www.sspxlongisland.com/",
+      "lat": 40.830501,
+      "lon": -73.025123,
+      "note": ""
+    },
+    {
+      "id": 8400806,
+      "name": "Our Lady Help of Christians",
+      "address": "9621 Bixby Ave, Garden Grove, CA 92841",
+      "phone": "714-530-6840",
+      "website": "https://www.ourladyhelpofchristians.us/",
+      "lat": 33.784962,
+      "lon": -117.965221,
+      "note": ""
+    },
+    {
+      "id": 8817328,
+      "name": "Saint Francis of Assisi Mission",
+      "address": "Austin, TX 78704",
+      "phone": "512-439-9702",
+      "website": "",
+      "lat": 30.243345,
+      "lon": -97.764526,
+      "note": "The US District list does not publish a street address. Call the chapel. This pin is the 78704 ZIP centroid, not a door."
+    },
+    {
+      "id": 8723730,
+      "name": "St. Isaac Jogues Mission",
+      "address": "Blackmer Funeral Home, 305 N Mill St, Grangeville, ID 83530",
+      "phone": "",
+      "website": "https://icc.id.sspx.org/en/mass-centers-31326",
+      "lat": 45.926416,
+      "lon": -116.115726,
+      "note": ""
+    },
+    {
+      "id": 8051228,
+      "name": "Our Lady of Lourdes Mission",
+      "address": "Eaton Square, 438 Hobron Lane Suite 300, Honolulu, HI 96815",
+      "phone": "808-224-5935",
+      "website": "",
+      "lat": 21.287079,
+      "lon": -157.83636,
+      "note": ""
+    },
+    {
+      "id": 8291347,
+      "name": "Saint Christopher's Mission",
+      "address": "Edison Hotel, New York, NY 10036",
+      "phone": "212-697-8561",
+      "website": "https://sspxnyc.com/",
+      "lat": 40.75967,
+      "lon": -73.986229,
+      "note": ""
+    },
+    {
+      "id": 8325239,
+      "name": "Our Lady of Victory",
+      "address": "N11190 17th Ave., Necedah, WI 54646",
+      "phone": "",
+      "website": "",
+      "lat": 44.050705,
+      "lon": -90.035226,
+      "note": ""
+    },
+    {
+      "id": 8488135,
+      "name": "Society of Saint Pius X | Regina Coeli House",
+      "address": "Regina Coeli House, 11485 N. Farley Road, Platte City, MO 64079",
+      "phone": "816-753-0073",
+      "website": "https://www.sspx.org/",
+      "lat": 39.306179,
+      "lon": -94.82568,
+      "note": ""
+    }
+  ]
+}

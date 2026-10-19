@@ -30,7 +30,11 @@ struct FilterSheet: View {
                 }
                 Section {
                     ForEach(FilterControl.all) { control in
-                        filterRow(control)
+                        if control.id == "food" {
+                            foodRow
+                        } else {
+                            filterRow(control)
+                        }
                     }
                 } header: {
                     SectionTitle(text: "Show on the map")
@@ -43,6 +47,12 @@ struct FilterSheet: View {
                 if model.focusFoodChip {
                     proxy.scrollTo("food", anchor: .center)
                 }
+            }
+            .onChange(of: model.filter.catholic) { _, on in
+                if on { model.frameRole("catholic") }
+            }
+            .onChange(of: model.filter.churches) { _, on in
+                if on { model.frameChurches() }
             }
             }
             .navigationTitle("Filters")
@@ -57,54 +67,51 @@ struct FilterSheet: View {
         .accessibilityIdentifier("filters-sheet")
     }
 
-    @ViewBuilder
     private func filterRow(_ control: FilterControl) -> some View {
         let on = model.filter.isOn(control.id)
-        if control.enabled {
-            Button {
-                model.filter.toggle(control.id)
-                if control.id == "catholic", model.filter.catholic {
-                    model.frameRole("catholic")
-                } else if control.id == "churches", model.filter.churches {
-                    model.frameChurches()
-                }
-                Haptics.selection()
-            } label: {
-                HStack(spacing: 12) {
-                    IconTile(systemName: control.systemImage)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(control.title)
-                            .foregroundStyle(.primary)
-                        Text(control.subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(on ? Theme.control : Color.secondary)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("filter-row-\(control.id)")
-            .accessibilityAddTraits(on ? .isSelected : [])
-        } else {
+        return Button {
+            model.setFilter(control.id, on: !on)
+            Haptics.selection()
+        } label: {
             HStack(spacing: 12) {
                 IconTile(systemName: control.systemImage)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(control.title)
                         .foregroundStyle(.primary)
-                    Text(MapFilter.foodCount(model.places) == 0 ? control.subtitle : "\(MapFilter.foodCount(model.places)) in the pack")
+                    Text(control.subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer(minLength: 8)
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(on ? Theme.accentFill : Color.secondary)
+                    .accessibilityHidden(true)
             }
-            .opacity(0.7)
-            .id("food")
-            .accessibilityIdentifier("filter-row-food")
-            .accessibilityLabel("Food and rest, \(MapFilter.foodSubtitle)")
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("filter-row-\(control.id)")
+        .accessibilityValue(on ? "1" : "0")
+        .accessibilityAddTraits(.isToggle)
+    }
+
+    private var foodRow: some View {
+        HStack(spacing: 12) {
+            IconTile(systemName: "fork.knife")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Food and rest")
+                    .foregroundStyle(.primary)
+                Text(MapFilter.foodCount(model.places) == 0 ? MapFilter.foodSubtitle : "\(MapFilter.foodCount(model.places)) in the pack")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .opacity(0.7)
+        .id("food")
+        .accessibilityIdentifier("filter-row-food")
+        .accessibilityLabel("Food and rest, \(MapFilter.foodSubtitle)")
     }
 }
 

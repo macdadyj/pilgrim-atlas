@@ -25,6 +25,7 @@ package struct DebugLaunch: Equatable, Sendable {
     package var appearance: DebugAppearance?
     package var showSettings: Bool
     package var showFilters: Bool
+    package var showNearby: Bool
     package var showOnboarding: Bool
     /// `map`, `search`, or `settings`.
     package var tab: String?
@@ -53,6 +54,7 @@ package struct DebugLaunch: Equatable, Sendable {
         appearance: nil,
         showSettings: false,
         showFilters: false,
+        showNearby: false,
         showOnboarding: false,
         tab: nil,
         onlyRole: nil,
@@ -87,6 +89,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || cardFull
             || showSettings
             || showFilters
+            || showNearby
             || showOnboarding
             || tab != nil
             || onlyRole != nil
@@ -233,6 +236,8 @@ extension DebugLaunch {
                 launch.tab = "settings"
             } else if argument == "--debug-show-filters" {
                 launch.showFilters = true
+            } else if argument == "--debug-show-nearby" {
+                launch.showNearby = true
             } else if argument == "--debug-onboarding" {
                 launch.showOnboarding = true
             } else if let value = taking("--debug-layer", argument, arguments, index) {

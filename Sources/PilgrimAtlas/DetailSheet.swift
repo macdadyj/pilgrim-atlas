@@ -245,6 +245,7 @@ struct DetailSheet: View {
             wikidata: place.wikidata,
             phone: liturgy?.phone ?? place.phone,
             name: place.name,
+            address: place.address,
             coordinate: place.coordinate,
             walking: MapFilter.pinRole(for: place) == .trailhead
         )
