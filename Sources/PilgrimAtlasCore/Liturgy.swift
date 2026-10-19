@@ -66,6 +66,22 @@ package struct LiturgyListing: Equatable, Sendable {
     package var confirm: String
 }
 
+/// A verified line such as “Sun 10:00 AM Mass, Spanish” splits into a day and the rest.
+package enum LiturgyLine {
+    private static let days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    package static func dayAndRest(_ line: String) -> (day: String, rest: String)? {
+        for day in days {
+            let prefix = day + " "
+            guard line.hasPrefix(prefix) else { continue }
+            let rest = String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            guard !rest.isEmpty else { return nil }
+            return (day, rest)
+        }
+        return nil
+    }
+}
+
 /// What the place card shows. `found` is false when no source had times.
 package struct LiturgyCard: Equatable, Sendable {
     package var lines: [String]

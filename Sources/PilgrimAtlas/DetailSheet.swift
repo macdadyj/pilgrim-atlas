@@ -196,10 +196,7 @@ struct DetailSheet: View {
             }
             if card.found {
                 ForEach(Array(card.lines.enumerated()), id: \.offset) { _, line in
-                    Text(line)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .accessibilityIdentifier("liturgy-line")
+                    liturgyLine(line)
                 }
                 if !card.confession.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
@@ -223,6 +220,32 @@ struct DetailSheet: View {
             }
         } header: {
             SectionTitle(text: liturgyHeading)
+        }
+    }
+
+    @ViewBuilder
+    private func liturgyLine(_ line: String) -> some View {
+        if let parts = LiturgyLine.dayAndRest(line) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(parts.day)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(minWidth: 44, alignment: .leading)
+                Text(parts.rest)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(line)
+            .accessibilityIdentifier("liturgy-line")
+        } else {
+            Text(line)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("liturgy-line")
         }
     }
 
@@ -259,7 +282,7 @@ struct DetailSheet: View {
                 .textCase(.uppercase)
             Text(value)
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
