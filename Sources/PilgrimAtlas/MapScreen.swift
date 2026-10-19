@@ -160,8 +160,10 @@ private struct MapChrome: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("List")
                         .accessibilityIdentifier("nearby-button")
+                        .accessibilityAddTraits(.isButton)
                     }
                     .padding(.horizontal, Theme.screenPadding)
 
@@ -837,6 +839,7 @@ struct SearchSheet: View {
             }
             .buttonStyle(.borderless)
             .accessibilityIdentifier("search-hit-\(hit.id)")
+            .simultaneousGesture(TapGesture().onEnded { activate(hit) })
         case .note:
             searchLabel(hit)
         }

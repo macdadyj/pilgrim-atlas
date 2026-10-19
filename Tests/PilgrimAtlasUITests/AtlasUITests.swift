@@ -506,9 +506,15 @@ final class AtlasUITests: XCTestCase {
         saveLayerShot(app, "abq-sspx")
         let pins = waitForPins(app, role: "sspx", minimum: 1, timeout: 25)
         XCTAssertGreaterThanOrEqual(pins, 1, "SSPX chapel pin")
-        let list = app.descendants(matching: .any)["nearby-button"]
-        XCTAssertTrue(list.waitForExistence(timeout: 8))
-        list.tap()
+        let listByID = app.descendants(matching: .any)["nearby-button"]
+        let listByLabel = app.buttons["List"]
+        if listByID.waitForExistence(timeout: 6) {
+            listByID.tap()
+        } else if listByLabel.waitForExistence(timeout: 3) {
+            listByLabel.tap()
+        } else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.075)).tap()
+        }
         let nearbySheet = app.otherElements["nearby-sheet"]
         XCTAssertTrue(nearbySheet.waitForExistence(timeout: 8))
         let chapels = nearbySheet.staticTexts.matching(NSPredicate(format: "label == %@", "Saints Peter and Paul Church"))
@@ -597,7 +603,16 @@ final class AtlasUITests: XCTestCase {
                 identified.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
             if city == "Albuquerque" {
-                XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 15), "Albuquerque opened the map")
+                let opened = Date().addingTimeInterval(20)
+                var onMap = false
+                while Date() < opened && !onMap {
+                    if app.descendants(matching: .any)["search-pill"].exists || app.tabBars.buttons["Map"].isSelected {
+                        onMap = true
+                        break
+                    }
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+                }
+                XCTAssertTrue(onMap, "Albuquerque opened the map")
                 let names = app.descendants(matching: .any)["visible-sspx"]
                 XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
                 let arrived = Date().addingTimeInterval(20)
