@@ -261,12 +261,13 @@ struct AtlasMapView: UIViewRepresentable {
             if streetReadout == nil {
                 streetReadout = basemapReadout("basemap-streets")
                 labelReadout = basemapReadout("basemap-labels")
+                sspxReadout = basemapReadout("visible-sspx")
+                orthodoxReadout = basemapReadout("visible-orthodox")
             }
-            if let streetReadout, streetReadout.superview !== map {
-                map.addSubview(streetReadout)
-            }
-            if let labelReadout, labelReadout.superview !== map {
-                map.addSubview(labelReadout)
+            for readout in [streetReadout, labelReadout, sspxReadout, orthodoxReadout] {
+                if let readout, readout.superview !== map {
+                    map.addSubview(readout)
+                }
             }
         }
 

@@ -445,20 +445,30 @@ final class AtlasUITests: XCTestCase {
             }
             XCTAssertEqual(switchIsOn(row), !startsOn, identifier)
         }
-        if !app.staticTexts["Food and rest"].exists {
-            app.swipeUp()
-        }
-        XCTAssertTrue(app.staticTexts["Food and rest"].waitForExistence(timeout: 4))
-        XCTAssertFalse(app.switches["filter-row-food"].exists)
         var towardTop = 0
-        while !app.switches["filter-row-show-catholic"].exists && towardTop < 5 {
+        let catholicRow = app.descendants(matching: .any)["filter-row-show-catholic"]
+        while !catholicRow.exists && towardTop < 6 {
             app.swipeDown()
             towardTop += 1
         }
         saveLayerShot(app, "filters-after-toggles")
+        let food = app.descendants(matching: .any)["filter-row-food"]
+        var foodSwipes = 0
+        while !food.exists && foodSwipes < 5 {
+            app.swipeUp()
+            foodSwipes += 1
+        }
+        XCTAssertTrue(food.waitForExistence(timeout: 4), "Food and rest row")
+        XCTAssertFalse(app.switches["filter-row-food"].exists)
+        var backToTop = 0
+        while !app.buttons["reset-filters"].exists && backToTop < 6 {
+            app.swipeDown()
+            backToTop += 1
+        }
         XCTAssertTrue(app.buttons["reset-filters"].waitForExistence(timeout: 4), "Reset appears after a narrowing filter is on")
         app.buttons["reset-filters"].tap()
-        XCTAssertTrue(waitForSwitch(app.switches["filter-row-show-catholic"], on: true))
+        let restored = filterControl(app, "show-catholic", "Catholic churches")
+        XCTAssertTrue(waitForSwitch(restored, on: true))
         tapDone(app, identifier: "filters-done", title: "Done")
 
         find(app, "filters-button", "Filters", timeout: 8).tap()
@@ -547,14 +557,12 @@ final class AtlasUITests: XCTestCase {
         for city in ["Albuquerque", "Denver", "Rome"] {
             let app = launch("--debug-search=\(city)", "--debug-tab=search")
             let identified = app.descendants(matching: .any)["search-hit-geocode-0"]
-            let named = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", city)).firstMatch
-            let deadline = Date().addingTimeInterval(40)
-            while Date() < deadline && !identified.exists && !named.exists {
+            let deadline = Date().addingTimeInterval(45)
+            while Date() < deadline && !identified.exists {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             }
-            let hit = identified.exists ? identified : named
-            XCTAssertTrue(hit.exists, "\(city) geocode row")
-            hit.tap()
+            XCTAssertTrue(identified.exists, "\(city) geocode row")
+            identified.tap()
             if city == "Albuquerque" {
                 XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 15), "Albuquerque opened the map")
                 let names = app.descendants(matching: .any)["visible-sspx"]
