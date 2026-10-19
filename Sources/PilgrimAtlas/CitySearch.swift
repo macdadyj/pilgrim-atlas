@@ -10,12 +10,13 @@ enum CitySearch {
     static func search(_ query: String, near origin: LonLat = DebugPin.plaza) async -> [SearchHit] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else { return [] }
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = trimmed
-        request.resultTypes = [.address, .pointOfInterest]
-        let search = MKLocalSearch(request: request)
-        guard let response = try? await search.start() else { return [] }
-        let ranked = response.mapItems.prefix(8).map { item -> (Int, Double, MKMapItem) in
+        // Addresses and points of interest miss the city itself often enough that Denver
+        // comes back empty. A second query with no type filter still returns the city.
+        var items = await mapItems(for: trimmed, limitTypes: true)
+        if items.isEmpty {
+            items = await mapItems(for: trimmed, limitTypes: false)
+        }
+        let ranked = items.map { item -> (Int, Double, MKMapItem) in
             let coordinate = item.placemark.coordinate
             let point = LonLat(lon: coordinate.longitude, lat: coordinate.latitude)
             let name = item.name ?? item.placemark.name ?? trimmed
@@ -48,6 +49,16 @@ enum CitySearch {
                 subtitle: "City"
             )
         }
+    }
+
+    private static func mapItems(for query: String, limitTypes: Bool) async -> [MKMapItem] {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        if limitTypes {
+            request.resultTypes = [.address, .pointOfInterest]
+        }
+        guard let response = try? await MKLocalSearch(request: request).start() else { return [] }
+        return Array(response.mapItems.prefix(8))
     }
 }
 
