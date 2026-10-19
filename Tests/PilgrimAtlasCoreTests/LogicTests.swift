@@ -1403,6 +1403,10 @@ final class LogicTests: XCTestCase {
         })
         let chapel = try! XCTUnwrap(abq)
         XCTAssertEqual(chapel.address, "5800 Ouray Road NW, Albuquerque, NM 87120")
+        XCTAssertEqual(
+            PlaceText.faithReadout(chapel),
+            "Saints Peter and Paul Church (5800 Ouray Road NW)"
+        )
         XCTAssertEqual(chapel.phone, "505-352-1234")
         XCTAssertEqual(chapel.website, "https://www.sspxnm.com/")
         XCTAssertEqual(chapel.source, SSPXChapels.sourceName)

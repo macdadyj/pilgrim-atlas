@@ -44,6 +44,14 @@ package enum PlaceText {
         return parts[1].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "_", with: " ")
     }
 
+    /// Name plus the street, so a chapel readout can show Ouray Road as well as the saint.
+    package static func faithReadout(_ place: PlaceRecord) -> String {
+        let street = place.address.split(separator: ",", maxSplits: 1).first
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+        if street.isEmpty { return place.name }
+        return "\(place.name) (\(street))"
+    }
+
     package static func pinLabel(_ name: String) -> String {
         var words = name.split(separator: " ").map(String.init)
         if words.first?.lowercased() == "the" { words.removeFirst() }

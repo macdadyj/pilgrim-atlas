@@ -599,14 +599,17 @@ final class AtlasUITests: XCTestCase {
             }
             row.tap()
             if city == "Albuquerque" {
-                XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 20), "Albuquerque opened the map")
-                let names = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "visible-sspx")).firstMatch
-                XCTAssertTrue(names.waitForExistence(timeout: 20), "Albuquerque map")
+                XCTAssertTrue(app.descendants(matching: .any)["search-pill"].waitForExistence(timeout: 5), "Albuquerque opened the map")
+                let names = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", "visible-sspx"))
+                XCTAssertTrue(names.firstMatch.waitForExistence(timeout: 20), "Albuquerque map")
                 let arrived = Date().addingTimeInterval(20)
-                while Date() < arrived && !names.label.contains("Peter") {
+                var label = ""
+                while Date() < arrived {
+                    label = (0..<names.count).map { names.element(boundBy: $0).label }.joined(separator: "\n")
+                    if label.contains("Peter"), label.contains("Ouray") { break }
                     RunLoop.current.run(until: Date().addingTimeInterval(0.4))
                 }
-                XCTAssertTrue(names.label.contains("Peter"), names.label)
+                XCTAssertTrue(label.contains("Peter") && label.contains("Ouray"), label)
             } else {
                 let banner = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Churches here are from OpenStreetMap")).firstMatch
                 XCTAssertTrue(banner.waitForExistence(timeout: 70), "\(city) did not load churches from OpenStreetMap")

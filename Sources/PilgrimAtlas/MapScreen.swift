@@ -62,7 +62,7 @@ private struct MapChrome: View {
             ZStack(alignment: .top) {
                 AtlasMapView(
                     topInset: model.filter.anyChip ? 140 : 88,
-                    places: AtlasQuery.mapPlaces(model.places.filter { MapFilter.includeOnMap($0, filter: model.filter) }),
+                    places: model.drawnPlaces,
                     bottomObstruction: obstruction,
                     bottomSafeArea: geo.safeAreaInsets.bottom
                 ) { coordinate, hits in
@@ -355,7 +355,7 @@ private struct MapChrome: View {
             MapFilter.pinRole(for: place) == role
                 && MapFilter.includeInLists(place, filter: model.filter)
                 && Geometry.haversineMeters(place.coordinate, model.mapCenter) < 12_000
-        }.map(\.name).sorted()
+        }.map { PlaceText.faithReadout($0) }.sorted()
         return names.isEmpty ? "none" : names.joined(separator: "\n")
     }
 

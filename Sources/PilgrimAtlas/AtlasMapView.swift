@@ -28,7 +28,7 @@ struct AtlasMapView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> MLNMapView {
-        let map = MLNMapView(frame: .zero, styleURL: PackStyle.fileURL(online: model.onlineTiles, places: model.places))
+        let map = MLNMapView(frame: .zero, styleURL: PackStyle.fileURL(online: model.onlineTiles))
         map.delegate = context.coordinator
         let displayScale = map.traitCollection.displayScale
         map.contentScaleFactor = displayScale > 1 ? displayScale : 2
@@ -86,7 +86,7 @@ struct AtlasMapView: UIViewRepresentable {
         if context.coordinator.lastOnline != model.onlineTiles {
             context.coordinator.lastOnline = model.onlineTiles
             context.coordinator.lastPlaceIDs = nil
-            map.styleURL = PackStyle.fileURL(online: model.onlineTiles, places: model.places)
+            map.styleURL = PackStyle.fileURL(online: model.onlineTiles)
         }
         if context.coordinator.lastFit != model.fitToken, let fit = model.fitBounds {
             context.coordinator.lastFit = model.fitToken
@@ -136,9 +136,6 @@ struct AtlasMapView: UIViewRepresentable {
             filter: model.filter,
             onlyRole: model.onlyRole
         )
-        context.coordinator.publishPinCount(on: map)
-        context.coordinator.publishBasemap(on: map)
-        context.coordinator.publishFaithReadout(on: map, center: model.mapCenter)
         PackStyle.syncSelectedPin(on: map, places: model.places, selectedID: model.selectedPlace?.id)
     }
 
@@ -170,8 +167,11 @@ struct AtlasMapView: UIViewRepresentable {
         var selectedID: Int?
         var onPackLayersMissing: ([String]) -> Void = { _ in }
         var lastPlaceIDs: [Int]?
+        private var placeTask: Task<Void, Never>?
+        private var basemapTask: Task<Void, Never>?
+        private var regionSettled = true
+        private var basemapSamples = 0
         private var userAnnotation: MLNPointAnnotation?
-        private var lastPinCountTime = Date.distantPast
         private var streetReadout: UILabel?
         private var labelReadout: UILabel?
         private var sspxReadout: UILabel?
@@ -222,17 +222,70 @@ struct AtlasMapView: UIViewRepresentable {
             map.addAnnotation(pin)
         }
 
+        /// Replaces pin sources in batches. Church roles already cluster below street zoom.
         @MainActor
         func syncPlaceSources(on map: MLNMapView) {
             guard map.style != nil else { return }
             let signature = places.map(\.id)
             guard signature != lastPlaceIDs else { return }
             lastPlaceIDs = signature
-            PackStyle.syncPlaceSources(on: map, places: places)
+            placeTask?.cancel()
+            let snapshot = places
+            let started = Date()
+            placeTask = Task { @MainActor in
+                let grouped = await Task.detached(priority: .userInitiated) {
+                    PackStyleDocument.placesGroupedByRole(snapshot)
+                }.value
+                guard !Task.isCancelled else { return }
+                if let style = map.style {
+                    PackStyle.installMarkers(on: style)
+                }
+                TapTrace.mark("place groups \(snapshot.count)")
+                var applied = 0
+                var foundSource = false
+                for role in PinRole.allCases {
+                    guard !Task.isCancelled else { return }
+                    guard let source = map.style?.source(withIdentifier: PackStyleDocument.placeSourceID(role.rawValue)) as? MLNShapeSource else {
+                        continue
+                    }
+                    foundSource = true
+                    let rolePlaces = grouped[role.rawValue] ?? []
+                    if rolePlaces.isEmpty {
+                        source.shape = PackStyle.pointCollection([])
+                        continue
+                    }
+                    var built: [PlaceRecord] = []
+                    var index = 0
+                    while index < rolePlaces.count {
+                        guard !Task.isCancelled else { return }
+                        let end = min(index + 200, rolePlaces.count)
+                        built.append(contentsOf: rolePlaces[index..<end])
+                        source.shape = PackStyle.pointCollection(built)
+                        applied += end - index
+                        index = end
+                        await Task.yield()
+                    }
+                }
+                if !foundSource {
+                    lastPlaceIDs = nil
+                }
+                TapTrace.mark("places applied \(applied) in \(Int(Date().timeIntervalSince(started) * 1000))ms")
+                publishPinCount(on: map)
+                publishFaithReadout(on: map, center: onCameraCenter(map))
+            }
+        }
+
+        @MainActor
+        func mapView(_ mapView: MLNMapView, regionWillChangeAnimated animated: Bool) {
+            regionSettled = false
         }
 
         @MainActor
         func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
+            regionSettled = true
+            basemapSamples = 0
+            basemapTask?.cancel()
+            basemapTask = nil
             let center = mapView.centerCoordinate
             onCamera(LonLat(lon: center.longitude, lat: center.latitude))
             let bounds = mapView.visibleCoordinateBounds
@@ -241,19 +294,30 @@ struct AtlasMapView: UIViewRepresentable {
                 LonLat(lon: bounds.ne.longitude, lat: bounds.ne.latitude),
                 mapView.zoomLevel
             )
-            publishPinCount(on: mapView)
             publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
         }
 
-        /// Symbols are placed after the camera settles. Sampling only then left the count at 0.
+        /// One road query after the camera settles. Querying every frame over Albuquerque
+        /// kept the main thread busy long enough that the map tab never appeared.
         @MainActor
         func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
-            let now = Date()
-            guard fullyRendered || now.timeIntervalSince(lastPinCountTime) > 0.25 else { return }
-            lastPinCountTime = now
-            publishPinCount(on: mapView)
-            publishBasemap(on: mapView)
-            publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
+            guard fullyRendered, regionSettled, basemapSamples < 4, basemapTask == nil else { return }
+            basemapTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                self.basemapTask = nil
+                guard !Task.isCancelled, self.regionSettled else { return }
+                let started = Date()
+                self.publishPinCount(on: mapView)
+                self.publishBasemap(on: mapView)
+                self.publishFaithReadout(on: mapView, center: self.onCameraCenter(mapView))
+                TapTrace.mark("basemap sample \(Int(Date().timeIntervalSince(started) * 1000))ms")
+                self.basemapSamples += 1
+                let streets = Int(self.streetReadout?.accessibilityLabel ?? "") ?? 0
+                let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
+                if streets > 0, labels > 0 {
+                    self.basemapSamples = 4
+                }
+            }
         }
 
         @MainActor
@@ -305,7 +369,7 @@ struct AtlasMapView: UIViewRepresentable {
         private func faithNames(_ role: PinRole, around center: LonLat) -> String {
             places
                 .filter { MapFilter.pinRole(for: $0) == role && Geometry.haversineMeters($0.coordinate, center) < 12_000 }
-                .map(\.name)
+                .map { PlaceText.faithReadout($0) }
                 .sorted()
                 .joined(separator: "\n")
         }
@@ -365,6 +429,7 @@ struct AtlasMapView: UIViewRepresentable {
 
         @MainActor
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
+            regionSettled = true
             PackStyle.installMarkers(on: style)
             let present = Set(style.layers.map(\.identifier))
             let packIsVector = style.source(withIdentifier: "pack") is MLNVectorTileSource
@@ -383,8 +448,6 @@ struct AtlasMapView: UIViewRepresentable {
                 filter: filter,
                 onlyRole: onlyRole
             )
-            publishPinCount(on: mapView)
-            publishBasemap(on: mapView)
             publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
         }
     }
@@ -410,7 +473,8 @@ enum PackStyle {
     ]
     static let landOpacity = PackStyleDocument.landOpacity
 
-    static func fileURL(online: Bool, places: [PlaceRecord]) -> URL {
+    /// The style shell has empty pin sources. Pins are filled in batches after the map is on screen.
+    static func fileURL(online: Bool) -> URL {
         let destination = FileManager.default.temporaryDirectory
             .appendingPathComponent("pilgrim-atlas-style-\(online ? "online" : "offline").json")
         let json = PackStyleDocument.json(
@@ -420,7 +484,7 @@ enum PackStyle {
             hillshadeURL: archiveURL("northern-new-mexico-hillshade"),
             contourURL: archiveURL("northern-new-mexico-contours"),
             landURL: archiveURL("northern-new-mexico-land"),
-            places: places
+            places: []
         )
         try? json.data(using: .utf8)?.write(to: destination)
         return destination
@@ -467,7 +531,7 @@ enum PackStyle {
     }
 
     @MainActor
-    private static func pointCollection(_ places: [PlaceRecord]) -> MLNShape {
+    static func pointCollection(_ places: [PlaceRecord]) -> MLNShape {
         let features: [MLNPointFeature] = places.map { place in
             let feature = MLNPointFeature()
             feature.coordinate = CLLocationCoordinate2D(latitude: place.lat, longitude: place.lon)
