@@ -389,7 +389,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     var viewIsOutsidePack: Bool {
-        !PackCoverage.contains(cameraCenter)
+        !PackCoverage.contains(cameraAim ?? cameraCenter)
     }
 
     func jumpToNearestMappedArea() {

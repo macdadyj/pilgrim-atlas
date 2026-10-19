@@ -295,24 +295,21 @@ struct AtlasMapView: UIViewRepresentable {
         }
 
         @MainActor
-        func mapView(_ mapView: MLNMapView, regionWillChangeAnimated animated: Bool) {
+        func mapView(_ mapView: MLNMapView, regionWillChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             regionSettled = false
         }
 
+        /// A finger gesture drops the city aim. Compass resets and style loads do not.
+        /// Implementing this method means `regionDidChangeAnimated` is not called.
         @MainActor
-        func mapView(_ mapView: MLNMapView, regionWillChangeWith reason: MLNCameraChangeReason, animated: Bool) {
-            regionSettled = false
+        func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             let gesture: MLNCameraChangeReason = [
                 .gesturePan, .gesturePinch, .gestureRotate, .gestureZoomIn, .gestureZoomOut,
-                .gestureOneFingerZoom, .gestureTilt, .resetNorth,
+                .gestureOneFingerZoom, .gestureTilt,
             ]
             if !reason.intersection(gesture).isEmpty {
                 onUserCamera()
             }
-        }
-
-        @MainActor
-        func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
             regionSettled = true
             basemapSamples = 0
             basemapTask?.cancel()
