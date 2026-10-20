@@ -32,6 +32,8 @@ package struct DebugLaunch: Equatable, Sendable {
     /// One landmark role, such as `catholic` or `chapel`.
     package var onlyRole: String?
     package var center: LonLat?
+    /// Map zoom for a screenshot launch. City labels and highway shields need a wider view than the street launch.
+    package var zoom: Double?
     /// A stand-in GPS fix, such as a ZIP centroid, with no location prompt.
     package var simulatedUser: LonLat?
     /// Draws every church pin, including the selected state, for a screenshot.
@@ -69,6 +71,7 @@ package struct DebugLaunch: Equatable, Sendable {
         tab: nil,
         onlyRole: nil,
         center: nil,
+        zoom: nil,
         simulatedUser: nil,
         showPins: false,
         stubGeocode: nil,
@@ -134,6 +137,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || tab != nil
             || onlyRole != nil
             || center != nil
+            || zoom != nil
             || simulatedUser != nil
             || showPins
             || stubGeocode != nil
@@ -352,6 +356,12 @@ extension DebugLaunch {
                 continue
             } else if let value = taking("--debug-center", argument, arguments, index) {
                 launch.center = coordinate(value.value)
+                index = value.next
+                continue
+            } else if let value = taking("--debug-zoom", argument, arguments, index) {
+                if let zoom = Double(value.value), (2...18).contains(zoom) {
+                    launch.zoom = zoom
+                }
                 index = value.next
                 continue
             } else if let value = taking("--debug-location", argument, arguments, index) {

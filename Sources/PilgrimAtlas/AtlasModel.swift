@@ -123,6 +123,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             if parsed.simulatedUser != nil {
                 userCoordinate = origin
             }
+            if let zoom = parsed.zoom {
+                cameraZoom = zoom
+            }
         } else {
             let manager = CLLocationManager()
             manager.delegate = self

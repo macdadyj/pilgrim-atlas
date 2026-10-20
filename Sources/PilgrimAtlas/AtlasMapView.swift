@@ -195,6 +195,7 @@ struct AtlasMapView: UIViewRepresentable {
         private var styleLoadedAt = Date.distantFuture
         private var didReloadBareStyle = false
         private var streetReadout: UILabel?
+        private var captionReadout: UILabel?
         private var labelReadout: UILabel?
         private var sspxReadout: UILabel?
         private var orthodoxReadout: UILabel?
@@ -367,7 +368,7 @@ struct AtlasMapView: UIViewRepresentable {
         /// kept the main thread busy long enough that the map tab never appeared.
         @MainActor
         func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
-            guard fullyRendered, regionSettled, basemapSamples < 4, basemapTask == nil else { return }
+            guard fullyRendered, regionSettled, basemapSamples < 8, basemapTask == nil else { return }
             basemapTask = Task { @MainActor in
                 // Let the street tiles upload before the road query takes the main thread.
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
@@ -381,9 +382,10 @@ struct AtlasMapView: UIViewRepresentable {
                 self.basemapSamples += 1
                 let streets = Int(self.streetReadout?.accessibilityLabel ?? "") ?? 0
                 let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
-                if streets > 0, labels > 0 {
-                    self.basemapSamples = 4
-                } else if self.basemapSamples >= 4,
+                let caption = self.captionReadout?.accessibilityLabel ?? "none"
+                if streets > 0, labels > 0, caption != "none" {
+                    self.basemapSamples = 8
+                } else if streets == 0, labels == 0, self.basemapSamples >= 4,
                           !self.didReloadBareStyle,
                           Date().timeIntervalSince(self.styleLoadedAt) > 8
                 {
@@ -466,13 +468,62 @@ struct AtlasMapView: UIViewRepresentable {
             ).count
             let labels = map.visibleFeatures(
                 in: map.bounds,
-                styleLayerIdentifiers: ["ofm-road-labels", "ofm-place-labels"],
+                styleLayerIdentifiers: [
+                    "ofm-road-labels",
+                    "ofm-place-cities",
+                    "ofm-place-neighborhoods",
+                    "ofm-highway-shields",
+                    "ofm-primary-shields",
+                ],
                 predicate: nil
             ).count
             streetReadout?.accessibilityLabel = "\(streets)"
             streetReadout?.text = "\(streets)"
             labelReadout?.accessibilityLabel = "\(labels)"
             labelReadout?.text = "\(labels)"
+            publishCaption(on: map)
+        }
+
+        @MainActor
+        private func publishCaption(on map: MLNMapView) {
+            if captionReadout == nil {
+                captionReadout = basemapReadout("basemap-caption")
+            }
+            if let captionReadout, captionReadout.superview !== map {
+                map.addSubview(captionReadout)
+            }
+            var lines: [String] = []
+            let places = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: ["ofm-place-cities", "ofm-place-neighborhoods"],
+                predicate: nil
+            )
+            for feature in places {
+                let name = Self.attributeText(feature.attributes["name"])
+                if !name.isEmpty { lines.append(name) }
+            }
+            let shields = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: ["ofm-highway-shields", "ofm-primary-shields"],
+                predicate: nil
+            )
+            for feature in shields {
+                let caption = RouteShield.caption(
+                    network: Self.attributeText(feature.attributes["network"]),
+                    ref: Self.attributeText(feature.attributes["ref"]),
+                    routeNetwork: Self.attributeText(feature.attributes["route_1_network"])
+                )
+                if !caption.isEmpty { lines.append(caption) }
+            }
+            let text = Array(Set(lines)).sorted().joined(separator: "\n")
+            captionReadout?.accessibilityLabel = text.isEmpty ? "none" : text
+            captionReadout?.text = captionReadout?.accessibilityLabel
+        }
+
+        private static func attributeText(_ value: Any?) -> String {
+            if let text = value as? String { return text }
+            if let number = value as? NSNumber { return number.stringValue }
+            return ""
         }
 
         @MainActor
