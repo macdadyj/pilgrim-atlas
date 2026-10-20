@@ -71,6 +71,7 @@ struct AtlasMapView: UIViewRepresentable {
             model.noteViewport(southWest: southWest, northEast: northEast, zoom: zoom, reportingMap: true)
         }
         context.coordinator.onUserCamera = { model.releaseCameraAim() }
+        context.coordinator.onCaption = { model.noteCaption($0) }
         context.coordinator.onReloadStyle = { [weak map] in
             guard let map, model.onlineTiles else { return }
             map.styleURL = PackStyle.fileURL(online: true)
@@ -169,6 +170,7 @@ struct AtlasMapView: UIViewRepresentable {
         var onCamera: (LonLat) -> Void = { _ in }
         var onViewport: (LonLat, LonLat, Double) -> Void = { _, _, _ in }
         var onUserCamera: () -> Void = {}
+        var onCaption: (String) -> Void = { _ in }
         var onReloadStyle: () -> Void = {}
         var desiredCamera: (center: CLLocationCoordinate2D, zoom: Double)?
         var places: [PlaceRecord] = []
@@ -194,6 +196,7 @@ struct AtlasMapView: UIViewRepresentable {
         private var lastRegion: (lon: Double, lat: Double, zoom: Double)?
         private var styleLoadedAt = Date.distantFuture
         private var didReloadBareStyle = false
+        private var captionText = "none"
         private var streetReadout: UILabel?
         private var labelReadout: UILabel?
         private var sspxReadout: UILabel?
@@ -367,7 +370,10 @@ struct AtlasMapView: UIViewRepresentable {
         /// kept the main thread busy long enough that the map tab never appeared.
         @MainActor
         func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
-            guard fullyRendered, regionSettled, basemapSamples < 4, basemapTask == nil else { return }
+            // A city view keeps fetching tiles, so a frame is rarely marked fully rendered.
+            // The labels are already on screen by then. Sample from any finished frame.
+            _ = fullyRendered
+            guard regionSettled, basemapSamples < 16, basemapTask == nil else { return }
             basemapTask = Task { @MainActor in
                 // Let the street tiles upload before the road query takes the main thread.
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
@@ -381,9 +387,10 @@ struct AtlasMapView: UIViewRepresentable {
                 self.basemapSamples += 1
                 let streets = Int(self.streetReadout?.accessibilityLabel ?? "") ?? 0
                 let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
-                if streets > 0, labels > 0 {
-                    self.basemapSamples = 4
-                } else if self.basemapSamples >= 4,
+                let caption = self.captionText
+                if streets > 0, labels > 0, caption != "none" {
+                    self.basemapSamples = 16
+                } else if streets == 0, labels == 0, self.basemapSamples >= 4,
                           !self.didReloadBareStyle,
                           Date().timeIntervalSince(self.styleLoadedAt) > 8
                 {
@@ -459,6 +466,7 @@ struct AtlasMapView: UIViewRepresentable {
         @MainActor
         func publishBasemap(on map: MLNMapView) {
             installBasemapReadout(on: map)
+            publishCaption(on: map)
             let streets = map.visibleFeatures(
                 in: map.bounds,
                 styleLayerIdentifiers: ["ofm-roads", "ofm-roads-casing"],
@@ -466,13 +474,56 @@ struct AtlasMapView: UIViewRepresentable {
             ).count
             let labels = map.visibleFeatures(
                 in: map.bounds,
-                styleLayerIdentifiers: ["ofm-road-labels", "ofm-place-labels"],
+                styleLayerIdentifiers: [
+                    "ofm-road-labels",
+                    "ofm-place-cities",
+                    "ofm-place-neighborhoods",
+                    "ofm-highway-shields",
+                    "ofm-primary-shields",
+                ],
                 predicate: nil
             ).count
             streetReadout?.accessibilityLabel = "\(streets)"
             streetReadout?.text = "\(streets)"
             labelReadout?.accessibilityLabel = "\(labels)"
             labelReadout?.text = "\(labels)"
+        }
+
+        @MainActor
+        private func publishCaption(on map: MLNMapView) {
+            var lines: [String] = []
+            let places = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: ["ofm-place-cities", "ofm-place-neighborhoods"],
+                predicate: nil
+            )
+            for feature in places {
+                let name = Self.attributeText(feature.attributes["name"])
+                if !name.isEmpty { lines.append(name) }
+            }
+            let shields = map.visibleFeatures(
+                in: map.bounds,
+                styleLayerIdentifiers: ["ofm-highway-shields", "ofm-primary-shields"],
+                predicate: nil
+            )
+            for feature in shields {
+                let caption = RouteShield.caption(
+                    network: Self.attributeText(feature.attributes["network"]),
+                    ref: Self.attributeText(feature.attributes["ref"]),
+                    routeNetwork: Self.attributeText(feature.attributes["route_1_network"])
+                )
+                if !caption.isEmpty { lines.append(caption) }
+            }
+            let text = Array(Set(lines)).sorted().joined(separator: "\n")
+            let caption = text.isEmpty ? "none" : text
+            captionText = caption
+            onCaption(caption)
+        }
+
+        private static func attributeText(_ value: Any?) -> String {
+            if let text = value as? String { return text }
+            if let number = value as? NSNumber { return number.stringValue }
+            return ""
         }
 
         @MainActor

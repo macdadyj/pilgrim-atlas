@@ -899,6 +899,23 @@ final class LogicTests: XCTestCase {
         for identifier in PackStyleDocument.streetLayerIDs {
             XCTAssertTrue(streets.contains("\"id\":\"\(identifier)\""), identifier)
         }
+        XCTAssertEqual(RouteShield.caption(network: "us-interstate", ref: "25"), "I-25")
+        XCTAssertEqual(RouteShield.caption(network: "us-highway", ref: "550"), "US 550")
+        XCTAssertEqual(RouteShield.caption(network: "us-state", ref: "423", routeNetwork: "US:NM"), "NM 423")
+        XCTAssertEqual(RouteShield.caption(network: "us-interstate", ref: " 40 "), "I-40")
+        XCTAssertTrue(streets.contains("neighbourhood"))
+        XCTAssertTrue(streets.contains("I-"))
+        if let pins = streets.range(of: "\"id\":\"places-catholic\""),
+           let city = streets.range(of: "\"id\":\"ofm-place-cities\""),
+           let shield = streets.range(of: "\"id\":\"ofm-highway-shields\"") {
+            XCTAssertLessThan(pins.lowerBound, city.lowerBound)
+            XCTAssertLessThan(pins.lowerBound, shield.lowerBound)
+        } else {
+            XCTFail("city and highway layers should follow the pins")
+        }
+        let zoomed = DebugLaunch.parse(["/PilgrimAtlas", "--debug-center=35.0844,-106.6504", "--debug-zoom=11"])
+        XCTAssertEqual(zoomed.zoom ?? 0, 11, accuracy: 0.001)
+        XCTAssertEqual(zoomed.center?.lat ?? 0, 35.0844, accuracy: 0.0001)
         XCTAssertTrue(streets.contains("\"source-layer\":\"place\""))
         XCTAssertTrue(streets.contains("park"))
         XCTAssertEqual(PackStyleDocument.showsPlaceLayer("places-catholic", filter: AtlasFilter(catholic: true)), true)

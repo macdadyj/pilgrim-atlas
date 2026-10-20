@@ -13,7 +13,12 @@ package enum PackStyleDocument {
         "ofm-parks",
         "ofm-roads-casing",
         "ofm-roads",
-        "ofm-place-labels",
+        "ofm-highways-casing",
+        "ofm-highways",
+        "ofm-place-cities",
+        "ofm-place-neighborhoods",
+        "ofm-highway-shields",
+        "ofm-primary-shields",
         "ofm-road-labels",
     ]
     package static let placeLayerIDs = [
@@ -443,26 +448,7 @@ package enum PackStyleDocument {
             ])
         }
         if online {
-            let roadClasses = ["motorway", "trunk", "primary", "secondary", "tertiary", "minor", "service"]
-            let roadFilter: [Any] = ["in", ["get", "class"], ["literal", roadClasses]]
-            let width: [Any] = ["interpolate", ["linear"], ["zoom"], 11, 0.4, 14, 2.4, 16, 6]
-            let core: [Any] = ["interpolate", ["linear"], ["zoom"], 11, 0.2, 14, 1.3, 16, 3.6]
-            layers.append([
-                "id": "ofm-roads-casing",
-                "type": "line",
-                "source": "openmaptiles",
-                "source-layer": "transportation",
-                "filter": roadFilter,
-                "paint": ["line-color": "#6E6254", "line-width": width],
-            ])
-            layers.append([
-                "id": "ofm-roads",
-                "type": "line",
-                "source": "openmaptiles",
-                "source-layer": "transportation",
-                "filter": roadFilter,
-                "paint": ["line-color": "#FBF7F0", "line-width": core],
-            ])
+            layers.append(contentsOf: roadLayers())
         }
         layers.append([
             "id": "trails-casing",
@@ -493,9 +479,6 @@ package enum PackStyleDocument {
             "layout": ["visibility": "none"],
             "paint": ["line-color": "#5C5346", "line-width": 0.8],
         ])
-        if online {
-            layers.append(contentsOf: streetLabelLayers())
-        }
         if places != nil {
             for role in clusteredRoles {
                 layers.append(clusterCircle(role))
@@ -505,6 +488,10 @@ package enum PackStyleDocument {
         layers.append(contentsOf: placeLayers(geoJSON: places != nil))
         if places != nil {
             layers.append(selectedPinLayer())
+        }
+        // City names and highway shields paint after pins so a church cannot cover them.
+        if online {
+            layers.append(contentsOf: captionLayers())
         }
         return [
             "version": 8,
@@ -539,46 +526,180 @@ package enum PackStyleDocument {
         ]
     }
 
-    private static func streetLabelLayers() -> [[String: Any]] {
-        [
+    /// Local streets stay thin. Interstates and US highways get a wider gold line.
+    private static func roadLayers() -> [[String: Any]] {
+        let local: [Any] = ["in", ["get", "class"], ["literal", ["primary", "secondary", "tertiary", "minor", "service"]]]
+        let highway: [Any] = ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]]
+        let localCasing: [Any] = ["interpolate", ["linear"], ["zoom"], 11, 0.4, 14, 2.2, 16, 5]
+        let localCore: [Any] = ["interpolate", ["linear"], ["zoom"], 11, 0.2, 14, 1.2, 16, 3.2]
+        let highwayCasing: [Any] = ["interpolate", ["linear"], ["zoom"], 6, 1.2, 10, 3.2, 14, 7, 16, 10]
+        let highwayCore: [Any] = ["interpolate", ["linear"], ["zoom"], 6, 0.6, 10, 1.8, 14, 3.6, 16, 5.2]
+        return [
             [
-                "id": "ofm-place-labels",
-                "type": "symbol",
+                "id": "ofm-roads-casing",
+                "type": "line",
                 "source": "openmaptiles",
-                "source-layer": "place",
-                "minzoom": 8,
-                "filter": ["in", ["get", "class"], ["literal", ["city", "town", "village", "suburb", "neighbourhood"]]],
-                "layout": [
-                    "text-field": ["get", "name"],
-                    "text-font": ["NotoSansRegular"],
-                    "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 14, 16],
-                    "text-optional": true,
-                    "text-padding": 6,
-                ],
-                "paint": [
-                    "text-color": "#1C1915",
-                    "text-halo-color": "#FBF7F0",
-                    "text-halo-width": 1.6,
-                ],
+                "source-layer": "transportation",
+                "filter": local,
+                "paint": ["line-color": "#6E6254", "line-width": localCasing],
             ],
+            [
+                "id": "ofm-roads",
+                "type": "line",
+                "source": "openmaptiles",
+                "source-layer": "transportation",
+                "filter": local,
+                "paint": ["line-color": "#FBF7F0", "line-width": localCore],
+            ],
+            [
+                "id": "ofm-highways-casing",
+                "type": "line",
+                "source": "openmaptiles",
+                "source-layer": "transportation",
+                "minzoom": 6,
+                "filter": highway,
+                "paint": ["line-color": "#1E3A5F", "line-width": highwayCasing],
+            ],
+            [
+                "id": "ofm-highways",
+                "type": "line",
+                "source": "openmaptiles",
+                "source-layer": "transportation",
+                "minzoom": 6,
+                "filter": highway,
+                "paint": ["line-color": "#F6C453", "line-width": highwayCore],
+            ],
+        ]
+    }
+
+    private static func captionLayers() -> [[String: Any]] {
+        let citySize: [Any] = ["interpolate", ["linear"], ["zoom"], 5, 14, 8, 20, 12, 18, 15, 15]
+        let neighborhoodSize: [Any] = ["interpolate", ["linear"], ["zoom"], 12, 13, 15, 16]
+        let shieldSize: [Any] = ["interpolate", ["linear"], ["zoom"], 8, 12, 12, 14, 16, 16]
+        let routeClasses = ["motorway", "trunk"]
+        let shieldFilter: [Any] = [
+            "all",
+            ["has", "ref"],
+            ["!=", ["get", "subclass"], "junction"],
+            ["in", ["get", "class"], ["literal", routeClasses]],
+        ]
+        let primaryFilter: [Any] = [
+            "all",
+            ["has", "ref"],
+            ["!=", ["get", "subclass"], "junction"],
+            ["==", ["get", "class"], "primary"],
+        ]
+        let streetNames: [Any] = [
+            "all",
+            ["has", "name"],
+            ["in", ["get", "class"], ["literal", ["primary", "secondary", "tertiary", "minor"]]],
+        ]
+        return [
+            placeLabelLayer(
+                identifier: "ofm-place-cities",
+                classes: ["city", "town"],
+                minZoom: 5,
+                size: citySize,
+                allowOverlap: true
+            ),
+            placeLabelLayer(
+                identifier: "ofm-place-neighborhoods",
+                classes: ["village", "suburb", "neighbourhood"],
+                minZoom: 12,
+                size: neighborhoodSize,
+                allowOverlap: false
+            ),
+            shieldLayer(identifier: "ofm-highway-shields", filter: shieldFilter, minZoom: 7, size: shieldSize),
+            shieldLayer(identifier: "ofm-primary-shields", filter: primaryFilter, minZoom: 11, size: shieldSize),
             [
                 "id": "ofm-road-labels",
                 "type": "symbol",
                 "source": "openmaptiles",
                 "source-layer": "transportation_name",
-                "minzoom": 12,
+                "minzoom": 13,
+                "filter": streetNames,
                 "layout": [
                     "text-field": ["get", "name"],
                     "text-font": ["NotoSansRegular"],
                     "text-size": 12,
                     "symbol-placement": "line",
+                    "symbol-spacing": 280,
                     "text-optional": true,
+                    "text-max-angle": 30,
+                    "text-padding": 4,
                 ],
                 "paint": [
                     "text-color": "#2A241C",
                     "text-halo-color": "#FBF7F0",
-                    "text-halo-width": 1.4,
+                    "text-halo-width": 1.6,
                 ],
+            ],
+        ]
+    }
+
+    private static func placeLabelLayer(
+        identifier: String,
+        classes: [String],
+        minZoom: Double,
+        size: [Any],
+        allowOverlap: Bool
+    ) -> [String: Any] {
+        [
+            "id": identifier,
+            "type": "symbol",
+            "source": "openmaptiles",
+            "source-layer": "place",
+            "minzoom": minZoom,
+            "filter": ["in", ["get", "class"], ["literal", classes]],
+            "layout": [
+                "text-field": ["get", "name"],
+                "text-font": ["NotoSansRegular"],
+                "text-size": size,
+                "text-allow-overlap": allowOverlap,
+                "text-ignore-placement": allowOverlap,
+                "text-optional": !allowOverlap,
+                "text-padding": 4,
+                "text-max-width": 8,
+            ],
+            "paint": [
+                "text-color": "#1C1915",
+                "text-halo-color": "#FFFFFF",
+                "text-halo-width": allowOverlap ? 2.4 : 1.6,
+            ],
+        ]
+    }
+
+    private static func shieldLayer(identifier: String, filter: [Any], minZoom: Double, size: [Any]) -> [String: Any] {
+        [
+            "id": identifier,
+            "type": "symbol",
+            "source": "openmaptiles",
+            "source-layer": "transportation_name",
+            "minzoom": minZoom,
+            "filter": filter,
+            "layout": [
+                "text-field": RouteShield.textField,
+                "text-font": ["NotoSansRegular"],
+                "text-size": size,
+                "symbol-placement": "line",
+                "symbol-spacing": 320,
+                "text-allow-overlap": true,
+                "text-ignore-placement": true,
+                "text-optional": false,
+                "text-max-angle": 25,
+                "text-padding": 2,
+            ],
+            "paint": [
+                "text-color": "#F7F1E4",
+                "text-halo-color": [
+                    "match",
+                    ["get", "network"],
+                    "us-interstate", "#1E3A5F",
+                    "us-highway", "#1C1915",
+                    "us-state", "#5C3A1E",
+                    "#1E3A5F",
+                ],
+                "text-halo-width": 3.2,
             ],
         ]
     }

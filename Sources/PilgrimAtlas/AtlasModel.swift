@@ -21,6 +21,8 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private var remotePlaces: [PlaceRecord] = []
     var remotePlaceCount = 0
     /// True while a viewport query is in flight.
+    /// City names and highway shields currently drawn. The phone test reads this.
+    var renderedCaption = "none"
     var areaLoading = false
     /// The last viewport query failed after a retry and the fallback server.
     var areaFailed = false
@@ -122,6 +124,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             cameraCenter = origin
             if parsed.simulatedUser != nil {
                 userCoordinate = origin
+            }
+            if let zoom = parsed.zoom {
+                cameraZoom = zoom
             }
         } else {
             let manager = CLLocationManager()
@@ -561,6 +566,11 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         summaryPoint = cameraCenter
         summaryPinned = true
         refreshSummary()
+    }
+
+    func noteCaption(_ text: String) {
+        guard renderedCaption != text else { return }
+        renderedCaption = text
     }
 
     func noteCamera(_ coordinate: LonLat) {

@@ -455,6 +455,25 @@ final class AtlasUITests: XCTestCase {
         attach(app.screenshot(), name: "welcome-again")
     }
 
+    func testAlbuquerqueShowsCityAndInterstate() {
+        let app = launch("--debug-center=35.0844,-106.6504", "--debug-zoom=11")
+        let caption = app.descendants(matching: .any)["basemap-caption"]
+        let deadline = Date().addingTimeInterval(45)
+        var label = ""
+        while Date() < deadline {
+            if caption.waitForExistence(timeout: 1) {
+                label = caption.label
+            }
+            if label.contains("Albuquerque") && label.contains("I-25") {
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        }
+        saveLayerShot(app, "albuquerque-labels")
+        XCTAssertTrue(label.contains("Albuquerque"), label)
+        XCTAssertTrue(label.contains("I-25"), label)
+    }
+
     func testLaunchMapShowsStreetsAndLabels() {
         assertStreetLaunch("--debug-santa-fe-plaza", shot: "launch-streets")
         assertStreetLaunch("--debug-location=35.1086,-106.5700", shot: "launch-albuquerque")
