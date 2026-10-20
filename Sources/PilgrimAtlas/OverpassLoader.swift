@@ -5,15 +5,20 @@ import PilgrimAtlasCore
 #endif
 
 enum OverpassOutcome: Sendable {
-    case places([PlaceRecord])
+    case places([PlaceRecord], trails: [TrailRecord])
     case unavailable
+}
+
+private struct CachedOverpass: Sendable {
+    var places: [PlaceRecord]
+    var trails: [TrailRecord]
 }
 
 /// One Overpass query at a time, with a short wait between calls and a memory cache.
 actor OverpassLoader {
     static let shared = OverpassLoader()
     private var lastRequest = Date.distantPast
-    private var cache: [String: [PlaceRecord]] = [:]
+    private var cache: [String: CachedOverpass] = [:]
     private let minimumGap: TimeInterval = 1.2
     /// Separate from the map's tile session so a slow area query cannot sit on it.
     private let session: URLSession = {
@@ -29,26 +34,33 @@ actor OverpassLoader {
         URL(string: "https://overpass-api.de/api/interpreter"),
     ].compactMap { $0 }
 
-    func places(south: Double, west: Double, north: Double, east: Double, zoom: Double) async -> OverpassOutcome {
+    func places(
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+        zoom: Double,
+        layers: OverpassLayers = .none
+    ) async -> OverpassOutcome {
         guard OverpassQuery.allows(south: south, west: west, north: north, east: east, zoom: zoom) else {
-            return .places([])
+            return .places([], trails: [])
         }
-        let key = OverpassQuery.cacheKey(south: south, west: west, north: north, east: east)
-        if let cached = cache[key] { return .places(cached) }
+        let key = OverpassQuery.cacheKey(south: south, west: west, north: north, east: east, layers: layers)
+        if let cached = cache[key] { return .places(cached.places, trails: cached.trails) }
         let wait = minimumGap - Date().timeIntervalSince(lastRequest)
         if wait > 0 {
             try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
         }
         guard !Task.isCancelled else { return .unavailable }
         lastRequest = Date()
-        let statement = OverpassQuery.statement(south: south, west: west, north: north, east: east)
+        let statement = OverpassQuery.statement(south: south, west: west, north: north, east: east, layers: layers)
         let day = isoDay(Date())
         for endpoint in endpoints {
             for attempt in 0..<2 {
-                if let places = await fetch(statement, from: endpoint, fetchedOn: day) {
-                    cache[key] = places
+                if let loaded = await fetch(statement, from: endpoint, fetchedOn: day) {
+                    cache[key] = loaded
                     if cache.count > 40, let oldest = cache.keys.first { cache.removeValue(forKey: oldest) }
-                    return .places(places)
+                    return .places(loaded.places, trails: loaded.trails)
                 }
                 if attempt == 0 {
                     try? await Task.sleep(nanoseconds: 700_000_000)
@@ -59,7 +71,7 @@ actor OverpassLoader {
         return .unavailable
     }
 
-    private func fetch(_ statement: String, from endpoint: URL, fetchedOn: String) async -> [PlaceRecord]? {
+    private func fetch(_ statement: String, from endpoint: URL, fetchedOn: String) async -> CachedOverpass? {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 12
@@ -70,7 +82,10 @@ actor OverpassLoader {
               let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode)
         else { return nil }
-        return OverpassQuery.places(from: data, fetchedOn: fetchedOn)
+        return CachedOverpass(
+            places: OverpassQuery.places(from: data, fetchedOn: fetchedOn),
+            trails: OverpassQuery.trails(from: data, fetchedOn: fetchedOn)
+        )
     }
 
     private func isoDay(_ date: Date) -> String {

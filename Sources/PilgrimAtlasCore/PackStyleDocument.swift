@@ -23,6 +23,9 @@ package enum PackStyleDocument {
         "places-parking",
         "places-water",
         "places-trailhead",
+        "places-restaurant",
+        "places-grocery",
+        "places-fuel",
         "places-worship",
         "places-orthodox",
         "places-sspx",
@@ -193,6 +196,10 @@ package enum PackStyleDocument {
         if let onlyRole {
             return identifier == "places-\(onlyRole)"
         }
+        if identifier == "places-landmark", !filter.showLandmarks { return false }
+        if identifier == "places-restaurant" { return filter.restaurants }
+        if identifier == "places-grocery" { return filter.groceries }
+        if identifier == "places-fuel" { return filter.fuel }
         if identifier == "places-worship" {
             return filter.showOtherWorship
         }
@@ -626,6 +633,9 @@ package enum PackStyleDocument {
             ("places-parking", "parking", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
             ("places-water", "water", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
             ("places-trailhead", "trailhead", false, 8, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-restaurant", "restaurant", false, 15, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-grocery", "grocery", false, 15, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
+            ("places-fuel", "fuel", false, 15, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
             ("places-landmark", "landmark", false, 12, 0.78, ["top", "bottom", "left", "right"], 1.7, 10),
             ("places-chapel", "chapel", false, 2, 0.92, ["bottom", "right", "left", "top"], 1.7, 10),
             ("places-catholic", "catholic", true, 1, 1.0, ["top", "left", "right"], 2.4, 7),

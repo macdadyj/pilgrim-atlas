@@ -17,6 +17,9 @@ package enum Faith {
     }
 
     package static func kind(name: String, category: String, denomination: String, catholic: Bool) -> FaithKind {
+        if category == "restaurant" || category == "grocery" || category == "fuel" || category == "hiking" {
+            return .secular
+        }
         let foldedName = AtlasQuery.fold(name)
         let foldedDenomination = Catholic.normalize(denomination)
         if isNonChristian(name: foldedName, denomination: foldedDenomination) { return .nonChristian }

@@ -29,6 +29,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     private var areaEpoch = 0
     /// Last viewport scheduled for a fetch. Camera jitter stays on this key.
     private var scheduledViewportKey: String?
+    private var lastSouthWest: LonLat?
+    private var lastNorthEast: LonLat?
+    private var lastZoom = 0.0
     var geocodeHits: [SearchHit] = []
     var geocodeLoading = false
     private var churchTask: Task<Void, Never>?
@@ -128,6 +131,11 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         }
         loadPack()
         filter = DebugLaunch.filter(from: parsed.filterTokens)
+        applyStoredLayers()
+        if parsed.amenitySample {
+            places.append(DebugLaunch.sampleAmenity())
+            filter.restaurants = true
+        }
         focusFoodChip = parsed.focusFood
         onlyRole = parsed.onlyRole
         if parsed.showTerrain { showTerrain = true }
@@ -233,6 +241,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         let hideHours = filter.hidePlacesWithoutHours
         filter = AtlasFilter.empty
         filter.hidePlacesWithoutHours = hideHours
+        storeLayers()
         scheduleFilterFollowUp()
     }
 
@@ -251,6 +260,14 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             Task { @MainActor in
                 self.filterTurn = nil
             }
+        }
+        if id == "landmarks" || id == "restaurants" || id == "groceries" || id == "gas" {
+            storeLayers()
+        }
+        if on, ["restaurants", "groceries", "gas"].contains(id),
+           let southWest = lastSouthWest, let northEast = lastNorthEast {
+            scheduledViewportKey = nil
+            noteViewport(southWest: southWest, northEast: northEast, zoom: lastZoom)
         }
         if on, id == "catholic" {
             pendingFrame = .catholic
@@ -510,6 +527,10 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     func openPlace(_ place: PlaceRecord) {
+        if place.category == "hiking", let trail = trail(id: place.id) {
+            openTrail(trail)
+            return
+        }
         selectedPlace = place
         selectedTrail = nil
         selectedTab = .map
@@ -563,6 +584,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             lat: (southWest.lat + northEast.lat) / 2
         )
         if reportingMap, !acceptMapCamera(reported) { return }
+        lastSouthWest = southWest
+        lastNorthEast = northEast
+        lastZoom = zoom
         if Geometry.haversineMeters(cameraCenter, reported) >= 12 {
             cameraCenter = reported
         }
@@ -585,11 +609,17 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             if areaLoading { areaLoading = false }
             return
         }
+        let layers = OverpassLayers(
+            restaurants: filter.restaurants,
+            groceries: filter.groceries,
+            fuel: filter.fuel
+        )
         let key = OverpassQuery.cacheKey(
             south: southWest.lat,
             west: southWest.lon,
             north: northEast.lat,
-            east: northEast.lon
+            east: northEast.lon,
+            layers: layers
         )
         guard key != scheduledViewportKey else { return }
         scheduledViewportKey = key
@@ -611,7 +641,8 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
                 west: west,
                 north: north,
                 east: east,
-                zoom: zoom
+                zoom: zoom,
+                layers: layers
             )
             guard !Task.isCancelled, epoch == self.areaEpoch else { return }
             self.areaLoading = false
@@ -619,10 +650,10 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             case .unavailable:
                 self.areaFailed = true
                 self.scheduledViewportKey = nil
-            case .places(let fetched):
+            case .places(let fetched, trails: let fetchedTrails):
                 self.areaFailed = false
                 self.areaAnswered = true
-                self.absorbRemote(fetched)
+                self.absorbRemote(fetched, trails: fetchedTrails)
             }
         }
     }
@@ -637,12 +668,23 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         return true
     }
 
-    private func absorbRemote(_ fetched: [PlaceRecord]) {
-        guard !fetched.isEmpty else { return }
-        remotePlaces = PlaceMerge.combine(pack: remotePlaces, remote: fetched)
-        remotePlaceCount = remotePlaces.count
-        places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
-        reloadDrawnPlaces()
+    private func absorbRemote(_ fetched: [PlaceRecord], trails fetchedTrails: [TrailRecord] = []) {
+        if !fetched.isEmpty {
+            remotePlaces = PlaceMerge.combine(pack: remotePlaces, remote: fetched)
+            remotePlaceCount = remotePlaces.count
+            places = PlaceMerge.combine(pack: packPlaces, remote: remotePlaces)
+            reloadDrawnPlaces()
+        }
+        guard !fetchedTrails.isEmpty else { return }
+        var merged = trails
+        for trail in fetchedTrails {
+            if let index = merged.firstIndex(where: { $0.id == trail.id }) {
+                merged[index] = trail
+            } else {
+                merged.append(trail)
+            }
+        }
+        trails = merged
     }
 
     private var geocodeQuery = ""
@@ -794,6 +836,14 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     private func openResolved(_ query: String) {
+        let folded = AtlasQuery.fold(query)
+        if let amenity = places.first(where: {
+            AtlasQuery.fold($0.name) == folded
+                && ($0.category == "restaurant" || $0.category == "grocery" || $0.category == "fuel")
+        }) {
+            openPlace(amenity)
+            return
+        }
         guard let target = DebugLaunch.resolve(query, places: places, trails: trails) else { return }
         switch target {
         case .place(let id):
@@ -801,6 +851,26 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         case .trail(let id):
             if let found = trail(id: id) { openTrail(found) }
         }
+    }
+
+    private func applyStoredLayers() {
+        filter.showLandmarks = storedFlag("pilgrim.showLandmarks", default: true)
+        filter.restaurants = storedFlag("pilgrim.layer.restaurants", default: false)
+        filter.groceries = storedFlag("pilgrim.layer.groceries", default: false)
+        filter.fuel = storedFlag("pilgrim.layer.fuel", default: false)
+    }
+
+    private func storeLayers() {
+        let defaults = UserDefaults.standard
+        defaults.set(filter.showLandmarks, forKey: "pilgrim.showLandmarks")
+        defaults.set(filter.restaurants, forKey: "pilgrim.layer.restaurants")
+        defaults.set(filter.groceries, forKey: "pilgrim.layer.groceries")
+        defaults.set(filter.fuel, forKey: "pilgrim.layer.fuel")
+    }
+
+    private func storedFlag(_ key: String, default defaultValue: Bool) -> Bool {
+        guard UserDefaults.standard.object(forKey: key) != nil else { return defaultValue }
+        return UserDefaults.standard.bool(forKey: key)
     }
 
     private func loadPack() {

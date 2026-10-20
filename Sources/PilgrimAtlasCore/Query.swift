@@ -85,14 +85,78 @@ package struct TrailRecord: Equatable, Sendable, Identifiable {
     package var geometry: GeoJSONGeometry
     package var source: String
     package var sourceDate: String
+    /// OSM `surface`, when the source recorded one.
+    package var surface: String
+    /// OSM difficulty, such as `sac_scale`, when the source recorded one.
+    package var difficulty: String
+    /// Name of the start, usually the trailhead.
+    package var trailheadName: String
+    /// Length from a tag when the geometry is only a center point.
+    package var statedLength: String
+    package var trailheadLat: Double
+    package var trailheadLon: Double
 
-    package init(id: Int, name: String, access: String, geometry: GeoJSONGeometry, source: String, sourceDate: String) {
+    package init(
+        id: Int,
+        name: String,
+        access: String,
+        geometry: GeoJSONGeometry,
+        source: String,
+        sourceDate: String,
+        surface: String = "",
+        difficulty: String = "",
+        trailheadName: String = "",
+        statedLength: String = "",
+        trailheadLat: Double = 0,
+        trailheadLon: Double = 0
+    ) {
         self.id = id
         self.name = name
         self.access = access
         self.geometry = geometry
         self.source = source
         self.sourceDate = sourceDate
+        self.surface = surface
+        self.difficulty = difficulty
+        self.trailheadName = trailheadName
+        self.statedLength = statedLength
+        self.trailheadLat = trailheadLat
+        self.trailheadLon = trailheadLon
+    }
+
+    package var lengthLine: String {
+        let stated = statedLength.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stated.isEmpty { return stated }
+        return Geometry.lengthSentence(geometry)
+    }
+
+    package var surfaceLine: String? { TrailText.display(surface) }
+    package var difficultyLine: String? { TrailText.display(difficulty) }
+    package var trailheadLine: String? { TrailText.display(trailheadName) }
+
+    package var directionsPoint: LonLat? {
+        if trailheadLat != 0 || trailheadLon != 0 {
+            return LonLat(lon: trailheadLon, lat: trailheadLat)
+        }
+        guard let box = geometry.bbox else { return nil }
+        return LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
+    }
+}
+
+enum TrailText {
+    static func display(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let words = trimmed.replacingOccurrences(of: "_", with: " ")
+        return words.prefix(1).uppercased() + words.dropFirst()
+    }
+
+    /// OSM route `distance` is kilometers unless the tag already names a unit.
+    static func lengthTag(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if trimmed.contains(where: { $0.isLetter }) { return trimmed }
+        return "\(trimmed) km"
     }
 }
 

@@ -297,8 +297,63 @@ final class AtlasUITests: XCTestCase {
             app.otherElements["trail-sheet"].waitForExistence(timeout: 25)
                 || app.staticTexts["Trail line"].waitForExistence(timeout: 12)
         )
+        let length = app.descendants(matching: .any)["trail-length"]
+        XCTAssertTrue(length.waitForExistence(timeout: 8))
+        XCTAssertTrue(length.label.contains("Length") || length.label.contains("not shown") || length.label.contains("km") || length.label.contains("m"))
+        var swipes = 0
+        let directions = app.descendants(matching: .any)["trail-directions"]
+        while !directions.exists && swipes < 4 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(directions.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.descendants(matching: .any)["trail-surface"].exists)
         attach(app.screenshot(), name: "skyline-sheet")
         tapDone(app, identifier: "trail-done", title: "Done")
+    }
+
+    func testLandmarkToggleIsRemembered() {
+        let first = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        let landmarks = filterControl(first, "landmarks", "Landmarks")
+        XCTAssertTrue(landmarks.waitForExistence(timeout: 8))
+        XCTAssertTrue(switchIsOn(landmarks), "Landmarks start on")
+        tapFilter(landmarks)
+        XCTAssertTrue(waitForSwitch(landmarks, on: false))
+        first.terminate()
+
+        let second = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        let remembered = filterControl(second, "landmarks", "Landmarks")
+        XCTAssertTrue(remembered.waitForExistence(timeout: 8))
+        XCTAssertFalse(switchIsOn(remembered), "Landmarks stayed off after relaunch")
+        tapFilter(remembered)
+        XCTAssertTrue(waitForSwitch(remembered, on: true))
+        second.terminate()
+    }
+
+    func testRestaurantCardAndAmenityLayersDefaultOff() {
+        let filters = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        for (identifier, title) in [("restaurants", "Restaurants"), ("groceries", "Groceries"), ("gas", "Gas stations")] {
+            let row = filterControl(filters, identifier, title)
+            XCTAssertTrue(row.waitForExistence(timeout: 8), identifier)
+            XCTAssertFalse(switchIsOn(row), "\(title) starts off")
+        }
+        filters.terminate()
+
+        let app = launch("--debug-santa-fe-plaza", "--debug-amenity", "--debug-open-place=Plaza Cafe")
+        XCTAssertTrue(app.otherElements["place-sheet"].waitForExistence(timeout: 25))
+        XCTAssertTrue(app.buttons["place-call"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["place-website"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["place-directions"].waitForExistence(timeout: 8))
+        var swipes = 0
+        let hours = app.descendants(matching: .any)["place-hours"]
+        while !hours.exists && swipes < 4 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(hours.waitForExistence(timeout: 6), "Restaurant hours were not on the card")
+        XCTAssertTrue(hours.label.contains("7:00 AM"), hours.label)
+        attach(app.screenshot(), name: "plaza-cafe")
+        tapDone(app, identifier: "place-done", title: "Done")
     }
 
     func testPlacesPicker() {

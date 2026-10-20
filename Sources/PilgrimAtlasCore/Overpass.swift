@@ -1,6 +1,19 @@
 import Foundation
 
 /// Builds and reads an Overpass answer. The network call lives in the app.
+/// Optional place layers. They stay out of the query until the matching switch is on.
+package struct OverpassLayers: Equatable, Sendable {
+    package var restaurants = false
+    package var groceries = false
+    package var fuel = false
+
+    package static let none = OverpassLayers()
+
+    package var cacheToken: String {
+        [restaurants ? "r" : "", groceries ? "g" : "", fuel ? "f" : ""].joined()
+    }
+}
+
 package enum OverpassQuery {
     package static let maxSpan = 0.9
     package static let minimumZoom = 10.0
@@ -12,9 +25,18 @@ package enum OverpassQuery {
         return (north - south) <= maxSpan && (east - west) <= maxSpan
     }
 
-    package static func cacheKey(south: Double, west: Double, north: Double, east: Double) -> String {
+    package static func cacheKey(
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+        layers: OverpassLayers = .none
+    ) -> String {
         func snap(_ value: Double) -> String { String(format: "%.2f", (value * 50).rounded() / 50) }
-        return [snap(south), snap(west), snap(north), snap(east)].joined(separator: ",")
+        let box = [snap(south), snap(west), snap(north), snap(east)].joined(separator: ",")
+        let token = layers.cacheToken
+        if token.isEmpty { return box }
+        return box + "|" + token
     }
 
     /// Christian worship, plus Catholic, Orthodox, and SSPX tags when religion is missing.
@@ -25,17 +47,35 @@ package enum OverpassQuery {
         return components.percentEncodedQuery?.data(using: .utf8)
     }
 
-    package static func statement(south: Double, west: Double, north: Double, east: Double) -> String {
+    package static func statement(
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+        layers: OverpassLayers = .none
+    ) -> String {
         let box = "\(south),\(west),\(north),\(east)"
+        var clauses = [
+            "nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"](\(box));",
+            "nwr[\"amenity\"=\"place_of_worship\"][\"denomination\"~\"catholic|orthodox|sspx|fsspx|byzantine|ruthenian|maronite|melkite\",i](\(box));",
+            "nwr[\"historic\"~\"church|monastery|wayside_shrine|monument|memorial|shrine\",i](\(box));",
+            "nwr[\"tourism\"=\"viewpoint\"](\(box));",
+            "nwr[\"highway\"=\"trailhead\"](\(box));",
+            "nwr[\"route\"=\"hiking\"][\"name\"](\(box));",
+        ]
+        if layers.restaurants {
+            clauses.append("nwr[\"amenity\"~\"restaurant|fast_food|cafe\"][\"name\"](\(box));")
+        }
+        if layers.groceries {
+            clauses.append("nwr[\"shop\"~\"supermarket|convenience|grocery\"][\"name\"](\(box));")
+        }
+        if layers.fuel {
+            clauses.append("nwr[\"amenity\"=\"fuel\"][\"name\"](\(box));")
+        }
         return """
         [out:json][timeout:12];
         (
-          nwr["amenity"="place_of_worship"]["religion"="christian"](\(box));
-          nwr["amenity"="place_of_worship"]["denomination"~"catholic|orthodox|sspx|fsspx|byzantine|ruthenian|maronite|melkite",i](\(box));
-          nwr["historic"~"church|monastery|wayside_shrine|monument|memorial|shrine",i](\(box));
-          nwr["tourism"="viewpoint"](\(box));
-          nwr["highway"="trailhead"](\(box));
-          nwr["route"="hiking"]["name"](\(box));
+          \(clauses.joined(separator: "\n          "))
         );
         out center tags \(resultCap);
         """
@@ -56,6 +96,42 @@ package enum OverpassQuery {
             if !duplicate { places.append(place) }
         }
         return places
+    }
+
+    /// Hiking routes from the same Overpass answer. A center point is enough for the card.
+    package static func trails(from json: Data, fetchedOn: String) -> [TrailRecord] {
+        guard let root = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+              let elements = root["elements"] as? [[String: Any]]
+        else { return [] }
+        var trails: [TrailRecord] = []
+        for element in elements {
+            guard let trail = trail(from: element, fetchedOn: fetchedOn) else { continue }
+            trails.append(trail)
+        }
+        return trails
+    }
+
+    private static func trail(from element: [String: Any], fetchedOn: String) -> TrailRecord? {
+        let tags = element["tags"] as? [String: Any] ?? [:]
+        guard string(tags["route"]) == "hiking" else { return nil }
+        let name = string(tags["name"])
+        guard !name.isEmpty else { return nil }
+        guard let lat = coordinate(element, key: "lat"), let lon = coordinate(element, key: "lon") else { return nil }
+        let difficulty = first(tags, ["sac_scale", "trail_visibility"])
+        return TrailRecord(
+            id: stableID(element),
+            name: name,
+            access: string(tags["access"]),
+            geometry: .point(LonLat(lon: lon, lat: lat)),
+            source: "OpenStreetMap",
+            sourceDate: fetchedOn,
+            surface: string(tags["surface"]),
+            difficulty: difficulty,
+            trailheadName: string(tags["from"]),
+            statedLength: TrailText.lengthTag(string(tags["distance"])),
+            trailheadLat: lat,
+            trailheadLon: lon
+        )
     }
 
     private static func place(from element: [String: Any], fetchedOn: String) -> PlaceRecord? {
@@ -111,9 +187,12 @@ package enum OverpassQuery {
         if amenity == "place_of_worship" || historic == "church" || historic == "monastery" || historic == "wayside_shrine" {
             return "worship"
         }
-        if highway == "trailhead" || string(tags["information"]) == "trailhead" || route == "hiking" {
-            return "trailhead"
-        }
+        if route == "hiking" { return "hiking" }
+        if highway == "trailhead" || string(tags["information"]) == "trailhead" { return "trailhead" }
+        if amenity == "restaurant" || amenity == "fast_food" || amenity == "cafe" { return "restaurant" }
+        if amenity == "fuel" { return "fuel" }
+        let shop = string(tags["shop"])
+        if shop == "supermarket" || shop == "convenience" || shop == "grocery" { return "grocery" }
         return "landmark"
     }
 
