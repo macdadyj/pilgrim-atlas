@@ -71,6 +71,10 @@ struct AtlasMapView: UIViewRepresentable {
             model.noteViewport(southWest: southWest, northEast: northEast, zoom: zoom, reportingMap: true)
         }
         context.coordinator.onUserCamera = { model.releaseCameraAim() }
+        context.coordinator.onReloadStyle = { [weak map] in
+            guard let map, model.onlineTiles else { return }
+            map.styleURL = PackStyle.fileURL(online: true)
+        }
         context.coordinator.places = places
         context.coordinator.showLand = model.showLand
         context.coordinator.showTrails = model.showTrails
@@ -143,12 +147,21 @@ struct AtlasMapView: UIViewRepresentable {
     }
 
     private func applyChrome(on map: MLNMapView) {
-        map.contentInset = UIEdgeInsets(top: topInset, left: 8, bottom: bottomObstruction, right: 8)
+        // Assigning the same inset still makes MapLibre emit a region change. That
+        // loop resets the road query and cancels the OpenFreeMap tiles mid-download.
+        let inset = UIEdgeInsets(top: topInset, left: 8, bottom: bottomObstruction, right: 8)
+        if map.contentInset != inset {
+            map.contentInset = inset
+        }
         let margin = CGPoint(x: 8, y: Self.ornamentGap + bottomSafeArea)
         map.logoViewPosition = .bottomLeft
         map.attributionButtonPosition = .bottomRight
-        map.logoViewMargins = margin
-        map.attributionButtonMargins = margin
+        if map.logoViewMargins != margin {
+            map.logoViewMargins = margin
+        }
+        if map.attributionButtonMargins != margin {
+            map.attributionButtonMargins = margin
+        }
     }
 
     final class Coordinator: NSObject, @MainActor MLNMapViewDelegate {
@@ -156,6 +169,7 @@ struct AtlasMapView: UIViewRepresentable {
         var onCamera: (LonLat) -> Void = { _ in }
         var onViewport: (LonLat, LonLat, Double) -> Void = { _, _, _ in }
         var onUserCamera: () -> Void = {}
+        var onReloadStyle: () -> Void = {}
         var desiredCamera: (center: CLLocationCoordinate2D, zoom: Double)?
         var places: [PlaceRecord] = []
         var lastOnline = false
@@ -177,6 +191,9 @@ struct AtlasMapView: UIViewRepresentable {
         private var regionSettled = true
         private var basemapSamples = 0
         private var userAnnotation: MLNPointAnnotation?
+        private var lastRegion: (lon: Double, lat: Double, zoom: Double)?
+        private var styleLoadedAt = Date.distantFuture
+        private var didReloadBareStyle = false
         private var streetReadout: UILabel?
         private var labelReadout: UILabel?
         private var sspxReadout: UILabel?
@@ -217,7 +234,11 @@ struct AtlasMapView: UIViewRepresentable {
             }
             let coordinate = CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon)
             if let userAnnotation {
-                userAnnotation.coordinate = coordinate
+                let same = abs(userAnnotation.coordinate.latitude - coordinate.latitude) < 0.00001
+                    && abs(userAnnotation.coordinate.longitude - coordinate.longitude) < 0.00001
+                if !same {
+                    userAnnotation.coordinate = coordinate
+                }
                 return
             }
             let pin = MLNPointAnnotation()
@@ -311,17 +332,34 @@ struct AtlasMapView: UIViewRepresentable {
                 onUserCamera()
             }
             regionSettled = true
-            basemapSamples = 0
-            basemapTask?.cancel()
-            basemapTask = nil
             let center = mapView.centerCoordinate
-            onCamera(LonLat(lon: center.longitude, lat: center.latitude))
-            let bounds = mapView.visibleCoordinateBounds
-            onViewport(
-                LonLat(lon: bounds.sw.longitude, lat: bounds.sw.latitude),
-                LonLat(lon: bounds.ne.longitude, lat: bounds.ne.latitude),
-                mapView.zoomLevel
-            )
+            let zoom = mapView.zoomLevel
+            let moved: Bool
+            if let lastRegion {
+                let shift = Geometry.haversineMeters(
+                    LonLat(lon: lastRegion.lon, lat: lastRegion.lat),
+                    LonLat(lon: center.longitude, lat: center.latitude)
+                )
+                moved = shift > 40 || abs(lastRegion.zoom - zoom) > 0.2
+            } else {
+                moved = true
+            }
+            lastRegion = (center.longitude, center.latitude, zoom)
+            // Inset and annotation refreshes report the same view again. Resetting
+            // the road query on those reports kept Albuquerque's main thread in
+            // visibleFeatures and the street tiles never finished painting.
+            if moved {
+                basemapSamples = 0
+                basemapTask?.cancel()
+                basemapTask = nil
+                onCamera(LonLat(lon: center.longitude, lat: center.latitude))
+                let bounds = mapView.visibleCoordinateBounds
+                onViewport(
+                    LonLat(lon: bounds.sw.longitude, lat: bounds.sw.latitude),
+                    LonLat(lon: bounds.ne.longitude, lat: bounds.ne.latitude),
+                    zoom
+                )
+            }
             publishFaithReadout(on: mapView, center: onCameraCenter(mapView))
         }
 
@@ -331,7 +369,8 @@ struct AtlasMapView: UIViewRepresentable {
         func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
             guard fullyRendered, regionSettled, basemapSamples < 4, basemapTask == nil else { return }
             basemapTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 350_000_000)
+                // Let the street tiles upload before the road query takes the main thread.
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
                 self.basemapTask = nil
                 guard !Task.isCancelled, self.regionSettled else { return }
                 let started = Date()
@@ -344,6 +383,17 @@ struct AtlasMapView: UIViewRepresentable {
                 let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
                 if streets > 0, labels > 0 {
                     self.basemapSamples = 4
+                } else if self.basemapSamples >= 4,
+                          !self.didReloadBareStyle,
+                          Date().timeIntervalSince(self.styleLoadedAt) > 8
+                {
+                    // The land pack is on screen and the online roads never arrived.
+                    // Load the style once more so a cancelled tile fetch can finish.
+                    self.didReloadBareStyle = true
+                    self.basemapSamples = 0
+                    self.lastPlaceIDs = nil
+                    let reload = self.onReloadStyle
+                    Task { @MainActor in reload() }
                 }
             }
         }
@@ -458,6 +508,7 @@ struct AtlasMapView: UIViewRepresentable {
         @MainActor
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             regionSettled = true
+            styleLoadedAt = Date()
             applyRememberedCamera(on: mapView, animated: false)
             PackStyle.installMarkers(on: style)
             let present = Set(style.layers.map(\.identifier))

@@ -190,6 +190,19 @@ private struct MapChrome: View {
                         .accessibilityLabel(faithNearby(.orthodox))
                         .frame(width: 1, height: 1)
                         .opacity(0.02)
+                    if model.areaLoading {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Loading this area")
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.horizontal, Theme.screenPadding)
+                        .accessibilityIdentifier("area-loading")
+                    }
                     if model.viewIsOutsidePack {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(model.remotePlaceCount > 0
@@ -199,11 +212,18 @@ private struct MapChrome: View {
                                 .foregroundStyle(.primary)
                                 .fixedSize(horizontal: false, vertical: true)
                             if model.remotePlaceCount == 0 {
-                                Button("Show the nearest mapped area") {
-                                    model.jumpToNearestMappedArea()
+                                Text(areaExplanation)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .accessibilityIdentifier("area-explanation")
+                                if !model.areaLoading {
+                                    Button("Show the nearest mapped area") {
+                                        model.jumpToNearestMappedArea()
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .accessibilityIdentifier("jump-nearest-mapped")
                                 }
-                                .buttonStyle(.bordered)
-                                .accessibilityIdentifier("jump-nearest-mapped")
                             }
                         }
                         .padding(12)
@@ -333,6 +353,16 @@ private struct MapChrome: View {
     }
 
     /// Unnamed private land is not a launch sheet. A named place or a real land name still opens the card.
+    private var areaExplanation: String {
+        if model.areaFailed {
+            return "OpenStreetMap did not answer. Move the map to try again."
+        }
+        if model.areaAnswered {
+            return "OpenStreetMap has no churches or landmarks tagged in this view."
+        }
+        return "Loading churches, chapels, shrines, trails, and landmarks for this view."
+    }
+
     private var showsNearbyCard: Bool {
         guard let headline = model.summary?.headline else { return false }
         return headline != LandStatus.unnamedPrivateHeadline

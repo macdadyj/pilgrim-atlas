@@ -212,6 +212,7 @@ package enum MapFilter {
         if folded.contains("spring") || folded.contains("cistern") || folded.contains("water trough") { return .water }
         if folded.contains("museum") { return .museum }
         if place.category == "worship" { return .worship }
+        if place.category == "trailhead" { return .trailhead }
         return .landmark
     }
 

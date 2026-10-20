@@ -28,11 +28,14 @@ package enum OverpassQuery {
     package static func statement(south: Double, west: Double, north: Double, east: Double) -> String {
         let box = "\(south),\(west),\(north),\(east)"
         return """
-        [out:json][timeout:25];
+        [out:json][timeout:12];
         (
           nwr["amenity"="place_of_worship"]["religion"="christian"](\(box));
           nwr["amenity"="place_of_worship"]["denomination"~"catholic|orthodox|sspx|fsspx|byzantine|ruthenian|maronite|melkite",i](\(box));
-          nwr["historic"~"church|monastery|wayside_shrine"](\(box));
+          nwr["historic"~"church|monastery|wayside_shrine|monument|memorial|shrine",i](\(box));
+          nwr["tourism"="viewpoint"](\(box));
+          nwr["highway"="trailhead"](\(box));
+          nwr["route"="hiking"]["name"](\(box));
         );
         out center tags \(resultCap);
         """
@@ -62,7 +65,8 @@ package enum OverpassQuery {
         guard let lat = coordinate(element, key: "lat"), let lon = coordinate(element, key: "lon") else { return nil }
         let denomination = Catholic.normalize(string(tags["denomination"]))
         let religion = Catholic.normalize(string(tags["religion"]))
-        let kind = Faith.kind(name: name, category: "worship", denomination: denomination, catholic: false)
+        let category = category(for: tags)
+        let kind = Faith.kind(name: name, category: category, denomination: denomination, catholic: false)
         if religion == "muslim" || religion == "hindu" || religion == "buddhist" || religion == "sikh" || religion == "jewish" {
             return nil
         }
@@ -74,7 +78,7 @@ package enum OverpassQuery {
         return PlaceRecord(
             id: identifier,
             name: name,
-            category: "worship",
+            category: category,
             catholic: catholic,
             denomination: denomination,
             lat: lat,
@@ -96,6 +100,21 @@ package enum OverpassQuery {
             sourceDate: fetchedOn,
             phone: phone
         )
+    }
+
+    /// Worship stays a church pin. Trailheads and hiking routes use the trail pin. The rest are landmarks.
+    private static func category(for tags: [String: Any]) -> String {
+        let amenity = string(tags["amenity"])
+        let historic = string(tags["historic"]).lowercased()
+        let highway = string(tags["highway"])
+        let route = string(tags["route"])
+        if amenity == "place_of_worship" || historic == "church" || historic == "monastery" || historic == "wayside_shrine" {
+            return "worship"
+        }
+        if highway == "trailhead" || string(tags["information"]) == "trailhead" || route == "hiking" {
+            return "trailhead"
+        }
+        return "landmark"
     }
 
     private static func stableID(_ element: [String: Any]) -> Int {
