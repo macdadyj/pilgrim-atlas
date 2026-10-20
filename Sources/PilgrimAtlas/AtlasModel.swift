@@ -27,6 +27,8 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     /// A viewport query returned, even when it had no places.
     var areaAnswered = false
     private var areaEpoch = 0
+    /// Last viewport scheduled for a fetch. Camera jitter stays on this key.
+    private var scheduledViewportKey: String?
     var geocodeHits: [SearchHit] = []
     var geocodeLoading = false
     private var churchTask: Task<Void, Never>?
@@ -542,6 +544,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
 
     func noteCamera(_ coordinate: LonLat) {
         guard acceptMapCamera(coordinate) else { return }
+        // A content-inset refresh reports a center a few meters away. Publishing
+        // that makes SwiftUI set the inset again and the map never settles.
+        guard Geometry.haversineMeters(cameraCenter, coordinate) >= 12 else { return }
         cameraCenter = coordinate
     }
 
@@ -558,7 +563,9 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             lat: (southWest.lat + northEast.lat) / 2
         )
         if reportingMap, !acceptMapCamera(reported) { return }
-        cameraCenter = reported
+        if Geometry.haversineMeters(cameraCenter, reported) >= 12 {
+            cameraCenter = reported
+        }
         // A UI test that injects a city also injects one church there. Albuquerque
         // does not set the flag, so its Overpass query is unchanged.
         if launch.stubGeocode != nil {
@@ -575,21 +582,30 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             east: northEast.lon,
             zoom: zoom
         ) else {
-            areaLoading = false
+            if areaLoading { areaLoading = false }
             return
         }
+        let key = OverpassQuery.cacheKey(
+            south: southWest.lat,
+            west: southWest.lon,
+            north: northEast.lat,
+            east: northEast.lon
+        )
+        guard key != scheduledViewportKey else { return }
+        scheduledViewportKey = key
         churchTask?.cancel()
         areaEpoch += 1
         let epoch = areaEpoch
-        areaLoading = true
         areaFailed = false
         let south = southWest.lat
         let west = southWest.lon
         let north = northEast.lat
         let east = northEast.lon
         churchTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 700_000_000)
+            // Street tiles go out first. The place query starts once the map is still.
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
             guard !Task.isCancelled, let self, epoch == self.areaEpoch else { return }
+            self.areaLoading = true
             let outcome = await OverpassLoader.shared.places(
                 south: south,
                 west: west,
@@ -602,6 +618,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
             switch outcome {
             case .unavailable:
                 self.areaFailed = true
+                self.scheduledViewportKey = nil
             case .places(let fetched):
                 self.areaFailed = false
                 self.areaAnswered = true

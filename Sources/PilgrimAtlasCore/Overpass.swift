@@ -28,7 +28,7 @@ package enum OverpassQuery {
     package static func statement(south: Double, west: Double, north: Double, east: Double) -> String {
         let box = "\(south),\(west),\(north),\(east)"
         return """
-        [out:json][timeout:25];
+        [out:json][timeout:12];
         (
           nwr["amenity"="place_of_worship"]["religion"="christian"](\(box));
           nwr["amenity"="place_of_worship"]["denomination"~"catholic|orthodox|sspx|fsspx|byzantine|ruthenian|maronite|melkite",i](\(box));

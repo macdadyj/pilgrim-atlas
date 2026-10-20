@@ -15,6 +15,15 @@ actor OverpassLoader {
     private var lastRequest = Date.distantPast
     private var cache: [String: [PlaceRecord]] = [:]
     private let minimumGap: TimeInterval = 1.2
+    /// Separate from the map's tile session so a slow area query cannot sit on it.
+    private let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 12
+        configuration.timeoutIntervalForResource = 14
+        configuration.httpMaximumConnectionsPerHost = 1
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }()
     private let endpoints = [
         URL(string: "https://overpass.openstreetmap.fr/api/interpreter"),
         URL(string: "https://overpass-api.de/api/interpreter"),
@@ -53,11 +62,11 @@ actor OverpassLoader {
     private func fetch(_ statement: String, from endpoint: URL, fetchedOn: String) async -> [PlaceRecord]? {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        request.timeoutInterval = 18
+        request.timeoutInterval = 12
         request.setValue("PilgrimAtlas/1.0 (church map; https://github.com/macdadyj/pilgrim-atlas)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.httpBody = OverpassQuery.formBody(for: statement)
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
+        guard let (data, response) = try? await session.data(for: request),
               let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode)
         else { return nil }

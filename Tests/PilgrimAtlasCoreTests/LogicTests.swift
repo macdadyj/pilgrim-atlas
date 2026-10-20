@@ -164,6 +164,10 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(statement.contains("highway\"=\"trailhead\""))
         XCTAssertTrue(statement.contains("route\"=\"hiking\""))
         XCTAssertTrue(statement.contains("monument"))
+        XCTAssertTrue(statement.contains("[timeout:12]"))
+        let stable = OverpassQuery.cacheKey(south: 35.101, west: -106.581, north: 35.121, east: -106.561)
+        let jitter = OverpassQuery.cacheKey(south: 35.104, west: -106.584, north: 35.124, east: -106.564)
+        XCTAssertEqual(stable, jitter, "A few meters of camera jitter must stay on one viewport query")
         let extras = """
         {"elements":[
           {"type":"node","id":201,"lat":39.74,"lon":-104.99,"tags":{"name":"Civil War Monument","historic":"monument"}},
