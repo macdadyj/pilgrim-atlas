@@ -368,7 +368,10 @@ struct AtlasMapView: UIViewRepresentable {
         /// kept the main thread busy long enough that the map tab never appeared.
         @MainActor
         func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
-            guard fullyRendered, regionSettled, basemapSamples < 8, basemapTask == nil else { return }
+            // A city view keeps fetching tiles, so a frame is rarely marked fully rendered.
+            // The labels are already on screen by then. Sample from any finished frame.
+            _ = fullyRendered
+            guard regionSettled, basemapSamples < 16, basemapTask == nil else { return }
             basemapTask = Task { @MainActor in
                 // Let the street tiles upload before the road query takes the main thread.
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
@@ -384,7 +387,7 @@ struct AtlasMapView: UIViewRepresentable {
                 let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
                 let caption = self.captionReadout?.accessibilityLabel ?? "none"
                 if streets > 0, labels > 0, caption != "none" {
-                    self.basemapSamples = 8
+                    self.basemapSamples = 16
                 } else if streets == 0, labels == 0, self.basemapSamples >= 4,
                           !self.didReloadBareStyle,
                           Date().timeIntervalSince(self.styleLoadedAt) > 8
@@ -405,10 +408,13 @@ struct AtlasMapView: UIViewRepresentable {
             if streetReadout == nil {
                 streetReadout = basemapReadout("basemap-streets")
                 labelReadout = basemapReadout("basemap-labels")
+                captionReadout = basemapReadout("basemap-caption")
+                captionReadout?.accessibilityLabel = "none"
+                captionReadout?.text = "none"
                 sspxReadout = basemapReadout("visible-sspx")
                 orthodoxReadout = basemapReadout("visible-orthodox")
             }
-            for readout in [streetReadout, labelReadout, sspxReadout, orthodoxReadout] {
+            for readout in [streetReadout, labelReadout, captionReadout, sspxReadout, orthodoxReadout] {
                 if let readout, readout.superview !== map {
                     map.addSubview(readout)
                 }
