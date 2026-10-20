@@ -71,6 +71,7 @@ struct AtlasMapView: UIViewRepresentable {
             model.noteViewport(southWest: southWest, northEast: northEast, zoom: zoom, reportingMap: true)
         }
         context.coordinator.onUserCamera = { model.releaseCameraAim() }
+        context.coordinator.onCaption = { model.noteCaption($0) }
         context.coordinator.onReloadStyle = { [weak map] in
             guard let map, model.onlineTiles else { return }
             map.styleURL = PackStyle.fileURL(online: true)
@@ -169,6 +170,7 @@ struct AtlasMapView: UIViewRepresentable {
         var onCamera: (LonLat) -> Void = { _ in }
         var onViewport: (LonLat, LonLat, Double) -> Void = { _, _, _ in }
         var onUserCamera: () -> Void = {}
+        var onCaption: (String) -> Void = { _ in }
         var onReloadStyle: () -> Void = {}
         var desiredCamera: (center: CLLocationCoordinate2D, zoom: Double)?
         var places: [PlaceRecord] = []
@@ -194,8 +196,8 @@ struct AtlasMapView: UIViewRepresentable {
         private var lastRegion: (lon: Double, lat: Double, zoom: Double)?
         private var styleLoadedAt = Date.distantFuture
         private var didReloadBareStyle = false
+        private var captionText = "none"
         private var streetReadout: UILabel?
-        private var captionReadout: UILabel?
         private var labelReadout: UILabel?
         private var sspxReadout: UILabel?
         private var orthodoxReadout: UILabel?
@@ -385,7 +387,7 @@ struct AtlasMapView: UIViewRepresentable {
                 self.basemapSamples += 1
                 let streets = Int(self.streetReadout?.accessibilityLabel ?? "") ?? 0
                 let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
-                let caption = self.captionReadout?.accessibilityLabel ?? "none"
+                let caption = self.captionText
                 if streets > 0, labels > 0, caption != "none" {
                     self.basemapSamples = 16
                 } else if streets == 0, labels == 0, self.basemapSamples >= 4,
@@ -408,13 +410,10 @@ struct AtlasMapView: UIViewRepresentable {
             if streetReadout == nil {
                 streetReadout = basemapReadout("basemap-streets")
                 labelReadout = basemapReadout("basemap-labels")
-                captionReadout = basemapReadout("basemap-caption")
-                captionReadout?.accessibilityLabel = "none"
-                captionReadout?.text = "none"
                 sspxReadout = basemapReadout("visible-sspx")
                 orthodoxReadout = basemapReadout("visible-orthodox")
             }
-            for readout in [streetReadout, labelReadout, captionReadout, sspxReadout, orthodoxReadout] {
+            for readout in [streetReadout, labelReadout, sspxReadout, orthodoxReadout] {
                 if let readout, readout.superview !== map {
                     map.addSubview(readout)
                 }
@@ -467,6 +466,7 @@ struct AtlasMapView: UIViewRepresentable {
         @MainActor
         func publishBasemap(on map: MLNMapView) {
             installBasemapReadout(on: map)
+            publishCaption(on: map)
             let streets = map.visibleFeatures(
                 in: map.bounds,
                 styleLayerIdentifiers: ["ofm-roads", "ofm-roads-casing"],
@@ -487,17 +487,10 @@ struct AtlasMapView: UIViewRepresentable {
             streetReadout?.text = "\(streets)"
             labelReadout?.accessibilityLabel = "\(labels)"
             labelReadout?.text = "\(labels)"
-            publishCaption(on: map)
         }
 
         @MainActor
         private func publishCaption(on map: MLNMapView) {
-            if captionReadout == nil {
-                captionReadout = basemapReadout("basemap-caption")
-            }
-            if let captionReadout, captionReadout.superview !== map {
-                map.addSubview(captionReadout)
-            }
             var lines: [String] = []
             let places = map.visibleFeatures(
                 in: map.bounds,
@@ -522,8 +515,9 @@ struct AtlasMapView: UIViewRepresentable {
                 if !caption.isEmpty { lines.append(caption) }
             }
             let text = Array(Set(lines)).sorted().joined(separator: "\n")
-            captionReadout?.accessibilityLabel = text.isEmpty ? "none" : text
-            captionReadout?.text = captionReadout?.accessibilityLabel
+            let caption = text.isEmpty ? "none" : text
+            captionText = caption
+            onCaption(caption)
         }
 
         private static func attributeText(_ value: Any?) -> String {

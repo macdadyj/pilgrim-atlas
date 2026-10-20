@@ -171,6 +171,12 @@ private struct MapChrome: View {
                         ActiveFilterStrip()
                     }
 
+                    Text(model.renderedCaption)
+                        .font(.caption2)
+                        .accessibilityIdentifier("basemap-caption")
+                        .accessibilityLabel(model.renderedCaption)
+                        .frame(width: 1, height: 1)
+                        .opacity(0.02)
                     Text("\(model.remotePlaceCount)")
                         .font(.caption2)
                         .accessibilityIdentifier("remote-churches")
