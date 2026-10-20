@@ -43,6 +43,12 @@ struct DetailSheet: View {
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("liturgy-verified")
                     }
+                    if let liturgy, !liturgy.phone.isEmpty {
+                        Text(liturgy.phone)
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(.primary)
+                            .accessibilityIdentifier("liturgy-phone")
+                    }
                     if let note = PlaceText.diamondNote(for: place) {
                         Text(note)
                             .font(.subheadline)
@@ -184,12 +190,6 @@ struct DetailSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("liturgy-confirm")
-            }
-            if !card.phone.isEmpty {
-                Text(card.phone)
-                    .font(.body.monospacedDigit())
-                    .foregroundStyle(.primary)
-                    .accessibilityIdentifier("liturgy-phone")
             }
             if !card.directory.isEmpty {
                 Text(card.directory)

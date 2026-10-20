@@ -843,26 +843,12 @@ final class AtlasUITests: XCTestCase {
         return count
     }
 
-    @discardableResult
-    /// A swipe on the whole screen can land on the map behind a sheet. Scroll the sheet itself.
-    private func scrollSheet(_ app: XCUIApplication) {
-        let place = app.otherElements["place-sheet"]
-        let trail = app.otherElements["trail-sheet"]
-        if place.exists {
-            place.swipeUp()
-        } else if trail.exists {
-            trail.swipeUp()
-        } else {
-            app.swipeUp()
-        }
-    }
-
     private func revealControl(_ app: XCUIApplication, _ identifier: String, _ label: String) -> Bool {
         let identified = app.descendants(matching: .any)[identifier]
         let labeled = app.descendants(matching: .any)[label]
         var swipes = 0
         while !identified.exists && !labeled.exists && swipes < 5 {
-            scrollSheet(app)
+            app.swipeUp()
             swipes += 1
         }
         return identified.waitForExistence(timeout: 8) || labeled.waitForExistence(timeout: 2)
@@ -872,7 +858,7 @@ final class AtlasUITests: XCTestCase {
         let element = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", label)).firstMatch
         var swipes = 0
         while !element.exists && swipes < 6 {
-            scrollSheet(app)
+            app.swipeUp()
             swipes += 1
         }
         XCTAssertTrue(element.waitForExistence(timeout: 4), label)
