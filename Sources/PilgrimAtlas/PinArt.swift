@@ -134,6 +134,8 @@ enum PinArt {
             return UIBezierPath(ovalIn: bounds.insetBy(dx: 12, dy: 8))
         case .trailhead:
             return diamond(in: bounds.insetBy(dx: 10, dy: 6))
+        case .restaurant, .grocery, .fuel:
+            return UIBezierPath(roundedRect: bounds.insetBy(dx: 8, dy: 10), cornerRadius: 14)
         }
     }
 
@@ -150,13 +152,16 @@ enum PinArt {
         case .water: return color(0x2F, 0x6F, 0x8A)
         case .trailhead: return color(0x2F, 0x6B, 0x4A)
         case .landmark: return color(0xC4, 0x62, 0x2D)
+        case .restaurant: return color(0xA3, 0x3B, 0x24)
+        case .grocery: return color(0x1F, 0x6B, 0x4A)
+        case .fuel: return color(0xC4, 0x8A, 0x12)
         }
     }
 
     private static func stroke(_ role: PinRole) -> UIColor {
         switch role {
         case .chapel: return color(0x8C, 0x2F, 0x39)
-        case .catholic, .orthodox, .sspx, .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark:
+        case .catholic, .orthodox, .sspx, .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark, .restaurant, .grocery, .fuel:
             return color(0x1C, 0x19, 0x15)
         }
     }
@@ -195,6 +200,15 @@ enum PinArt {
         case .trailhead:
             name = "figure.hiking"
             glyph = color(0xF4, 0xEF, 0xE4)
+        case .restaurant:
+            name = "fork.knife"
+            glyph = color(0xF4, 0xEF, 0xE4)
+        case .grocery:
+            name = "basket.fill"
+            glyph = color(0xF4, 0xEF, 0xE4)
+        case .fuel:
+            name = "fuelpump.fill"
+            glyph = color(0x1C, 0x19, 0x15)
         case .landmark:
             name = "circle.fill"
             glyph = color(0xF4, 0xEF, 0xE4)

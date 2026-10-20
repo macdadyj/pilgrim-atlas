@@ -18,6 +18,12 @@ package struct AtlasFilter: Equatable, Sendable {
     package var showOrthodox = true
     /// Chapels of the Society of St. Pius X. On until turned off.
     package var showSSPX = true
+    /// Hexagon landmark pins. On until turned off, and remembered on this phone.
+    package var showLandmarks = true
+    /// Optional viewport layers. Off until turned on, so the church map stays the same.
+    package var restaurants = false
+    package var groceries = false
+    package var fuel = false
 
     package static let empty = AtlasFilter()
 
@@ -75,6 +81,9 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
     case water
     case trailhead
     case landmark
+    case restaurant
+    case grocery
+    case fuel
 
     package var legend: String {
         switch self {
@@ -90,6 +99,9 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         case .water: return "Water"
         case .trailhead: return "Trailhead"
         case .landmark: return "Landmark"
+        case .restaurant: return "Restaurant"
+        case .grocery: return "Grocery"
+        case .fuel: return "Gas station"
         }
     }
 
@@ -108,6 +120,9 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         case .water: return "drop.fill"
         case .trailhead: return "figure.hiking"
         case .landmark: return "hexagon.fill"
+        case .restaurant: return "fork.knife"
+        case .grocery: return "basket.fill"
+        case .fuel: return "fuelpump.fill"
         }
     }
 
@@ -121,6 +136,7 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
         case .worship: return 60
         case .shrine: return 50
         case .viewpoint, .museum, .parking, .water, .trailhead: return 40
+        case .restaurant, .grocery, .fuel: return 15
         case .landmark: return 10
         }
     }
@@ -128,7 +144,7 @@ package enum PinRole: String, Equatable, Sendable, CaseIterable {
     package var allowsOverlap: Bool {
         switch self {
         case .catholic, .chapel, .orthodox, .sspx: return true
-        case .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark: return false
+        case .worship, .shrine, .viewpoint, .museum, .parking, .water, .trailhead, .landmark, .restaurant, .grocery, .fuel: return false
         }
     }
 }
@@ -198,6 +214,18 @@ package enum MapFilter {
         case .nonChristian, .otherChristian, .unknownWorship:
             return .worship
         case .catholic, .secular:
+            break
+        }
+        switch place.category {
+        case "hiking", "trailhead":
+            return .trailhead
+        case "restaurant":
+            return .restaurant
+        case "grocery":
+            return .grocery
+        case "fuel":
+            return .fuel
+        default:
             break
         }
         if place.catholic && place.category == "worship" { return .catholic }
@@ -314,6 +342,10 @@ package enum MapFilter {
         now: Date = Date(),
         timeZone: TimeZone = .current
     ) -> PlaceDraw {
+        if !filter.showLandmarks, pinRole(for: place) == .landmark { return .hide }
+        if place.category == "restaurant", !filter.restaurants { return .hide }
+        if place.category == "grocery", !filter.groceries { return .hide }
+        if place.category == "fuel", !filter.fuel { return .hide }
         switch Faith.kind(for: place) {
         case .nonChristian:
             return .hide
@@ -510,6 +542,10 @@ package struct FilterControl: Equatable, Sendable, Identifiable {
         FilterControl(id: "parks", title: "Parks", systemImage: "leaf.fill", subtitle: "National parks, city Open Space, and named parks", enabled: true),
         FilterControl(id: "food", title: "Food and rest", systemImage: "fork.knife", subtitle: MapFilter.foodSubtitle, enabled: false),
         FilterControl(id: "open-now", title: "Open now", systemImage: "clock.fill", subtitle: "Places whose visitor hours match this clock", enabled: true),
+        FilterControl(id: "landmarks", title: "Landmarks", systemImage: "hexagon.fill", subtitle: "Monuments, memorials, and other named landmarks", enabled: true),
+        FilterControl(id: "restaurants", title: "Restaurants", systemImage: "fork.knife", subtitle: "Off until turned on. Loads restaurants and cafes for this view.", enabled: true),
+        FilterControl(id: "groceries", title: "Groceries", systemImage: "basket.fill", subtitle: "Off until turned on. Loads grocery stores for this view.", enabled: true),
+        FilterControl(id: "gas", title: "Gas stations", systemImage: "fuelpump.fill", subtitle: "Off until turned on. Loads gas stations for this view.", enabled: true),
     ]
 }
 
@@ -525,6 +561,10 @@ extension AtlasFilter {
         case "public-land": return publicLand
         case "parks": return parks
         case "open-now": return openNow
+        case "landmarks": return showLandmarks
+        case "restaurants": return restaurants
+        case "groceries": return groceries
+        case "gas": return fuel
         default: return false
         }
     }
@@ -541,6 +581,10 @@ extension AtlasFilter {
         case "public-land": publicLand = on
         case "parks": parks = on
         case "open-now": openNow = on
+        case "landmarks": showLandmarks = on
+        case "restaurants": restaurants = on
+        case "groceries": groceries = on
+        case "gas": fuel = on
         default: break
         }
     }
@@ -550,6 +594,7 @@ extension AtlasFilter {
     }
 
     package var activeControls: [FilterControl] {
-        FilterControl.all.filter { $0.enabled && isOn($0.id) }
+        let layers: Set<String> = ["landmarks", "restaurants", "groceries", "gas"]
+        return FilterControl.all.filter { $0.enabled && isOn($0.id) && !layers.contains($0.id) }
     }
 }

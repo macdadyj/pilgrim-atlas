@@ -39,6 +39,8 @@ package struct DebugLaunch: Equatable, Sendable {
     /// A fixed city-search row. UI tests use this so Denver does not wait on Apple's geocoder
     /// or on Overpass for the one church that proves the map left the offline pack.
     package var stubGeocode: StubGeocode?
+    /// Inserts one restaurant at the plaza so the card can be opened without Overpass.
+    package var amenitySample: Bool
 
     package struct StubGeocode: Equatable, Sendable {
         package var name: String
@@ -69,8 +71,37 @@ package struct DebugLaunch: Equatable, Sendable {
         center: nil,
         simulatedUser: nil,
         showPins: false,
-        stubGeocode: nil
+        stubGeocode: nil,
+        amenitySample: false
     )
+
+    package static func sampleAmenity() -> PlaceRecord {
+        PlaceRecord(
+            id: -88001,
+            name: "Plaza Cafe",
+            category: "restaurant",
+            catholic: false,
+            denomination: "",
+            lat: DebugPin.plaza.lat,
+            lon: DebugPin.plaza.lon,
+            description: "",
+            address: "54 Lincoln Avenue Santa Fe",
+            openingHours: "Mo-Su 07:00-21:00",
+            serviceTimes: "",
+            massTimes: "",
+            confessionTimes: "",
+            access: "",
+            parking: "",
+            wheelchair: "",
+            website: "https://www.plazacafe.com/",
+            wikipedia: "",
+            wikidata: "",
+            image: "",
+            source: "OpenStreetMap",
+            sourceDate: "2026-10-20",
+            phone: "+15055550199"
+        )
+    }
 
     /// Northeast Albuquerque in ZIP 87110, near Louisiana Boulevard and Menaul.
     package static let northeastAlbuquerque = LonLat(lon: -106.5700, lat: 35.1086)
@@ -106,6 +137,7 @@ package struct DebugLaunch: Equatable, Sendable {
             || simulatedUser != nil
             || showPins
             || stubGeocode != nil
+            || amenitySample
     }
 
     /// A real packed place for each pin role, used to open that layer on a pin.
@@ -270,7 +302,9 @@ extension DebugLaunch {
         var index = 0
         while index < arguments.count {
             let argument = arguments[index]
-            if argument == "--debug-santa-fe-plaza" {
+            if argument == "--debug-amenity" {
+                launch.amenitySample = true
+            } else if argument == "--debug-santa-fe-plaza" {
                 launch.pinPlaza = true
             } else if argument == "--debug-pins" {
                 launch.showPins = true

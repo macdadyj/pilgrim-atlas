@@ -308,12 +308,19 @@ struct TrailSheet: View {
                     TrailSketch(geometry: trail.geometry)
                         .frame(height: 140)
                         .accessibilityLabel("Trail line")
-                    labeledTrailRow("Length", Geometry.lengthSentence(trail.geometry))
-                    labeledTrailRow("Surface", "Not in the pack.")
-                    labeledTrailRow("Difficulty", "Not in the pack.")
-                    labeledTrailRow("Access", AtlasQuery.trailSentence(trail.access))
+                    labeledTrailRow("Length", trail.lengthLine, identifier: "trail-length")
+                    if let surface = trail.surfaceLine {
+                        labeledTrailRow("Surface", surface, identifier: "trail-surface")
+                    }
+                    if let difficulty = trail.difficultyLine {
+                        labeledTrailRow("Difficulty", difficulty, identifier: "trail-difficulty")
+                    }
+                    if let trailhead = trail.trailheadLine {
+                        labeledTrailRow("Trailhead", trailhead, identifier: "trail-trailhead")
+                    }
+                    labeledTrailRow("Access", AtlasQuery.trailSentence(trail.access), identifier: "trail-access")
                 }
-                if let point = trailPoint {
+                if let point = trail.directionsPoint {
                     VisitSection(
                         website: nil,
                         phone: "",
@@ -354,12 +361,7 @@ struct TrailSheet: View {
         .accessibilityIdentifier("trail-sheet")
     }
 
-    private var trailPoint: LonLat? {
-        guard let box = trail.geometry.bbox else { return nil }
-        return LonLat(lon: (box.minLon + box.maxLon) / 2, lat: (box.minLat + box.maxLat) / 2)
-    }
-
-    private func labeledTrailRow(_ title: String, _ value: String) -> some View {
+    private func labeledTrailRow(_ title: String, _ value: String, identifier: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.footnote.weight(.semibold))
@@ -367,9 +369,12 @@ struct TrailSheet: View {
                 .textCase(.uppercase)
             Text(value)
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
+        .accessibilityLabel("\(title). \(value)")
     }
 }
 

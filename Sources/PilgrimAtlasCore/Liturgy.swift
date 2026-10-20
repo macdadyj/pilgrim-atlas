@@ -26,7 +26,7 @@ package enum ChurchMark: String, CaseIterable, Sendable {
             return .orthodox
         case .sspx:
             return .latin
-        case .worship, .viewpoint, .museum, .parking, .water, .trailhead, .landmark:
+        case .worship, .viewpoint, .museum, .parking, .water, .trailhead, .landmark, .restaurant, .grocery, .fuel:
             return nil
         }
     }

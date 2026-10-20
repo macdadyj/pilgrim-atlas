@@ -182,7 +182,52 @@ final class LogicTests: XCTestCase {
         let trailhead = try XCTUnwrap(extraPlaces.first { $0.name == "Mount Falcon" })
         XCTAssertEqual(trailhead.category, "trailhead")
         XCTAssertEqual(MapFilter.pinRole(for: trailhead), .trailhead)
-        XCTAssertEqual(extraPlaces.first { $0.name == "Bear Creek Trail" }?.category, "trailhead")
+        XCTAssertEqual(extraPlaces.first { $0.name == "Bear Creek Trail" }?.category, "hiking")
+        XCTAssertEqual(MapFilter.pinRole(for: try XCTUnwrap(extraPlaces.first { $0.name == "Bear Creek Trail" })), .trailhead)
+        XCTAssertFalse(statement.contains("restaurant|fast_food"))
+        let fed = OverpassLayers(restaurants: true, groceries: true, fuel: true)
+        let fedStatement = OverpassQuery.statement(south: 39.7, west: -105, north: 39.8, east: -104.9, layers: fed)
+        XCTAssertTrue(fedStatement.contains("restaurant|fast_food|cafe"))
+        XCTAssertTrue(fedStatement.contains("supermarket|convenience|grocery"))
+        XCTAssertTrue(fedStatement.contains("amenity\"=\"fuel\""))
+        XCTAssertNotEqual(
+            OverpassQuery.cacheKey(south: 39.7, west: -105, north: 39.8, east: -104.9),
+            OverpassQuery.cacheKey(south: 39.7, west: -105, north: 39.8, east: -104.9, layers: fed)
+        )
+        let routeJSON = """
+        {"elements":[
+          {"type":"relation","id":203,"center":{"lat":39.76,"lon":-104.97},"tags":{"name":"Bear Creek Trail","route":"hiking","distance":"6.5","surface":"ground","sac_scale":"mountain_hiking","from":"Mount Falcon Trailhead"}},
+          {"type":"node","id":204,"lat":39.74,"lon":-104.99,"tags":{"name":"Corner Cafe","amenity":"cafe"}},
+          {"type":"node","id":205,"lat":39.75,"lon":-104.98,"tags":{"name":"Uptown Market","shop":"supermarket"}},
+          {"type":"node","id":206,"lat":39.73,"lon":-104.97,"tags":{"name":"Menaul Fuel","amenity":"fuel","opening_hours":"Mo-Su 06:00-22:00"}}
+        ]}
+        """.data(using: .utf8)!
+        let route = try XCTUnwrap(OverpassQuery.trails(from: routeJSON, fetchedOn: "2026-10-20").first)
+        XCTAssertEqual(route.name, "Bear Creek Trail")
+        XCTAssertEqual(route.statedLength, "6.5 km")
+        XCTAssertEqual(route.surfaceLine, "Ground")
+        XCTAssertEqual(route.difficultyLine, "Mountain hiking")
+        XCTAssertEqual(route.trailheadLine, "Mount Falcon Trailhead")
+        XCTAssertEqual(route.lengthLine, "6.5 km")
+        let shops = OverpassQuery.places(from: routeJSON, fetchedOn: "2026-10-20")
+        XCTAssertEqual(shops.first { $0.name == "Corner Cafe" }?.category, "restaurant")
+        XCTAssertEqual(MapFilter.pinRole(for: try XCTUnwrap(shops.first { $0.name == "Corner Cafe" })), .restaurant)
+        XCTAssertEqual(shops.first { $0.name == "Uptown Market" }?.category, "grocery")
+        XCTAssertEqual(MapFilter.pinRole(for: try XCTUnwrap(shops.first { $0.name == "Uptown Market" })), .grocery)
+        let station = try XCTUnwrap(shops.first { $0.name == "Menaul Fuel" })
+        XCTAssertEqual(station.category, "fuel")
+        XCTAssertEqual(MapFilter.pinRole(for: station), .fuel)
+        XCTAssertFalse(MapFilter.includeOnMap(station, filter: .empty))
+        var fuelOn = AtlasFilter.empty
+        fuelOn.fuel = true
+        XCTAssertTrue(MapFilter.includeOnMap(station, filter: fuelOn))
+        XCTAssertTrue(MapFilter.includeOnMap(monument, filter: .empty))
+        var landmarksOff = AtlasFilter.empty
+        landmarksOff.showLandmarks = false
+        XCTAssertFalse(MapFilter.includeOnMap(monument, filter: landmarksOff))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-restaurant", filter: .empty))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-landmark", filter: landmarksOff))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-catholic", filter: landmarksOff))
         let body = try XCTUnwrap(OverpassQuery.formBody(for: "nwr[\"religion\"=\"christian\"]"))
         let encoded = try XCTUnwrap(String(data: body, encoding: .utf8))
         XCTAssertTrue(encoded.hasPrefix("data="))
@@ -616,6 +661,7 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(AppInfo.versionLine(marketing: "1.0", build: "101"), "1.0 (101)")
         XCTAssertEqual(FilterControl.all.map(\.id), [
             "show-catholic", "orthodox", "sspx", "catholic", "churches", "trails", "public-land", "parks", "food", "open-now",
+            "landmarks", "restaurants", "groceries", "gas",
         ])
         XCTAssertTrue(AtlasFilter.empty.showCatholic)
         XCTAssertTrue(AtlasFilter.empty.showOrthodox)
@@ -981,7 +1027,7 @@ final class LogicTests: XCTestCase {
         let roles = features.compactMap { ($0["properties"] as? [String: Any])?["role"] as? String }
         XCTAssertEqual(roles, ["catholic"])
         let layers = try XCTUnwrap(root["layers"] as? [[String: Any]])
-        for role in ["catholic", "chapel", "worship", "shrine", "viewpoint", "museum", "parking", "water", "trailhead", "landmark"] {
+        for role in ["catholic", "chapel", "worship", "shrine", "viewpoint", "museum", "parking", "water", "trailhead", "landmark", "restaurant", "grocery", "fuel"] {
             let layer = try XCTUnwrap(layers.first { ($0["id"] as? String) == "places-\(role)" })
             XCTAssertEqual(layer["source"] as? String, "pack-places-\(role)")
             XCTAssertNil(layer["source-layer"])
