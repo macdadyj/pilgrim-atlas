@@ -59,6 +59,7 @@ struct DetailSheet: View {
                             Text(line)
                                 .font(.body.monospacedDigit())
                                 .foregroundStyle(.primary)
+                                .accessibilityIdentifier("place-hours")
                         }
                         switch hours {
                         case .none:

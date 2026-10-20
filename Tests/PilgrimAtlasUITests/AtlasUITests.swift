@@ -344,9 +344,14 @@ final class AtlasUITests: XCTestCase {
         XCTAssertTrue(app.buttons["place-call"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["place-website"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["place-directions"].waitForExistence(timeout: 8))
-        XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Mon")).firstMatch.waitForExistence(timeout: 8)
-        )
+        var swipes = 0
+        let hours = app.descendants(matching: .any)["place-hours"]
+        while !hours.exists && swipes < 4 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(hours.waitForExistence(timeout: 6), "Restaurant hours were not on the card")
+        XCTAssertTrue(hours.label.contains("7:00 AM"), hours.label)
         attach(app.screenshot(), name: "plaza-cafe")
         tapDone(app, identifier: "place-done", title: "Done")
     }
