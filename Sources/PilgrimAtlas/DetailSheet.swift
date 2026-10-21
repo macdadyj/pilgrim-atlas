@@ -26,7 +26,12 @@ struct DetailSheet: View {
                             if liturgy == nil {
                                 let mark = Theme.hoursMark(hours)
                                 StatusMark(kind: mark.0, title: mark.1)
-                                if case .none = hours {
+                                if let line = lines.first {
+                                    Text(line)
+                                        .font(.subheadline.monospacedDigit())
+                                        .foregroundStyle(.primary)
+                                        .accessibilityIdentifier("place-hours")
+                                } else if case .none = hours {
                                     Text(MapFilter.hoursMissing)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
@@ -65,7 +70,6 @@ struct DetailSheet: View {
                             Text(line)
                                 .font(.body.monospacedDigit())
                                 .foregroundStyle(.primary)
-                                .accessibilityIdentifier("place-hours")
                         }
                         switch hours {
                         case .none:

@@ -388,7 +388,9 @@ struct AtlasMapView: UIViewRepresentable {
                 let streets = Int(self.streetReadout?.accessibilityLabel ?? "") ?? 0
                 let labels = Int(self.labelReadout?.accessibilityLabel ?? "") ?? 0
                 let caption = self.captionText
-                if streets > 0, labels > 0, caption != "none" {
+                // The first town on a tile can appear before the city and the interstate.
+                // Keep sampling until a route shield is in the caption.
+                if streets > 0, labels > 0, caption.contains("I-") || caption.contains("US ") {
                     self.basemapSamples = 16
                 } else if streets == 0, labels == 0, self.basemapSamples >= 4,
                           !self.didReloadBareStyle,
