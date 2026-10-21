@@ -266,13 +266,9 @@ final class AtlasUITests: XCTestCase {
         )
         XCTAssertTrue(revealControl(app, "place-website", "Website"))
         revealText(app, "Last verified 15 Oct 2026")
-        let phone = app.staticTexts["505-256-1539"]
-        var swipes = 0
-        while !phone.exists && swipes < 4 {
-            app.swipeUp()
-            swipes += 1
-        }
-        XCTAssertTrue(phone.waitForExistence(timeout: 6))
+        XCTAssertTrue(revealControl(app, "liturgy-phone", "505-256-1539"))
+        let phone = app.descendants(matching: .any)["liturgy-phone"]
+        XCTAssertTrue(phone.label.contains("505-256-1539"), phone.label)
         revealText(app, "Call to confirm")
         revealText(app, "Divine Liturgy")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eparchy of Phoenix")).firstMatch.exists)
@@ -847,7 +843,6 @@ final class AtlasUITests: XCTestCase {
         return count
     }
 
-    @discardableResult
     private func revealControl(_ app: XCUIApplication, _ identifier: String, _ label: String) -> Bool {
         let identified = app.descendants(matching: .any)[identifier]
         let labeled = app.descendants(matching: .any)[label]

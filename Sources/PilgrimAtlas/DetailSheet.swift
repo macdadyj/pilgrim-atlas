@@ -26,7 +26,12 @@ struct DetailSheet: View {
                             if liturgy == nil {
                                 let mark = Theme.hoursMark(hours)
                                 StatusMark(kind: mark.0, title: mark.1)
-                                if case .none = hours {
+                                if let line = lines.first {
+                                    Text(line)
+                                        .font(.subheadline.monospacedDigit())
+                                        .foregroundStyle(.primary)
+                                        .accessibilityIdentifier("place-hours")
+                                } else if case .none = hours {
                                     Text(MapFilter.hoursMissing)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
@@ -42,6 +47,12 @@ struct DetailSheet: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("liturgy-verified")
+                    }
+                    if let liturgy, !liturgy.phone.isEmpty {
+                        Text(liturgy.phone)
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(.primary)
+                            .accessibilityIdentifier("liturgy-phone")
                     }
                     if let note = PlaceText.diamondNote(for: place) {
                         Text(note)
@@ -59,7 +70,6 @@ struct DetailSheet: View {
                             Text(line)
                                 .font(.body.monospacedDigit())
                                 .foregroundStyle(.primary)
-                                .accessibilityIdentifier("place-hours")
                         }
                         switch hours {
                         case .none:
@@ -184,12 +194,6 @@ struct DetailSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("liturgy-confirm")
-            }
-            if !card.phone.isEmpty {
-                Text(card.phone)
-                    .font(.body.monospacedDigit())
-                    .foregroundStyle(.primary)
-                    .accessibilityIdentifier("liturgy-phone")
             }
             if !card.directory.isEmpty {
                 Text(card.directory)
