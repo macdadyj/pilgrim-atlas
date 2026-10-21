@@ -119,40 +119,48 @@ struct VisitSection: View {
     @ViewBuilder
     private var websiteControl: some View {
         if let website {
-            Button("Website") { SafariPresenter.open(website) }
-                .accessibilityIdentifier(websiteIdentifier)
-                .modifier(VisitHitTarget(pinned: pinned))
+            Button {
+                SafariPresenter.open(website)
+            } label: {
+                filledLabel(Text("Website"))
+            }
+            .accessibilityIdentifier(websiteIdentifier)
         }
     }
 
     @ViewBuilder
     private var callControl: some View {
         if let call = VisitRouting.phoneURL(phone) {
-            Link("Call", destination: call)
-                .accessibilityIdentifier("place-call")
-                .modifier(VisitHitTarget(pinned: pinned))
+            Link(destination: call) {
+                filledLabel(Text("Call"))
+            }
+            .accessibilityIdentifier("place-call")
         }
     }
 
     private var directionsControl: some View {
-        Button("Directions") {
+        Button {
             if GoogleMaps.installed {
                 chooseMaps = true
             } else {
                 AppleMaps.open(name: name, coordinate: coordinate, walking: walking)
             }
+        } label: {
+            filledLabel(Text("Directions"))
         }
         .accessibilityIdentifier(directionsIdentifier)
-        .modifier(VisitHitTarget(pinned: pinned))
     }
 
     private var shareControl: some View {
         ShareLink(item: PlaceShare.message(name: name, address: address, phone: phone, website: website?.absoluteString ?? "")) {
-            Label("Share", systemImage: "square.and.arrow.up")
+            filledLabel(Label("Share", systemImage: "square.and.arrow.up"))
         }
         .accessibilityIdentifier("place-share")
         .accessibilityLabel("Share")
-        .modifier(VisitHitTarget(pinned: pinned))
+    }
+
+    private func filledLabel<Label: View>(_ label: Label) -> some View {
+        label.modifier(VisitLabelFill(pinned: pinned))
     }
 
     @ViewBuilder
@@ -166,9 +174,9 @@ struct VisitSection: View {
     }
 }
 
-/// Pinned actions sit in a plain stack, so they need an explicit hit target.
-/// List rows already get one from the section.
-private struct VisitHitTarget: ViewModifier {
+/// The hit target has to be the button label. A frame around the button leaves
+/// the middle of the row empty, and a tap there does not open the page.
+private struct VisitLabelFill: ViewModifier {
     var pinned: Bool
 
     @ViewBuilder
