@@ -14,7 +14,9 @@ struct DetailSheet: View {
         let lines = MapFilter.hourLines(place.openingHours)
         let liturgy = ChurchMark.showsLiturgy(place) ? LiturgyLookup.card(for: place) : nil
         NavigationStack {
-            List {
+            VStack(spacing: 0) {
+                visitBlock
+                List {
                 Section {
                     HStack(alignment: .top, spacing: 12) {
                         placeBadge
@@ -60,7 +62,6 @@ struct DetailSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                visitBlock
                 if let liturgy {
                     liturgySection(liturgy)
                 }
@@ -158,10 +159,12 @@ struct DetailSheet: View {
                 } header: {
                     SectionTitle(text: "Source")
                 }
+                }
+                .listStyle(.insetGrouped)
+                .contentMargins(.bottom, 72, for: .scrollContent)
             }
-            .listStyle(.insetGrouped)
-            .contentMargins(.bottom, 72, for: .scrollContent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(PlaceText.kindLabel(for: place))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -277,7 +280,8 @@ struct DetailSheet: View {
             name: place.name,
             address: place.address,
             coordinate: place.coordinate,
-            walking: MapFilter.pinRole(for: place) == .trailhead
+            walking: MapFilter.pinRole(for: place) == .trailhead,
+            pinned: true
         )
     }
 

@@ -15,6 +15,8 @@ struct VisitBlock: View {
     var address: String = ""
     var coordinate: LonLat
     var walking: Bool
+    /// Stays on screen. A list row below the liturgy block is easy to scroll past on a tall phone.
+    var pinned: Bool = false
 
     @State private var wikidataSite: URL?
 
@@ -31,7 +33,8 @@ struct VisitBlock: View {
             coordinate: coordinate,
             walking: walking,
             websiteIdentifier: "place-website",
-            directionsIdentifier: "place-directions"
+            directionsIdentifier: "place-directions",
+            pinned: pinned
         )
         .task(id: wikidata) {
             guard SiteLink.direct(candidates: candidates) == nil,
@@ -51,52 +54,131 @@ struct VisitSection: View {
     var walking: Bool
     var websiteIdentifier: String
     var directionsIdentifier: String
+    var pinned: Bool = false
 
     @State private var chooseMaps = false
     @State private var eta = ""
 
     var body: some View {
-        Section {
-            if let website {
-                Button("Website") { SafariPresenter.open(website) }
-                    .accessibilityIdentifier(websiteIdentifier)
-            }
-            if let call = VisitRouting.phoneURL(phone) {
-                Link("Call", destination: call)
-                    .accessibilityIdentifier("place-call")
-            }
-            Button("Directions") {
-                if GoogleMaps.installed {
-                    chooseMaps = true
-                } else {
+        layout
+            .confirmationDialog("Directions", isPresented: $chooseMaps, titleVisibility: .visible) {
+                Button("Apple Maps") {
                     AppleMaps.open(name: name, coordinate: coordinate, walking: walking)
                 }
+                Button("Google Maps") {
+                    GoogleMaps.open(coordinate: coordinate, walking: walking)
+                }
+                Button("Cancel", role: .cancel) {}
             }
-            .accessibilityIdentifier(directionsIdentifier)
-            ShareLink(item: PlaceShare.message(name: name, address: address, phone: phone, website: website?.absoluteString ?? "")) {
-                Label("Share", systemImage: "square.and.arrow.up")
+            .task(id: "\(coordinate.lat),\(coordinate.lon),\(walking)") {
+                eta = await VisitRouting.travelLine(to: coordinate, walking: walking)
             }
-            .accessibilityIdentifier("place-share")
-            if !eta.isEmpty {
-                Text(eta)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("place-eta")
+    }
+
+    @ViewBuilder
+    private var layout: some View {
+        if pinned {
+            VStack(alignment: .leading, spacing: 0) {
+                SectionTitle(text: "Visit")
+                if website != nil || VisitRouting.phoneURL(phone) != nil {
+                    HStack(spacing: 12) {
+                        websiteControl
+                        callControl
+                    }
+                }
+                HStack(spacing: 12) {
+                    directionsControl
+                    shareControl
+                }
+                etaControl
             }
-        } header: {
-            SectionTitle(text: "Visit")
+            .buttonStyle(.plain)
+            .padding(.horizontal, Theme.screenPadding)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground))
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(height: 1)
+            }
+        } else {
+            Section {
+                websiteControl
+                callControl
+                directionsControl
+                shareControl
+                etaControl
+            } header: {
+                SectionTitle(text: "Visit")
+            }
         }
-        .confirmationDialog("Directions", isPresented: $chooseMaps, titleVisibility: .visible) {
-            Button("Apple Maps") {
+    }
+
+    @ViewBuilder
+    private var websiteControl: some View {
+        if let website {
+            Button("Website") { SafariPresenter.open(website) }
+                .accessibilityIdentifier(websiteIdentifier)
+                .modifier(VisitHitTarget(pinned: pinned))
+        }
+    }
+
+    @ViewBuilder
+    private var callControl: some View {
+        if let call = VisitRouting.phoneURL(phone) {
+            Link("Call", destination: call)
+                .accessibilityIdentifier("place-call")
+                .modifier(VisitHitTarget(pinned: pinned))
+        }
+    }
+
+    private var directionsControl: some View {
+        Button("Directions") {
+            if GoogleMaps.installed {
+                chooseMaps = true
+            } else {
                 AppleMaps.open(name: name, coordinate: coordinate, walking: walking)
             }
-            Button("Google Maps") {
-                GoogleMaps.open(coordinate: coordinate, walking: walking)
-            }
-            Button("Cancel", role: .cancel) {}
         }
-        .task(id: "\(coordinate.lat),\(coordinate.lon),\(walking)") {
-            eta = await VisitRouting.travelLine(to: coordinate, walking: walking)
+        .accessibilityIdentifier(directionsIdentifier)
+        .modifier(VisitHitTarget(pinned: pinned))
+    }
+
+    private var shareControl: some View {
+        ShareLink(item: PlaceShare.message(name: name, address: address, phone: phone, website: website?.absoluteString ?? "")) {
+            Label("Share", systemImage: "square.and.arrow.up")
+        }
+        .accessibilityIdentifier("place-share")
+        .accessibilityLabel("Share")
+        .modifier(VisitHitTarget(pinned: pinned))
+    }
+
+    @ViewBuilder
+    private var etaControl: some View {
+        if !eta.isEmpty {
+            Text(eta)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("place-eta")
+        }
+    }
+}
+
+/// Pinned actions sit in a plain stack, so they need an explicit hit target.
+/// List rows already get one from the section.
+private struct VisitHitTarget: ViewModifier {
+    var pinned: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if pinned {
+            content
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        } else {
+            content
         }
     }
 }
