@@ -18,8 +18,8 @@ package struct AtlasFilter: Equatable, Sendable {
     package var showOrthodox = true
     /// Chapels of the Society of St. Pius X. On until turned off.
     package var showSSPX = true
-    /// Hexagon landmark pins. On until turned off, and remembered on this phone.
-    package var showLandmarks = true
+    /// Hexagon landmark pins. Off until turned on, and remembered on this phone.
+    package var showLandmarks = false
     /// Optional viewport layers. Off until turned on, so the church map stays the same.
     package var restaurants = false
     package var groceries = false
@@ -65,6 +65,28 @@ package struct AtlasFilter: Equatable, Sendable {
         let titles = chipTitles
         if titles.isEmpty { return "No matches in the offline pack" }
         return "No matches in \(titles.joined(separator: ", "))"
+    }
+
+    /// The marker legend can show one role. Isolating landmarks draws those pins
+    /// without writing the remembered switch.
+    package func includingIsolatedRole(_ role: String?) -> AtlasFilter {
+        guard role == PinRole.landmark.rawValue else { return self }
+        var copy = self
+        copy.showLandmarks = true
+        return copy
+    }
+}
+
+/// Layer switches remembered on this phone.
+///
+/// A missing key uses `fallback`. A stored bool is kept, including a stored true
+/// that an older build wrote while landmarks still defaulted on.
+package enum LayerPreference {
+    package static let landmarksKey = "pilgrim.showLandmarks"
+
+    package static func resolve(in defaults: UserDefaults, key: String, fallback: Bool) -> Bool {
+        guard defaults.object(forKey: key) != nil else { return fallback }
+        return defaults.bool(forKey: key)
     }
 }
 
@@ -542,7 +564,7 @@ package struct FilterControl: Equatable, Sendable, Identifiable {
         FilterControl(id: "parks", title: "Parks", systemImage: "leaf.fill", subtitle: "National parks, city Open Space, and named parks", enabled: true),
         FilterControl(id: "food", title: "Food and rest", systemImage: "fork.knife", subtitle: MapFilter.foodSubtitle, enabled: false),
         FilterControl(id: "open-now", title: "Open now", systemImage: "clock.fill", subtitle: "Places whose visitor hours match this clock", enabled: true),
-        FilterControl(id: "landmarks", title: "Landmarks", systemImage: "hexagon.fill", subtitle: "Monuments, memorials, and other named landmarks", enabled: true),
+        FilterControl(id: "landmarks", title: "Landmarks", systemImage: "hexagon.fill", subtitle: "Off until turned on. Monuments, memorials, and other named landmarks", enabled: true),
         FilterControl(id: "restaurants", title: "Restaurants", systemImage: "fork.knife", subtitle: "Off until turned on. Loads restaurants and cafes for this view.", enabled: true),
         FilterControl(id: "groceries", title: "Groceries", systemImage: "basket.fill", subtitle: "Off until turned on. Loads grocery stores for this view.", enabled: true),
         FilterControl(id: "gas", title: "Gas stations", systemImage: "fuelpump.fill", subtitle: "Off until turned on. Loads gas stations for this view.", enabled: true),

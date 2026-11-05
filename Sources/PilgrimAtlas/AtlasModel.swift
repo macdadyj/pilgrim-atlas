@@ -179,6 +179,14 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         frame(places: places.filter { MapFilter.pinRole(for: $0).rawValue == roleName })
     }
 
+    /// Shows one marker role. Isolating landmarks draws those pins without saving the switch.
+    func isolateRole(_ role: String?) {
+        guard onlyRole != role else { return }
+        onlyRole = role
+        if let role { frameRole(role) }
+        reloadDrawnPlaces()
+    }
+
     func frameChurches() {
         frame(places: places.filter { place in
             let role = MapFilter.pinRole(for: place)
@@ -864,7 +872,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
     }
 
     private func applyStoredLayers() {
-        filter.showLandmarks = storedFlag("pilgrim.showLandmarks", default: true)
+        filter.showLandmarks = storedFlag(LayerPreference.landmarksKey, default: false)
         filter.restaurants = storedFlag("pilgrim.layer.restaurants", default: false)
         filter.groceries = storedFlag("pilgrim.layer.groceries", default: false)
         filter.fuel = storedFlag("pilgrim.layer.fuel", default: false)
@@ -872,15 +880,14 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
 
     private func storeLayers() {
         let defaults = UserDefaults.standard
-        defaults.set(filter.showLandmarks, forKey: "pilgrim.showLandmarks")
+        defaults.set(filter.showLandmarks, forKey: LayerPreference.landmarksKey)
         defaults.set(filter.restaurants, forKey: "pilgrim.layer.restaurants")
         defaults.set(filter.groceries, forKey: "pilgrim.layer.groceries")
         defaults.set(filter.fuel, forKey: "pilgrim.layer.fuel")
     }
 
     private func storedFlag(_ key: String, default defaultValue: Bool) -> Bool {
-        guard UserDefaults.standard.object(forKey: key) != nil else { return defaultValue }
-        return UserDefaults.standard.bool(forKey: key)
+        LayerPreference.resolve(in: .standard, key: key, fallback: defaultValue)
     }
 
     private func loadPack() {
@@ -906,7 +913,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         drawnEpoch += 1
         let epoch = drawnEpoch
         let source = places
-        let current = filter
+        let current = filter.includingIsolatedRole(onlyRole)
         Task.detached(priority: .userInitiated) {
             let started = Date()
             let filtered = source.filter { MapFilter.includeOnMap($0, filter: current) }
