@@ -221,18 +221,47 @@ final class LogicTests: XCTestCase {
         var fuelOn = AtlasFilter.empty
         fuelOn.fuel = true
         XCTAssertTrue(MapFilter.includeOnMap(station, filter: fuelOn))
-        XCTAssertTrue(MapFilter.includeOnMap(monument, filter: .empty))
+        XCTAssertFalse(AtlasFilter.empty.showLandmarks)
+        XCTAssertFalse(MapFilter.includeOnMap(monument, filter: .empty))
+        var landmarksOn = AtlasFilter.empty
+        landmarksOn.showLandmarks = true
+        XCTAssertTrue(MapFilter.includeOnMap(monument, filter: landmarksOn))
         var landmarksOff = AtlasFilter.empty
         landmarksOff.showLandmarks = false
         XCTAssertFalse(MapFilter.includeOnMap(monument, filter: landmarksOff))
         XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-restaurant", filter: .empty))
+        XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-landmark", filter: .empty))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-landmark", filter: landmarksOn))
         XCTAssertFalse(PackStyleDocument.showsPlaceLayer("places-landmark", filter: landmarksOff))
         XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-catholic", filter: landmarksOff))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-orthodox", filter: landmarksOff))
+        XCTAssertTrue(PackStyleDocument.showsPlaceLayer("places-sspx", filter: landmarksOff))
+        XCTAssertTrue(MapFilter.includeOnMap(
+            samplePlace(id: 1413, name: "Holy Trinity Orthodox Church", category: "worship", catholic: false, lat: 35.1, lon: -106.6, denomination: "greek_orthodox"),
+            filter: .empty
+        ))
+        XCTAssertTrue(MapFilter.includeOnMap(
+            samplePlace(id: 50, name: "Queen of Angels Chapel", category: "worship", catholic: false, lat: 39.7, lon: -104.9, denomination: "fsspx"),
+            filter: .empty
+        ))
         let body = try XCTUnwrap(OverpassQuery.formBody(for: "nwr[\"religion\"=\"christian\"]"))
         let encoded = try XCTUnwrap(String(data: body, encoding: .utf8))
         XCTAssertTrue(encoded.hasPrefix("data="))
         XCTAssertTrue(encoded.contains("%3D") || encoded.contains("%3d"))
         XCTAssertFalse(encoded.dropFirst(5).contains("="))
+    }
+
+    func testLandmarkPreferenceHonorsAStoredChoice() throws {
+        let suite = "pilgrim.landmarks.off.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        XCTAssertFalse(LayerPreference.resolve(in: defaults, key: LayerPreference.landmarksKey, fallback: false))
+        defaults.set(true, forKey: LayerPreference.landmarksKey)
+        XCTAssertTrue(LayerPreference.resolve(in: defaults, key: LayerPreference.landmarksKey, fallback: false))
+        defaults.set(false, forKey: LayerPreference.landmarksKey)
+        XCTAssertFalse(LayerPreference.resolve(in: defaults, key: LayerPreference.landmarksKey, fallback: true))
+        defaults.removePersistentDomain(forName: suite)
+        XCTAssertFalse(LayerPreference.resolve(in: defaults, key: LayerPreference.landmarksKey, fallback: false))
     }
 
     func testLandStatusWordingDoesNotGrantEntry() {
@@ -445,7 +474,11 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(cathedral.contains { $0.placeId == 1270 && $0.city == "Albuquerque" })
         let francis = AtlasQuery.search("St. Francis", places: places, trails: [])
         XCTAssertTrue(francis.contains { $0.placeId == 1295 })
-        XCTAssertTrue(francis.contains { $0.placeId == 732 })
+        XCTAssertFalse(francis.contains { $0.placeId == 732 })
+        var landmarksOn = AtlasFilter.empty
+        landmarksOn.showLandmarks = true
+        let francisOn = AtlasQuery.search("St. Francis", places: places, trails: [], filter: landmarksOn)
+        XCTAssertTrue(francisOn.contains { $0.placeId == 732 })
         XCTAssertFalse(francis.contains { $0.name == "Unnamed place of worship" })
         let hidden = AtlasQuery.search("chapel", places: places, trails: [])
         XCTAssertFalse(hidden.contains { $0.placeId == 9 })
@@ -808,6 +841,7 @@ final class LogicTests: XCTestCase {
         filter.catholic = false
         XCTAssertEqual(MapFilter.placeDraw(loretto, filter: filter, now: now, timeZone: zone), .show)
         var openFilter = AtlasFilter.empty
+        openFilter.showLandmarks = true
         openFilter.openNow = true
         XCTAssertEqual(MapFilter.placeDraw(basilica, filter: openFilter, now: now, timeZone: zone), .show)
         XCTAssertEqual(MapFilter.placeDraw(closed, filter: openFilter, now: now, timeZone: zone), .hide)

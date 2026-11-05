@@ -312,18 +312,24 @@ final class AtlasUITests: XCTestCase {
         let first = launch("--debug-santa-fe-plaza", "--debug-show-filters")
         let landmarks = filterControl(first, "landmarks", "Landmarks")
         XCTAssertTrue(landmarks.waitForExistence(timeout: 8))
-        XCTAssertTrue(switchIsOn(landmarks), "Landmarks start on")
+        XCTAssertFalse(switchIsOn(landmarks), "Landmarks start off")
         tapFilter(landmarks)
-        XCTAssertTrue(waitForSwitch(landmarks, on: false))
+        XCTAssertTrue(waitForSwitch(landmarks, on: true))
         first.terminate()
 
         let second = launch("--debug-santa-fe-plaza", "--debug-show-filters")
-        let remembered = filterControl(second, "landmarks", "Landmarks")
-        XCTAssertTrue(remembered.waitForExistence(timeout: 8))
-        XCTAssertFalse(switchIsOn(remembered), "Landmarks stayed off after relaunch")
-        tapFilter(remembered)
-        XCTAssertTrue(waitForSwitch(remembered, on: true))
+        let rememberedOn = filterControl(second, "landmarks", "Landmarks")
+        XCTAssertTrue(rememberedOn.waitForExistence(timeout: 8))
+        XCTAssertTrue(switchIsOn(rememberedOn), "Landmarks stayed on after relaunch")
+        tapFilter(rememberedOn)
+        XCTAssertTrue(waitForSwitch(rememberedOn, on: false))
         second.terminate()
+
+        let third = launch("--debug-santa-fe-plaza", "--debug-show-filters")
+        let rememberedOff = filterControl(third, "landmarks", "Landmarks")
+        XCTAssertTrue(rememberedOff.waitForExistence(timeout: 8))
+        XCTAssertFalse(switchIsOn(rememberedOff), "Landmarks stayed off after relaunch")
+        third.terminate()
     }
 
     func testRestaurantCardAndAmenityLayersDefaultOff() {
