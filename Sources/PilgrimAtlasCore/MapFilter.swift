@@ -66,6 +66,15 @@ package struct AtlasFilter: Equatable, Sendable {
         if titles.isEmpty { return "No matches in the offline pack" }
         return "No matches in \(titles.joined(separator: ", "))"
     }
+
+    /// The marker legend can show one role. Isolating landmarks draws those pins
+    /// without writing the remembered switch.
+    package func includingIsolatedRole(_ role: String?) -> AtlasFilter {
+        guard role == PinRole.landmark.rawValue else { return self }
+        var copy = self
+        copy.showLandmarks = true
+        return copy
+    }
 }
 
 /// Layer switches remembered on this phone.

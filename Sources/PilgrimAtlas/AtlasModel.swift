@@ -179,6 +179,14 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         frame(places: places.filter { MapFilter.pinRole(for: $0).rawValue == roleName })
     }
 
+    /// Shows one marker role. Isolating landmarks draws those pins without saving the switch.
+    func isolateRole(_ role: String?) {
+        guard onlyRole != role else { return }
+        onlyRole = role
+        if let role { frameRole(role) }
+        reloadDrawnPlaces()
+    }
+
     func frameChurches() {
         frame(places: places.filter { place in
             let role = MapFilter.pinRole(for: place)
@@ -905,7 +913,7 @@ package final class AtlasModel: NSObject, CLLocationManagerDelegate {
         drawnEpoch += 1
         let epoch = drawnEpoch
         let source = places
-        let current = filter
+        let current = filter.includingIsolatedRole(onlyRole)
         Task.detached(priority: .userInitiated) {
             let started = Date()
             let filtered = source.filter { MapFilter.includeOnMap($0, filter: current) }

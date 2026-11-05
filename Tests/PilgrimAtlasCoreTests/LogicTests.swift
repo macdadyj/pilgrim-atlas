@@ -223,6 +223,11 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(MapFilter.includeOnMap(station, filter: fuelOn))
         XCTAssertFalse(AtlasFilter.empty.showLandmarks)
         XCTAssertFalse(MapFilter.includeOnMap(monument, filter: .empty))
+        let isolated = AtlasFilter.empty.includingIsolatedRole("landmark")
+        XCTAssertTrue(isolated.showLandmarks)
+        XCTAssertFalse(AtlasFilter.empty.showLandmarks)
+        XCTAssertFalse(AtlasFilter.empty.includingIsolatedRole("catholic").showLandmarks)
+        XCTAssertTrue(MapFilter.includeOnMap(monument, filter: isolated))
         var landmarksOn = AtlasFilter.empty
         landmarksOn.showLandmarks = true
         XCTAssertTrue(MapFilter.includeOnMap(monument, filter: landmarksOn))
